@@ -16,7 +16,7 @@ dev = [
     "ruff>=0.16",
     "workers-py>=1.17.4",
     "workers-runtime-sdk>=1.9.0",
-    "django>=5.2,<5.3",
+    "django>=6.1.1,<6.2",
     "mcp>=2.2,<3",
 ]
 
