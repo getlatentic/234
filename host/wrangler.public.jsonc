@@ -1,0 +1,50 @@
+// Template of the public deployment of the chat host. tools/deploy.sh fills in the @NAMES@ from its
+// variables (the one place names live) and deploys the result; docs/deploy.md has the secrets and the
+// runbook. wrangler.jsonc stays the local config.
+{
+  "name": "@HOST_WORKER@",
+  "main": "src/index.py",
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["python_workers"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "assets": { "directory": "./staticfiles" },
+  "build": { "command": "npm run build:host --prefix .. && WORKERS_CI=1 uv run python src/manage.py collectstatic --noinput --clear" },
+  "rules": [{ "type": "Text", "globs": ["**/*.json"], "fallthrough": true }],
+  "python_modules": { "exclude": ["**/*.pyc", "**/__pycache__", "**/*.po", "**/*.css", "**/*.js", "**/*.svg", "**/*.png"] },
+  // One Durable Object per chat runs its turns and pushes its log to open sockets.
+  "durable_objects": { "bindings": [{ "name": "CHAT", "class_name": "Chat" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Chat"] }],
+  // Messages per minute per visitor, counted per Cloudflare location. The namespace id must not clash with
+  // another Worker's on the same account (RATE_LIMIT_NAMESPACE in tools/deploy.sh).
+  "ratelimits": [
+    { "name": "CHAT_LIMITER", "namespace_id": "@RATE_LIMIT_NAMESPACE@", "simple": { "limit": 12, "period": 60 } }
+  ],
+  // The connectors are reached through a service binding: a Worker cannot fetch another Worker of its
+  // account by the public workers.dev address (measured 2026-09-29: the connector answered 404 to the host).
+  "services": [{ "binding": "CHECKOUT_MCP", "service": "@CONNECTORS_WORKER@" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "@HOST_DB@", "database_id": "@HOST_DB_ID@" }
+  ],
+  "vars": {
+    // @FIREBASE_VARS@
+    "DJANGO_DEBUG": "0",
+    "DJANGO_ALLOWED_HOSTS": "@HOST_WORKER@.@SUBDOMAIN@.workers.dev",
+    "DJANGO_CSRF_TRUSTED_ORIGINS": "https://@HOST_WORKER@.@SUBDOMAIN@.workers.dev",
+    "PUBLIC_BASE_URL": "https://@HOST_WORKER@.@SUBDOMAIN@.workers.dev",
+    // The card sandbox: its own origin on its own hostname, which frames every card (docs/mcp-apps-compliance.md).
+    "SANDBOX_ORIGIN": "https://@SANDBOX_WORKER@.@SUBDOMAIN@.workers.dev",
+    "CHECKOUT_MCP_BINDING": "CHECKOUT_MCP",
+    "CHECKOUT_MCP_URL": "https://@CONNECTORS_WORKER@.internal",
+    "CONNECTORS": "paystack-pay,send-money,airtime,food-order",
+    // Model spend: calls per day for everyone and for each visitor.
+    "MODEL_CALLS_PER_DAY": "300",
+    "VISITOR_MODEL_CALLS_PER_DAY": "30"
+  }
+  // Secrets (docs/deploy.md): DJANGO_SECRET_KEY, OPS_TOKEN, WEBHOOK_SECRET, CHECKOUT_MCP_TOKEN, and the
+  // model's LLM_BASE_URL, LLM_MODEL and LLM_API_KEY. A2A_TOKENS is not set: no other agent may call.
+  // Sign-in with Google (docs/auth.md): tools/deploy.sh puts FIREBASE_PROJECT_ID, FIREBASE_API_KEY and
+  // FIREBASE_AUTH_DOMAIN in place of the marked line from .env.auth.local, and generates the secret ACCOUNT_KEY
+  // once. Without that file the Worker has none of them and the page has no button.
+}

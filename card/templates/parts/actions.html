@@ -1,0 +1,24 @@
+<template id="t-approval">
+  <div class="grid gap-2">
+    <label data-slot="readback" class="mb-2 hidden cursor-pointer items-center gap-3 rounded-control border border-line-strong px-4 py-3 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary">
+      <input type="checkbox" data-slot="readback-tick" class="size-5 shrink-0 cursor-pointer accent-ink">
+      <span>Correct</span>
+    </label>
+    <button type="button" data-action="approve" class="btn-primary">Approve</button>
+    <button type="button" data-action="decline" class="btn-quiet">Decline</button>
+  </div>
+</template>
+<template id="t-checkout">
+  <div class="grid gap-2">
+    <button type="button" data-action="open-checkout" class="btn-primary">Open checkout</button>
+    <button type="button" data-action="closed-checkout" class="btn-quiet">I closed it</button>
+  </div>
+</template>
+<template id="t-otp">
+  <div class="grid gap-3">
+    <label for="otp" class="sr-only">One-time code</label>
+    <input id="otp" data-slot="otp" placeholder="Code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" class="w-full rounded-control border border-line-strong bg-transparent px-3 py-3 text-center text-2xl tracking-widest tabular-nums outline-offset-2 placeholder:text-ink-3 focus-ring aria-invalid:border-bad">
+    <p data-slot="hint" class="m-0 hidden text-center text-sm text-ink-3 tabular-nums"></p>
+    <button type="button" data-action="otp" class="btn-primary">Confirm</button>
+  </div>
+</template>

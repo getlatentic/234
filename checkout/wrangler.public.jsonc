@@ -1,0 +1,54 @@
+// Template of the public deployment of the connectors, simulated modes only. tools/deploy.sh fills in the
+// @NAMES@ from its variables (the one place names live) and deploys the result; docs/deploy.md has the
+// secrets and the runbook. wrangler.jsonc stays the local config.
+{
+  "name": "@CONNECTORS_WORKER@",
+  "main": "src/worker.py",
+  // On or after 2026-09-08 selects the Python 3.14 runtime.
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["python_workers"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
+  // The chat host, reached through a service binding for the signed payment webhook (a Worker cannot fetch
+  // another Worker of its account by the public address). The host already exists when the connectors deploy.
+  "services": [{ "binding": "HOST", "service": "@HOST_WORKER@" }],
+  "python_modules": { "exclude": ["**/*.pyc", "**/*.pyi"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "@LEDGER_DB@",
+      "database_id": "@LEDGER_DB_ID@",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "PER_PAYMENT_LIMIT_KOBO": "5000000",
+    "DAILY_LIMIT_KOBO": "10000000",
+    "QUOTE_TTL_SECONDS": "600",
+    "PUBLIC_BASE_URL": "https://@CONNECTORS_WORKER@.@SUBDOMAIN@.workers.dev",
+    // Nothing on this Worker reaches Paystack or VTpass: every connector is simulated. A live key, if one
+    // were ever set, stops the Worker at startup.
+    "PAYSTACK_MODE": "simulated",
+    "PAYSTACK_PAY_MODE": "simulated",
+    "SEND_MONEY_MODE": "simulated",
+    "AIRTIME_MODE": "simulated",
+    "FOOD_ORDER_MODE": "simulated",
+    "VTPASS_MODE": "simulated",
+    // The tools answer only to a caller that holds MCP_ACCESS_TOKEN; without it the Worker does not start.
+    "REQUIRE_MCP_TOKEN": "1",
+    // Every tool call must say whose it is (the host sends the visitor's id): the daily limit is each
+    // visitor's own, and a call with no owner is refused rather than pooled with anyone's.
+    "REQUIRE_OWNER": "1",
+    // When the simulated checkout records a payment, the host is told through the binding, signed with
+    // WEBHOOK_SECRET (the host's own), so open cards update at once. The card also polls: this is a courtesy.
+    "PAYMENT_WEBHOOK_URL": "https://@HOST_WORKER@.internal/hooks/payment",
+    "PAYMENT_WEBHOOK_BINDING": "HOST",
+    // Where the checkout page's "Return to the chat" link goes.
+    "HOST_PUBLIC_URL": "https://@HOST_WORKER@.@SUBDOMAIN@.workers.dev",
+    // /test routes reset the ledger and read inside it: never here.
+    "ENABLE_TEST_ROUTES": "0"
+  }
+  // Secrets (docs/deploy.md): APPROVAL_SECRET, MCP_ACCESS_TOKEN, WEBHOOK_SECRET (one value with the host's).
+}

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu</title>
+<style>{{ css|safe }}</style>
+</head>
+<body class="m-0 bg-transparent p-2 font-sans text-[0.9375rem] leading-snug text-ink fs:p-0">
+<main id="root" class="mx-auto max-w-sm fs:max-w-3xl"></main>
+{% include "art.html" %}
+<template id="t-menu">
+  <article class="flex flex-col rounded-card border border-line bg-raised fs:h-dvh fs:rounded-none fs:border-0">
+    <header class="grid gap-2 border-b border-line p-3">
+      <div class="flex items-center gap-2">
+        <input data-slot="search" type="search" aria-label="Search the menu" placeholder="Search" autocomplete="off" enterkeyhint="search" class="min-h-11 min-w-0 flex-1 rounded-control border border-line-strong bg-transparent px-3 text-base outline-offset-2 [&::-webkit-search-cancel-button]:appearance-none placeholder:text-ink-3 focus-ring">
+        <button type="button" data-action="expand" data-slot="expand" class="btn-step" aria-label="Full screen" hidden>
+          <svg data-slot="expand-glyph" class="size-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3h5v5M8 17H3v-5M17 3l-5.5 5.5M3 17l5.5-5.5"/></svg>
+          <svg data-slot="collapse-glyph" class="size-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M16 8h-4V4M4 12h4v4M12 8l5-5M8 12l-5 5"/></svg>
+        </button>
+      </div>
+      <div data-slot="chips" role="group" aria-label="Category" class="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 empty:hidden"></div>
+    </header>
+    <div data-slot="scroller" class="max-h-88 min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 fs:max-h-none">
+      <ul data-slot="items" class="m-0 list-none divide-y divide-line p-0"></ul>
+      <p data-slot="empty" role="status" class="m-0 py-8 text-center text-ink-3" hidden>No match</p>
+    </div>
+    <footer class="grid gap-2 border-t border-line p-3">
+      <div class="flex items-center justify-between gap-3">
+        <label for="area" class="text-ink-2">Deliver to</label>
+        <select id="area" data-slot="area" class="min-h-11 min-w-0 flex-1 rounded-control border border-line-strong bg-transparent px-3 text-base focus-ring"></select>
+      </div>
+      <div class="flex min-h-11 items-center justify-between gap-2">
+        <p role="status" class="m-0 flex flex-wrap items-baseline gap-x-2">
+          <span data-slot="count" class="text-ink-2"></span>
+          <span data-slot="total" class="text-xl font-semibold tabular-nums"></span>
+          <span data-slot="delivery" class="text-sm text-ink-3 tabular-nums" hidden></span>
+        </p>
+        <button type="button" data-action="clear" data-slot="clear" class="btn-quiet" hidden>Clear</button>
+      </div>
+      <button type="button" data-action="order" data-slot="order" class="btn-primary">Review order</button>
+      <p data-slot="notice" role="alert" class="m-0 text-sm font-medium text-bad" hidden></p>
+    </footer>
+  </article>
+</template>
+<template id="t-row">
+  <li class="grid grid-cols-[3.5rem_1fr] gap-x-3 py-3">
+    <div data-slot="tile"></div>
+    <div class="min-w-0">
+      <p data-slot="name" class="m-0 font-medium wrap-break-word"></p>
+      <p data-slot="note" class="m-0 text-sm text-ink-3 wrap-break-word"></p>
+      <div class="mt-1 flex items-center justify-between gap-2">
+        <p data-slot="price" class="m-0 tabular-nums"></p>
+        <button type="button" data-slot="add" data-action="add" class="btn-add">Add</button>
+        <div data-slot="stepper" role="group" class="flex items-center" hidden>
+          <button type="button" data-slot="less" data-action="less" class="btn-step">&minus;</button>
+          <output data-slot="quantity" class="w-8 text-center font-medium tabular-nums text-ink"></output>
+          <button type="button" data-slot="more" data-action="more" class="btn-step">+</button>
+        </div>
+        <p data-slot="sold-out" class="m-0 text-sm text-ink-3" hidden>Sold out</p>
+      </div>
+    </div>
+  </li>
+</template>
+<template id="t-more">
+  <li class="py-3 text-center" hidden><button type="button" data-action="more-rows" class="btn-quiet">Show more</button></li>
+</template>
+<template id="t-chip">
+  <button type="button" data-action="chip" class="chip"></button>
+</template>
+<template id="t-ready">
+  <p role="status" class="m-0 flex items-center gap-2 rounded-card bg-ok-soft p-4 font-medium text-ok">
+    <svg class="size-5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M6.5 10.5l2.5 2.5 4.5-5.5"/></svg>
+    Order ready to approve
+  </p>
+</template>
+<template id="t-notice">
+  <p role="alert" class="m-0 rounded-card bg-bad-soft p-4 text-sm font-medium text-bad"></p>
+</template>
+<script>{{ mcp_app_js|safe }}</script>
+<script>{{ menu_js|safe }}</script>
+</body>
+</html>

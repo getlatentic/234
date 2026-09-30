@@ -1,0 +1,17 @@
+# gitleaks configuration. The findings allowed here are fixed fake values: test inputs for the secret scrubbers,
+# a stand-in approval token in the card fixtures, and dummy tokens of the local stack. Nothing is a credential.
+title = "234"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake values used by tests, fixtures and the local stack"
+paths = [
+  '''conformance/card-states\.fixtures\.json''',
+  '''host/tests/test_scrub\.py''',
+  '''host/tests/test_compaction\.py''',
+  '''host/tests/test_hub_keys\.py''',
+  '''tools/up\.sh''',
+  '''tools/stack\.sh''',
+]

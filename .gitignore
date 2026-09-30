@@ -1,0 +1,30 @@
+node_modules/
+.venv/
+python_modules/
+.wrangler/
+__pycache__/
+*.pyc
+.env
+.env.*
+# The Firebase values of the public deployment (docs/auth.md); .env.* already covers it, this names it
+.env.auth.local
+.dev.vars
+staticfiles/
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+.snapshot/
+src/checkout/card/react-card.html
+host/build/
+checkout/src/checkout/card/probe-card.html
+checkout/src/checkout/card/card-official.html
+.stack/
+.dev.vars.*
+host/wrangler.alt.jsonc
+*/wrangler.deploy.jsonc
+design/generated/
+# The TypeScript original (its own git repository, local only) and its secrets
+reference/ts-demo/
+
+# Internal material kept out of the public tree (see .internal/README.md)
+.internal/

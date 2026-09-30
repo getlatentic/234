@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8"><title>card states host</title>
+<meta name="color-scheme" content="light dark">
+<style>
+  :root { --page: %GROUND_LIGHT% }
+  @media (prefers-color-scheme: dark) { :root { --page: %GROUND_DARK% } }
+  body { margin: 0; background: var(--page) }
+  iframe { display: block; width: 400px; height: 120px; border: 0; background: transparent }
+  body[data-mode="fullscreen"] iframe { position: fixed; inset: 0; width: 100vw !important; height: 100vh !important; background: var(--page) }
+</style>
+<iframe id="card" sandbox="allow-scripts" title="card"></iframe>
+<script type="module" src="/card-states-page.js"></script>

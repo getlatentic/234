@@ -1,0 +1,51 @@
+lock-version = "1.0"
+created-by = "uv"
+requires-python = ">=3.14.2"
+
+[[packages]]
+name = "asgiref"
+version = "3.12.1"
+wheels = [{ url = "https://files.pythonhosted.org/packages/c0/1b/54f4ad77cd8a584fa70746c47df988e002cf1ee1eba43364d46f87803647/asgiref-3.12.1-py3-none-any.whl", upload-time = 2026-07-14T09:56:16Z, size = 25478, hashes = { sha256 = "fe386d1c2bff7259ea95929266d12a8cf9a8b5a1c2598402967d8792e7a7c094" } }]
+
+[[packages]]
+name = "django"
+version = "5.2.17"
+wheels = [{ url = "https://files.pythonhosted.org/packages/df/f8/ce120525ca78f12b07daf65786679c5d0b54a75285a8958d3ae55e39da35/django-5.2.17-py3-none-any.whl", upload-time = 2026-08-04T15:03:59Z, size = 8315563, hashes = { sha256 = "f04fb3b36ee119e1af4fa1d397d5fd6cf12700f49321e84d4f4c642c5b1973db" } }]
+
+[[packages]]
+name = "django-cf"
+version = "0.2.16"
+wheels = [{ url = "https://files.pythonhosted.org/packages/bb/6c/67d25d3a445b7b43befe329fdc45e2c47dab38c62f4023065cee09680b9a/django_cf-0.2.16-py3-none-any.whl", upload-time = 2026-09-01T14:36:49Z, size = 25837, hashes = { sha256 = "5d6033649920c1b7e146f429f6fcdfefd277d5faba0c2660deb524b8f1183163" } }]
+
+[[packages]]
+name = "django-template-partials"
+version = "25.3"
+wheels = [{ url = "https://files.pythonhosted.org/packages/9b/9d/48f8721e48b938ca2e2dde577986624543be6ff9bdccac20ccb747be4287/django_template_partials-25.3-py2.py3-none-any.whl", upload-time = 2025-11-14T08:27:20Z, size = 9702, hashes = { sha256 = "a19334934cf40e4e1218802a4ddfdf22b8f78cc5a0b8c75a18b97e6ea4f3c108" } }]
+
+[[packages]]
+name = "httpx"
+version = "0.28.1"
+wheels = [
+    { url = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/httpx-0.28.1-py3-none-any.whl", hashes = { sha256 = "830cb1ec73bb4c46f2e38ebeb3dd50ffb45f62b804dd040519d34fe36f8fdfc7" } },
+    { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hashes = { sha256 = "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad" } },
+]
+
+[[packages]]
+name = "idna"
+version = "3.20"
+wheels = [{ url = "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl", upload-time = 2026-09-17T14:11:03Z, size = 69583, hashes = { sha256 = "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c" } }]
+
+[[packages]]
+name = "sqlparse"
+version = "0.6.0"
+wheels = [{ url = "https://files.pythonhosted.org/packages/d9/50/f00935da0ec7cbf325f8dc4f772ae46fbc7b672dd62876e73f0a94adda57/sqlparse-0.6.0-py3-none-any.whl", upload-time = 2026-08-13T19:16:04Z, size = 50070, hashes = { sha256 = "b861c0288ce2fa56209a9a6412d2e066ac664b3873b89c26c9d8415e8e32996f" } }]
+
+[[packages]]
+name = "tzdata"
+version = "2026.4"
+wheels = [{ url = "https://files.pythonhosted.org/packages/f9/bc/8737e8d54cf51106118039b83f485a4783112fab49ea9d044b234978a46e/tzdata-2026.4-py2.py3-none-any.whl", upload-time = 2026-09-12T12:56:01Z, size = 347494, hashes = { sha256 = "c2169a8b0a7a5e9674da5a135ccdfb2b3e671b333ed9fed17b41f73c34476e81" } }]
+
+[[packages]]
+name = "workers-runtime-sdk"
+version = "1.9.1"
+wheels = [{ url = "https://files.pythonhosted.org/packages/e7/a9/b2d288c73728ccd9f50b8f0020c2fdd0b2f3f0d0d8efde56f2b2e64529d5/workers_runtime_sdk-1.9.1-py3-none-any.whl", upload-time = 2026-09-29T03:30:18Z, size = 38588, hashes = { sha256 = "1cb71387b2d67ac59ab84ab4d3151dea2205fb5ce22a08d0a0dda5cda34b5f2b" } }]

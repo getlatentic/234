@@ -1,0 +1,27 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="{{ ground.light }}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{ ground.dark }}" media="(prefers-color-scheme: dark)">
+<meta name="application-name" content="{{ product_name }}">
+<meta name="description" content="{{ product_tagline }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ product_name }}">
+<meta property="og:title" content="{{ product_name }}">
+<meta property="og:description" content="{{ product_tagline }}">
+<meta name="csrf-token" content="{{ csrf_token }}">
+<link rel="manifest" href="{% url 'chat:manifest' %}">
+<link rel="icon" href="{% static 'chat/brand/favicon.svg' %}" type="image/svg+xml">
+<link rel="icon" href="{% static 'chat/brand/favicon.ico' %}" sizes="any">
+<link rel="apple-touch-icon" href="{% static 'chat/brand/apple-touch-icon.png' %}">
+<title>{% block title %}{{ product_name }}{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'app.css' %}">
+{% block head %}{% endblock %}
+</head>
+<body class="min-h-dvh bg-ground text-ink antialiased">
+{% block content %}{% endblock %}
+</body>
+</html>

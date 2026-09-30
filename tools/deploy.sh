@@ -1,0 +1,397 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The public deployment on Cloudflare: three Workers (the card sandbox, the chat host and the connectors), two D1
+# databases. Every name lives in the block below and nowhere else; the wrangler configs are templates
+# (sandbox/, host/ and checkout/wrangler.public.jsonc) filled in from it. docs/deploy.md is the runbook.
+#
+#   tools/deploy.sh                       checks, then deploys the three Workers (the sandbox first) and smoke-tests them (curl only)
+#   tools/deploy.sh init                  creates the two D1 databases when they do not exist
+#   tools/deploy.sh secret host NAME      sets one of the owner's secrets from stdin (the value is never printed)
+#   tools/deploy.sh rotate NAME           a new value for a secret made here: token (host to connectors, set on both),
+#                                         WEBHOOK_SECRET (connectors to host, set on both), SANDBOX_SIGNING_KEY (host
+#                                         and sandbox, set on both), DJANGO_SECRET_KEY or APPROVAL_SECRET
+#   tools/deploy.sh upload host|connectors|sandbox  uploads the committed code again with no checks (a secret the host bakes in
+#                                         at startup takes effect only in a new version: `rotate` does this itself)
+#   tools/deploy.sh versions|rollback|tail host|connectors|sandbox
+#   tools/deploy.sh auth                  what .env.auth.local holds for sign-in with Google (names only) and what a deploy does with it
+#   tools/deploy.sh names                 what this deploys and where it answers
+#   tools/deploy.sh destroy               deletes the three Workers and both databases, after you type the host's name
+#
+# A deploy refuses when the working tree has uncommitted changes, so what is live is a commit.
+# Nothing here reads or prints a secret: signing secrets are generated with openssl and go to wrangler on stdin.
+# Sign-in with Google is configured by the untracked file .env.auth.local (docs/auth.md): three public Firebase
+# identifiers, set as Worker variables; a value is never printed. Without the file the site has no sign-in.
+# Any name below can be overridden from the environment (HOST_WORKER=old tools/deploy.sh destroy) or from the
+# untracked file .env.deploy.local at the repository root (plain NAME=value lines, read by the shell).
+# SUBDOMAIN, your account's workers.dev subdomain, has no default and must be set.
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+# shellcheck disable=SC1091
+[ ! -f "$root/.env.deploy.local" ] || source "$root/.env.deploy.local"
+
+HOST_WORKER=${HOST_WORKER:-ask234}
+CONNECTORS_WORKER=${CONNECTORS_WORKER:-ask234-connectors}
+SANDBOX_WORKER=${SANDBOX_WORKER:-ask234-sandbox}
+HOST_DB=${HOST_DB:-ask234-host-db}
+LEDGER_DB=${LEDGER_DB:-ask234-ledger}
+SUBDOMAIN=${SUBDOMAIN:-}
+[ -n "$SUBDOMAIN" ] || { echo "deploy: set SUBDOMAIN to your account's workers.dev subdomain (environment or .env.deploy.local; docs/deploy.md)" >&2; exit 1; }
+RATE_LIMIT_NAMESPACE=${RATE_LIMIT_NAMESPACE:-4391}
+
+wrangler="$root/node_modules/.bin/wrangler"
+HOST_URL="https://$HOST_WORKER.$SUBDOMAIN.workers.dev"
+CONNECTORS_URL="https://$CONNECTORS_WORKER.$SUBDOMAIN.workers.dev"
+SANDBOX_URL="https://$SANDBOX_WORKER.$SUBDOMAIN.workers.dev"
+OWNER_SECRETS="LLM_BASE_URL LLM_MODEL LLM_API_KEY"
+AUTH_FILE="$root/.env.auth.local"
+AUTH_NAMES="FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN"
+AUTH_ENABLED=""
+
+die() { echo "deploy: $*" >&2; exit 1; }
+say() { echo "== $*"; }
+
+auth_value() {  # NAME: the value of NAME in .env.auth.local with one pair of quotes removed; never echoed by the callers
+  local line value
+  line=$(grep -E "^[[:space:]]*$1=" "$AUTH_FILE" | tail -1 || true)
+  value=${line#*=}
+  value=$(printf %s "$value" | tr -d '\r')
+  value=${value#\"}; value=${value%\"}; value=${value#\'}; value=${value%\'}
+  printf %s "$value"
+}
+
+auth_shape() {  # NAME value: whether the value looks like what NAME holds (the value is not printed)
+  case "$1" in
+    FIREBASE_PROJECT_ID) [[ $2 =~ ^[a-z][a-z0-9-]{4,29}$ ]] ;;
+    FIREBASE_API_KEY) [[ $2 =~ ^[A-Za-z0-9_-]{20,80}$ ]] ;;
+    FIREBASE_AUTH_DOMAIN) [[ $2 =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$ ]] ;;
+  esac
+}
+
+load_auth() {  # sets AUTH_ENABLED=1 and FIREBASE_* when .env.auth.local is complete; says so; refuses a file with missing or malformed values
+  AUTH_ENABLED=""
+  if [ ! -f "$AUTH_FILE" ]; then say "sign-in with Google: off (no .env.auth.local)"; return 0; fi
+  local name value problems=""
+  for name in $AUTH_NAMES; do
+    value=$(auth_value "$name")
+    if [ -z "$value" ]; then problems="$problems $name(missing)"
+    elif ! auth_shape "$name" "$value"; then problems="$problems $name(not the shape of a $name)"
+    else printf -v "$name" %s "$value"; fi
+  done
+  [ -z "$problems" ] || die ".env.auth.local cannot turn sign-in on:$problems. Fix it or remove the file (docs/auth.md)"
+  AUTH_ENABLED=1
+  say "sign-in with Google: on (the three FIREBASE_ values of .env.auth.local, ACCOUNT_KEY generated once)"
+}
+
+auth_vars_line() {  # the lines that replace the marker in the host template: the three variables, or nothing
+  [ -n "$AUTH_ENABLED" ] || return 0
+  printf '"FIREBASE_PROJECT_ID": "%s", "FIREBASE_API_KEY": "%s", "FIREBASE_AUTH_DOMAIN": "%s",' "$FIREBASE_PROJECT_ID" "$FIREBASE_API_KEY" "$FIREBASE_AUTH_DOMAIN"
+}
+
+filtered() {  # pattern command...: runs it quietly; on success shows the lines that match, on failure all of them
+  local pattern=$1 out; shift
+  out=$(mktemp)
+  if "$@" > "$out" 2>&1; then
+    grep -E "$pattern" "$out" || true
+    rm -f "$out"
+  else
+    cat "$out" >&2; rm -f "$out"; return 1
+  fi
+}
+
+worker_of() {  # host|connectors|sandbox: the Worker's name
+  case "$1" in
+    host) echo "$HOST_WORKER" ;; connectors) echo "$CONNECTORS_WORKER" ;; sandbox) echo "$SANDBOX_WORKER" ;;
+    *) die "say host, connectors or sandbox" ;;
+  esac
+}
+
+d1_id() {  # database name: its id, or nothing when it does not exist
+  "$wrangler" d1 info "$1" --json < /dev/null 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["uuid"])' 2>/dev/null || true
+}
+
+render() {  # template output: the template with this file's names filled in
+  [ -n "${AUTH_LOADED:-}" ] || { load_auth; AUTH_LOADED=1; }
+  local ledger_id host_id
+  ledger_id=$(d1_id "$LEDGER_DB"); host_id=$(d1_id "$HOST_DB")
+  [ -n "$ledger_id" ] && [ -n "$host_id" ] || die "the databases $LEDGER_DB and $HOST_DB do not both exist: run tools/deploy.sh init"
+  sed -e "s|@HOST_WORKER@|$HOST_WORKER|g" -e "s|@CONNECTORS_WORKER@|$CONNECTORS_WORKER|g" \
+    -e "s|@SANDBOX_WORKER@|$SANDBOX_WORKER|g" \
+    -e "s|@HOST_DB@|$HOST_DB|g" -e "s|@HOST_DB_ID@|$host_id|g" \
+    -e "s|@LEDGER_DB@|$LEDGER_DB|g" -e "s|@LEDGER_DB_ID@|$ledger_id|g" \
+    -e "s|@SUBDOMAIN@|$SUBDOMAIN|g" -e "s|@RATE_LIMIT_NAMESPACE@|$RATE_LIMIT_NAMESPACE|g" "$1" |
+    sed -e "s|^\([[:space:]]*\)// @FIREBASE_VARS@\$|\1$(auth_vars_line)|" > "$2"
+}
+
+secrets_present() {  # worker: the names of the secrets it already has
+  "$wrangler" secret list --name "$1" --format json < /dev/null 2>/dev/null |
+    python3 -c 'import json,sys; print(" ".join(s["name"] for s in json.load(sys.stdin)))' 2>/dev/null || true
+}
+
+has_secret() { case " $(secrets_present "$1") " in *" $2 "*) return 0 ;; *) return 1 ;; esac; }
+
+secret_lines() {  # worker names... : NAME=value for each secret the worker lacks, freshly generated; the values stay in the pipe
+  local worker=$1 name; shift
+  for name in "$@"; do
+    has_secret "$worker" "$name" || printf '%s=%s\n' "$name" "$(openssl rand -hex 32)"
+  done
+}
+
+require_clean_tree() {
+  local dirty
+  dirty=$(git -C "$root" status --porcelain)
+  [ -z "$dirty" ] || { echo "$dirty" | head -15 >&2; die "the working tree has uncommitted changes; commit them first"; }
+}
+
+run_checks() {
+  local dir
+  for dir in checkout host; do
+    say "checks in $dir"
+    (cd "$root/$dir" && uv run ruff check . && uv run ruff format --check . && uv run pytest -q)
+  done
+  say "checks in sandbox"
+  (cd "$root" && node --test sandbox/test/*.test.mjs)
+  if [ "${CHECK_FULL:-}" = "1" ]; then "$root/tools/check.sh"; fi
+}
+
+upload() {  # dir: uploads the rendered config in dir; the secrets to add arrive on stdin (none: nothing is added)
+  local dir=$1 pending tag options=()
+  pending=$(cat)
+  tag=$(git -C "$root" rev-parse --short HEAD)
+  [ -z "$pending" ] || options=(--secrets-file /dev/stdin)
+  cd "$root/$dir"
+  uv run pywrangler sync > /dev/null
+  printf '%s' "$pending" | filtered "Uploaded|Deployed|https://|Version ID|Startup|Total Upload" \
+    "$wrangler" deploy -c wrangler.deploy.jsonc --tag "$tag" --message "deploy $tag" ${options[@]+"${options[@]}"}
+}
+
+deploy_worker() {  # dir: renders the config and uploads it, with the secrets that arrive on stdin
+  render "$root/$1/wrangler.public.jsonc" "$root/$1/wrangler.deploy.jsonc"
+  (upload "$1")
+}
+
+deploy_sandbox() {  # the card sandbox: static JavaScript, no dependencies to sync, no database; a secret to add arrives on stdin
+  local tag pending options=()
+  pending=$(cat)
+  tag=$(git -C "$root" rev-parse --short HEAD)
+  [ -z "$pending" ] || options=(--secrets-file /dev/stdin)
+  render "$root/sandbox/wrangler.public.jsonc" "$root/sandbox/wrangler.deploy.jsonc"
+  (cd "$root/sandbox" && printf '%s' "$pending" | filtered "Uploaded|Deployed|https://|Version ID|Total Upload" \
+    "$wrangler" deploy -c wrangler.deploy.jsonc --tag "$tag" --message "deploy $tag" ${options[@]+"${options[@]}"})
+}
+
+migrate_ledger() {
+  say "ledger migrations"
+  render "$root/checkout/wrangler.public.jsonc" "$root/checkout/wrangler.deploy.jsonc"
+  (cd "$root/checkout" && printf 'y\n' | filtered "✅|No migrations|Error" "$wrangler" d1 migrations apply DB --remote -c wrangler.deploy.jsonc)
+}
+
+migrate_host() {  # ops-token: Django's migrations, run inside the host Worker (D1 is not reachable by manage.py)
+  local ops=$1 code=""
+  say "host migrations"
+  for _ in $(seq 1 15); do
+    code=$(curl -s -m 120 -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/ops/migrate/" -H "authorization: Bearer $ops" || true)
+    if [ "$code" = 200 ]; then echo "applied"; return 0; fi
+    sleep 4
+  done
+  die "the host's migrations did not run (last status $code)"
+}
+
+ensure_host_exists() {  # the connectors bind to the host and the host to the connectors: on a first deploy one of them must exist first
+  if "$wrangler" deployments list --name "$HOST_WORKER" > /dev/null 2>&1; then return 0; fi
+  say "$HOST_WORKER does not exist yet: a placeholder of that name lets the connectors bind to it (the real host replaces it below)"
+  local dir
+  dir=$(mktemp -d)
+  printf 'export default { fetch: () => new Response("not deployed yet", { status: 503 }) };\n' > "$dir/worker.js"
+  printf '{ "name": "%s", "main": "worker.js", "compatibility_date": "2026-09-21" }\n' "$HOST_WORKER" > "$dir/wrangler.jsonc"
+  (cd "$dir" && filtered "Uploaded|Deployed" "$wrangler" deploy -c wrangler.jsonc)
+  rm -rf "$dir"
+}
+
+auth_secret_lines() {  # the host's ACCOUNT_KEY, made once when sign-in is on and the host lacks it (never rotated: it keeps every account's chats)
+  [ -n "$AUTH_ENABLED" ] || return 0
+  secret_lines "$HOST_WORKER" ACCOUNT_KEY
+}
+
+deploy_all() {
+  require_clean_tree
+  load_auth; AUTH_LOADED=1
+  run_checks
+  local shared="" ops
+  ops=$(openssl rand -hex 32)
+  has_secret "$CONNECTORS_WORKER" MCP_ACCESS_TOKEN && has_secret "$HOST_WORKER" CHECKOUT_MCP_TOKEN || shared=$(openssl rand -hex 32)
+  local hook=""  # the payment webhook's secret: one value on both Workers, made again when either lacks it
+  has_secret "$CONNECTORS_WORKER" WEBHOOK_SECRET && has_secret "$HOST_WORKER" WEBHOOK_SECRET || hook=$(openssl rand -hex 32)
+  local signing=""  # the key the host signs a view's policy with: one value on the sandbox and the host, made again when either lacks it
+  has_secret "$SANDBOX_WORKER" SIGNING_KEY && has_secret "$HOST_WORKER" SANDBOX_SIGNING_KEY || signing=$(openssl rand -hex 32)
+  say "deploying $SANDBOX_WORKER (the card sandbox, first: the host's setting names it)"
+  { [ -z "$signing" ] || echo "SIGNING_KEY=$signing"; } | deploy_sandbox
+  migrate_ledger
+  ensure_host_exists
+  say "deploying $CONNECTORS_WORKER"
+  { secret_lines "$CONNECTORS_WORKER" APPROVAL_SECRET; [ -z "$shared" ] || echo "MCP_ACCESS_TOKEN=$shared"
+    [ -z "$hook" ] || echo "WEBHOOK_SECRET=$hook"; } | deploy_worker checkout
+  say "deploying $HOST_WORKER"
+  { secret_lines "$HOST_WORKER" DJANGO_SECRET_KEY; auth_secret_lines; [ -z "$shared" ] || echo "CHECKOUT_MCP_TOKEN=$shared"
+    [ -z "$signing" ] || echo "SANDBOX_SIGNING_KEY=$signing"
+    [ -z "$hook" ] || echo "WEBHOOK_SECRET=$hook"; echo "OPS_TOKEN=$ops"; } | deploy_worker host
+  migrate_host "$ops"
+  smoke_test
+}
+
+http_status() { curl -s -m 60 -o /dev/null -w '%{http_code}' "$@" || true; }
+
+smoke_auth() {  # cookie-jar csrf-token: sign-in is on exactly when .env.auth.local says so, and a garbage token is refused
+  local jar=$1 csrf=$2 page headers
+  page=$(curl -s -m 60 -b "$jar" "$HOST_URL/" || true)
+  headers=$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' || true)
+  if [ -n "$AUTH_ENABLED" ]; then
+    check "sign-in: the drawer offers Google" "$(grep -c 'Continue with Google' <<< "$page" || true)" 1
+    check "sign-in: /auth/session refuses a garbage token" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/auth/session" \
+      -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' -d '{"idToken":"garbage"}' || true)" 401
+    check "sign-in: /auth/session needs the CSRF token" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/auth/session" \
+      -H "origin: $HOST_URL" -H 'content-type: application/json' -d '{"idToken":"garbage"}' || true)" 403
+    check "sign-in: the popup keeps its link to the page (COOP)" "$(grep -ci '^cross-origin-opener-policy: same-origin-allow-popups' <<< "$headers" || true)" 1
+    check "sign-in: only apis.google.com is added to script-src" "$(grep -ci "script-src 'self' https://apis.google.com;" <<< "$headers" || true)" 1
+  else
+    check "sign-in is off: no button on the page" "$(grep -c 'Continue with Google' <<< "$page" || true)" 0
+    check "sign-in is off: /auth/session does not exist" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/auth/session" \
+      -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' -d '{}' || true)" 404
+    check "sign-in is off: COOP is same-origin" "$(grep -ci '^cross-origin-opener-policy: same-origin$' <<< "$headers" || true)" 1
+  fi
+}
+
+smoke_test() {
+  say "smoke test (curl only; it sends one word, so with a model set that is one model call)"
+  local jar failures=0 csrf chat page
+  jar=$(mktemp)
+  check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: expected $3, got $2"; failures=$((failures + 1)); fi; }
+  check "sandbox /health" "$(http_status "$SANDBOX_URL/health")" 200
+  check "sandbox proxy page for the host" "$(http_status "$SANDBOX_URL/?host=$HOST_URL")" 200
+  check "sandbox refuses a page that is not the host" "$(http_status "$SANDBOX_URL/?host=https://evil.example")" 403
+  check "sandbox proxy names only the host as its embedder" "$(curl -s -m 30 -D - -o /dev/null "$SANDBOX_URL/?host=$HOST_URL" | tr -d '\r' | grep -Eci "frame-ancestors $HOST_URL(;|$)" || true)" 1
+  check "sandbox serves no view under a policy the host did not sign" "$(http_status "$SANDBOX_URL/view?host=$HOST_URL&csp=%7B%22connectDomains%22%3A%5B%22https%3A%2F%2Fevil.example.com%22%5D%7D&sig=$(printf '0%.0s' $(seq 64))")" 403
+  check "sandbox sets no cookie" "$(curl -s -m 30 -D - -o /dev/null "$SANDBOX_URL/?host=$HOST_URL" | grep -ci '^set-cookie' || true)" 0
+  check "connectors /health" "$(http_status "$CONNECTORS_URL/health")" 200
+  check "connectors tools/list without the token" "$(http_status -X POST "$CONNECTORS_URL/paystack-pay/mcp" \
+    -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
+  check "connectors /test routes are off" "$(http_status "$CONNECTORS_URL/test/summary")" 404
+  check "host page" "$(http_status -c "$jar" "$HOST_URL/")" 200
+  check "the host's page frames only the sandbox" "$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' | grep -ciE "frame-src $SANDBOX_URL( https://[a-z0-9-]+\\.firebaseapp\\.com)?;" || true)" 1
+  check "the host's cookies are the host's alone (none names a Domain)" "$(grep -ci 'domain=' <(curl -s -m 30 -D - -o /dev/null "$HOST_URL/") || true)" 0
+  csrf=$(curl -s -m 60 -b "$jar" -c "$jar" "$HOST_URL/" | grep -o 'csrf-token" content="[^"]*' | cut -d'"' -f3 || true)
+  chat=$(openssl rand -hex 16)
+  started=$(curl -s -m 60 -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$chat/start" \
+    -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' \
+    -d '{"text":"hi"}' || true)
+  check "a chat is started by its first message" "$started" 200
+  page=$(curl -s -m 10 -b "$jar" "$HOST_URL/c/$chat/events" || true)
+  check "the turn ran and reached the connectors" "$(if grep -q 'could not be reached' <<< "$page"; then echo no; else echo yes; fi)" yes
+  check "the log answered" "$(if [ -n "$page" ]; then echo yes; else echo no; fi)" yes
+  check "no stack trace" "$(if grep -q 'Traceback' <<< "$page"; then echo trace; else echo none; fi)" none
+  smoke_auth "$jar" "$csrf"
+  rm -f "$jar"
+  [ "$failures" -eq 0 ] || die "$failures smoke checks failed"
+}
+
+cmd_init() {
+  local name
+  for name in "$LEDGER_DB" "$HOST_DB"; do
+    if [ -n "$(d1_id "$name")" ]; then echo "$name exists"; else filtered "Success|Created" "$wrangler" d1 create "$name"; fi
+  done
+}
+
+cmd_secret() {  # host|connectors NAME: the value comes on stdin, loses one pair of quotes, and is put without being shown
+  local target=$1 name=$2 value allowed=""
+  [ "$target" = host ] && allowed=$OWNER_SECRETS
+  case " $allowed " in *" $name "*) ;; *) die "$name is not a secret to set by hand on $target (the owner's are $OWNER_SECRETS, on the host)" ;; esac
+  value=$(tr -d '\r\n')
+  value=${value#\"}; value=${value%\"}; value=${value#\'}; value=${value%\'}
+  [ -n "$value" ] || die "nothing came on stdin for $name (did grep find the line?): nothing was set"
+  if [ "$name" = LLM_MODEL ]; then
+    case "$(tr '[:upper:]' '[:lower:]' <<< "$value")" in *claude*|*anthropic*) die "a Claude model is not used here" ;; esac
+  fi
+  printf %s "$value" | put_secret "$(worker_of "$target")" "$name"
+}
+
+put_secret() {  # worker name: the value comes on stdin
+  filtered "Success|rror" "$wrangler" secret put "$2" --name "$1"
+}
+
+cmd_upload() {  # host|connectors|sandbox
+  require_clean_tree
+  load_auth; AUTH_LOADED=1
+  case "$1" in
+    host) auth_secret_lines | deploy_worker host ;;
+    connectors) deploy_worker checkout < /dev/null ;;
+    sandbox) deploy_sandbox < /dev/null ;;
+    *) die "say host, connectors or sandbox" ;;
+  esac
+}
+
+cmd_rotate() {
+  local value; value=$(openssl rand -hex 32)
+  case "$1" in
+    token) printf %s "$value" | put_secret "$CONNECTORS_WORKER" MCP_ACCESS_TOKEN
+           printf %s "$value" | put_secret "$HOST_WORKER" CHECKOUT_MCP_TOKEN ;;
+    DJANGO_SECRET_KEY) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
+    WEBHOOK_SECRET) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1"
+                    printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload connectors; cmd_upload host ;;
+    APPROVAL_SECRET) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1" ;;
+    SANDBOX_SIGNING_KEY) printf %s "$value" | put_secret "$SANDBOX_WORKER" SIGNING_KEY
+                         printf %s "$value" | put_secret "$HOST_WORKER" "$1" ;;
+    *) die "rotate token, DJANGO_SECRET_KEY, WEBHOOK_SECRET, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
+  esac
+}
+
+cmd_auth() {  # what .env.auth.local holds, by name, and what a deploy would do: no value is printed
+  local name value
+  if [ ! -f "$AUTH_FILE" ]; then
+    echo "no .env.auth.local: a deploy leaves sign-in off. Its lines are NAME=value for: $AUTH_NAMES (docs/auth.md)"; return 0
+  fi
+  for name in $AUTH_NAMES; do
+    value=$(auth_value "$name")
+    if [ -z "$value" ]; then echo "$name  missing"; elif auth_shape "$name" "$value"; then echo "$name  set"; else echo "$name  set, but not the shape of a $name"; fi
+  done
+  load_auth
+  if has_secret "$HOST_WORKER" ACCOUNT_KEY; then echo "ACCOUNT_KEY  already on $HOST_WORKER (kept)"; else echo "ACCOUNT_KEY  a deploy generates it once"; fi
+}
+
+cmd_names() {
+  cat <<EOF
+sandbox Worker     $SANDBOX_WORKER     $SANDBOX_URL
+host Worker        $HOST_WORKER        $HOST_URL
+connectors Worker  $CONNECTORS_WORKER  $CONNECTORS_URL
+host database      $HOST_DB
+ledger database    $LEDGER_DB
+rate limit         namespace $RATE_LIMIT_NAMESPACE
+sign-in            $( [ -f "$AUTH_FILE" ] && echo ".env.auth.local found: tools/deploy.sh auth says what it holds" || echo "off (no .env.auth.local)")
+EOF
+}
+
+cmd_destroy() {
+  local typed
+  read -r -p "This deletes $HOST_WORKER, $CONNECTORS_WORKER, $SANDBOX_WORKER, $HOST_DB and $LEDGER_DB with everything in them. Type $HOST_WORKER to go on: " typed
+  [ "$typed" = "$HOST_WORKER" ] || die "not confirmed; nothing was deleted"
+  printf 'y\n' | "$wrangler" delete "$HOST_WORKER" --force || true
+  printf 'y\n' | "$wrangler" delete "$CONNECTORS_WORKER" --force || true
+  printf 'y\n' | "$wrangler" delete "$SANDBOX_WORKER" --force || true
+  "$wrangler" d1 delete "$HOST_DB" --skip-confirmation || true
+  "$wrangler" d1 delete "$LEDGER_DB" --skip-confirmation || true
+}
+
+cmd=${1:-deploy}
+case "$cmd" in
+  deploy) deploy_all ;;
+  init) cmd_init ;;
+  secret) [ $# -eq 3 ] || die "usage: tools/deploy.sh secret host NAME < value"; cmd_secret "$2" "$3" ;;
+  rotate) cmd_rotate "${2:?what to rotate}" ;;
+  upload) cmd_upload "${2:?host, connectors or sandbox}" ;;
+  names) cmd_names ;;
+  auth) cmd_auth ;;
+  destroy) cmd_destroy ;;
+  versions) "$wrangler" versions list --name "$(worker_of "${2:?host, connectors or sandbox}")" ;;
+  rollback) "$wrangler" rollback --name "$(worker_of "${2:?host, connectors or sandbox}")" --yes --message "${3:-rollback}" ;;
+  tail) "$wrangler" tail "$(worker_of "${2:?host, connectors or sandbox}")" --format pretty ;;
+  *) die "unknown command $cmd (see the top of this file)" ;;
+esac

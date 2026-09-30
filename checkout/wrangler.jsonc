@@ -1,0 +1,41 @@
+{
+  "name": "checkout-mcp",
+  "main": "src/worker.py",
+  // On or after 2026-09-08 selects the Python 3.14 runtime.
+  "compatibility_date": "2026-09-21",
+  "compatibility_flags": ["python_workers"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  // The card and the simulated checkout page are text, read at startup.
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
+  "python_modules": { "exclude": ["**/*.pyc", "**/*.pyi"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "checkout-demo",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "PER_PAYMENT_LIMIT_KOBO": "5000000",
+    "DAILY_LIMIT_KOBO": "10000000",
+    "QUOTE_TTL_SECONDS": "600",
+    "PUBLIC_BASE_URL": "http://localhost:8787"
+  }
+  // Secrets, set with `wrangler secret put NAME`; locally dummies in .dev.vars (never committed):
+  //   APPROVAL_SECRET            required: signs the approval tokens
+  //   PAYSTACK_TEST_SECRET_KEY   an sk_test_ key turns Paystack test mode on; a live key stops the Worker
+  //   VTPASS_API_KEY, VTPASS_PUBLIC_KEY, VTPASS_SECRET_KEY   all three turn the VTpass sandbox on
+  // Optional variables (defaults in src/checkout/config.py; with none set, a key decides: no key, simulated):
+  //   REQUIRE_OWNER (1 refuses a tool call that names no owner; off, one default owner acts for such calls),
+  //   PAYSTACK_MODE (simulated|test), a mode per connector
+  //   (PAYSTACK_PAY_MODE, SEND_MONEY_MODE, AIRTIME_MODE, FOOD_ORDER_MODE: simulated|real), VTPASS_MODE
+  //   (simulated|sandbox), CHECKOUT_WINDOW_SECONDS, PAYER_EMAIL, and for the simulators SIM_TRANSFER_OTP,
+  //   SIM_PAYOUTS_REFUSED, SIM_PENDING_SECONDS, FOOD_STEP_SECONDS, SIM_VTPASS_REJECT_CREDENTIALS.
+  //   The host's payment webhook: PAYMENT_WEBHOOK_URL (its /hooks/payment) with the secret WEBHOOK_SECRET, and
+  //   PAYMENT_WEBHOOK_BINDING (a service binding, public deployment only); HOST_PUBLIC_URL is the checkout
+  //   page's way back to the chat. tools/up.sh sets them for the local stack.
+  // The /sim/checkout page belongs to the simulators: drop it (and ENABLE_TEST_ROUTES) in a public deployment.
+}

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Approval card</title>
+<style>{{ css|safe }}</style>
+</head>
+<body class="m-0 bg-transparent p-2 font-sans text-[0.9375rem] leading-snug text-ink">
+<main id="root">
+  <p id="waiting" class="text-center text-ink-3" role="status">Waiting for the quote.</p>
+</main>
+{% include "parts/card.html" %}
+{% include "parts/details.html" %}
+{% include "parts/actions.html" %}
+<script>{{ mcp_app_js|safe }}</script>
+<script>{{ inline_js|safe }}</script>
+<script>{{ card_js|safe }}</script>
+</body>
+</html>

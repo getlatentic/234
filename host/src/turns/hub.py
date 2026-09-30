@@ -1,0 +1,270 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""The host's view of the connectors: which tools the model may see, which a card may call, and where
+each call goes. A tool is never in both hands unless its server said so."""
+
+import base64
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
+
+from .idempotency import FIELD as KEY_FIELD
+
+OWNER_HEADER = "x-ledger-owner"
+SEPARATOR = "__"
+PROTOCOL_VERSION = "2025-11-25"
+MIME_TYPE = "text/html;profile=mcp-app"
+UI_KEY = "ui"
+_OWNER = re.compile(r"[0-9a-f]{32}")
+LEGACY_URI_KEY = "ui/resourceUri"
+MODEL_HIDDEN = "x-model-hidden"
+MODEL_REQUIRED = "x-model-required"
+
+
+class HubError(Exception):
+    """A request the host refuses because of who is asking or what they asked for."""
+
+
+def visibility_of(tool: dict[str, Any]) -> list[str]:
+    return tool.get("_meta", {}).get(UI_KEY, {}).get("visibility") or ["model", "app"]
+
+
+def card_uri_of(tool: dict[str, Any]) -> str | None:
+    meta = tool.get("_meta", {})
+    return meta.get(UI_KEY, {}).get("resourceUri") or meta.get(LEGACY_URI_KEY)
+
+
+def takes_key(tool: dict[str, Any]) -> bool:
+    return KEY_FIELD in tool.get("inputSchema", {}).get("properties", {})
+
+
+def model_schema(tool: dict[str, Any]) -> dict[str, Any]:
+    """The schema the model is shown: the connector's, without `$schema`, without the idempotency key (the
+    host supplies it, see idempotency.py) and without a property the connector marks `x-model-hidden`; a
+    property named in the schema's `x-model-required` is required of the model though not of other clients.
+    The connector's own schema is not changed."""
+    schema = {k: v for k, v in tool["inputSchema"].items() if k not in ("$schema", MODEL_REQUIRED)}
+    properties = schema.get("properties")
+    if properties is None:
+        return schema
+    hidden = {name for name, spec in properties.items() if spec.get(MODEL_HIDDEN)} | {KEY_FIELD}
+    schema["properties"] = {k: v for k, v in properties.items() if k not in hidden}
+    required = [*schema.get("required", []), *tool["inputSchema"].get(MODEL_REQUIRED, [])]
+    if "required" in schema or MODEL_REQUIRED in tool["inputSchema"]:
+        schema["required"] = [name for name in dict.fromkeys(required) if name not in hidden]
+    return schema
+
+
+def text_of(result: dict[str, Any]) -> str:
+    return "\n".join(b.get("text", "") for b in result.get("content", []) if b.get("type") == "text").strip()
+
+
+@dataclass(frozen=True)
+class CardPage:
+    """A card's document and the `_meta.ui` its resource declares (csp, permissions, domain, prefersBorder),
+    read from the content item of `resources/read`, or from the listing entry when the content has none."""
+
+    html: str
+    ui: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ToolOutcome:
+    server: str
+    tool: str
+    result: dict[str, Any]
+    card_uri: str | None
+
+    @property
+    def text(self) -> str:
+        return text_of(self.result)
+
+    @property
+    def is_error(self) -> bool:
+        return bool(self.result.get("isError"))
+
+
+def _owner_key(owner: str) -> str:
+    if not _OWNER.fullmatch(owner):
+        raise HubError("A tool call names whose money it touches, as 32 hex characters.")
+    return owner
+
+
+def refused(server: str, tool: str, reason: str) -> ToolOutcome:
+    return ToolOutcome(server, tool, {"isError": True, "content": [{"type": "text", "text": reason}]}, None)
+
+
+class McpHttp:
+    """A minimal MCP client over Streamable HTTP: JSON-RPC requests, JSON answers."""
+
+    def __init__(self, url: str, client: httpx.AsyncClient, token: str = "") -> None:
+        self.url = url
+        self._client = client
+        self._token = token
+        self._ids = 0
+        self._session: str | None = None
+        self._ready = False
+
+    async def _post(self, body: dict[str, Any], owner: str | None = None) -> httpx.Response:
+        headers = {"accept": "application/json, text/event-stream", "mcp-protocol-version": PROTOCOL_VERSION}
+        if owner is not None:
+            headers[OWNER_HEADER] = owner
+        if self._session:
+            headers["mcp-session-id"] = self._session
+        if self._token:
+            headers["authorization"] = f"Bearer {self._token}"
+        return await self._client.post(self.url, json=body, headers=headers)
+
+    async def _initialize(self) -> None:
+        capabilities = {
+            "extensions": {"io.modelcontextprotocol/ui": {"mimeTypes": ["text/html;profile=mcp-app"]}}
+        }
+        answer = await self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "capabilities": capabilities,
+                    "clientInfo": {"name": "checkout-host", "version": "0.1.0"},
+                },
+            }
+        )
+        answer.raise_for_status()
+        self._session = answer.headers.get("mcp-session-id")
+        await self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        self._ready = True
+
+    async def request(
+        self, method: str, params: dict[str, Any] | None = None, owner: str | None = None
+    ) -> dict[str, Any]:
+        """`owner` is whose money a tool call touches; it travels in a header of its own that only this
+        client sets, never in the arguments or `_meta`, which a card or the model can shape."""
+        if not self._ready:
+            await self._initialize()
+        self._ids += 1
+        response = await self._post(
+            {"jsonrpc": "2.0", "id": self._ids, "method": method, "params": params or {}}, owner
+        )
+        body = response.json()
+        if "error" in body:
+            raise HubError(f"{method}: {body['error']['message']}")
+        return body["result"]
+
+
+def _html_of(content: dict[str, Any]) -> str:
+    if isinstance(content.get("text"), str):
+        return content["text"]
+    if isinstance(content.get("blob"), str):
+        return base64.b64decode(content["blob"]).decode()
+    raise HubError("The card has no content.")
+
+
+def _ui_meta(item: dict[str, Any]) -> dict[str, Any]:
+    ui = (item.get("_meta") or {}).get("ui")
+    return ui if isinstance(ui, dict) else {}
+
+
+class Hub:
+    def __init__(self, endpoints: dict[str, str], client: httpx.AsyncClient, token: str = "") -> None:
+        self._servers = {name: McpHttp(url, client, token) for name, url in endpoints.items()}
+        self._tools: dict[str, list[dict[str, Any]]] = {}
+
+    def _server(self, name: str) -> McpHttp:
+        if name not in self._servers:
+            raise HubError(f"There is no connector {name}.")
+        return self._servers[name]
+
+    async def tools(self, server: str) -> list[dict[str, Any]]:
+        if server not in self._tools:
+            self._tools[server] = (await self._server(server).request("tools/list"))["tools"]
+        return self._tools[server]
+
+    async def _find(self, server: str, name: str) -> dict[str, Any]:
+        tool = next((t for t in await self.tools(server) if t["name"] == name), None)
+        if tool is None:
+            raise HubError(f"There is no tool {name} on {server}.")
+        return tool
+
+    async def model_tools(self) -> list[dict[str, Any]]:
+        """OpenAI-style tool definitions: model-visible tools only, named by connector."""
+        offered = []
+        for server in self._servers:
+            for tool in await self.tools(server):
+                if "model" not in visibility_of(tool):
+                    continue
+                offered.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": f"{server}{SEPARATOR}{tool['name']}",
+                            "description": f"[{server}] {tool.get('description') or tool['name']}",
+                            "parameters": model_schema(tool),
+                        },
+                    }
+                )
+        return offered
+
+    async def _tool_call(
+        self, server: str, name: str, arguments: dict[str, Any], owner: str
+    ) -> dict[str, Any]:
+        params = {"name": name, "arguments": arguments}
+        return await self._server(server).request("tools/call", params, _owner_key(owner))
+
+    async def keyed(self, qualified: str) -> bool:
+        """Whether the tool makes a request the ledger remembers by its idempotency key."""
+        server, _, name = qualified.partition(SEPARATOR)
+        try:
+            return takes_key(await self._find(server, name))
+        except HubError:
+            return False
+
+    async def call_model_tool(
+        self, qualified: str, arguments: dict[str, Any], owner: str, key: str
+    ) -> ToolOutcome:
+        """`key` is the idempotency key of this call. A tool that takes one is given it in place of
+        whatever the model sent; a tool that takes none is not sent one."""
+        server, _, name = qualified.partition(SEPARATOR)
+        try:
+            tool = await self._find(server, name)
+        except HubError as reason:
+            return refused(server, name, str(reason))
+        if "model" not in visibility_of(tool):
+            return refused(server, name, f"{name} is not available to the model.")
+        if takes_key(tool):
+            arguments = {**arguments, KEY_FIELD: key}
+        result = await self._tool_call(server, name, arguments, owner)
+        return ToolOutcome(server, name, result, card_uri_of(tool))
+
+    async def call_app_tool(
+        self, server: str, name: str, arguments: dict[str, Any], owner: str
+    ) -> dict[str, Any]:
+        """A card's own call. It reaches only the server that served the card, and only tools that
+        server offers to cards."""
+        tool = await self._find(server, name)
+        if "app" not in visibility_of(tool):
+            raise HubError(f"{name} is not available to cards.")
+        return await self._tool_call(server, name, arguments, owner)
+
+    async def read_card(self, server: str, uri: str) -> CardPage:
+        connector = self._server(server)
+        listed = {
+            r["uri"]: r
+            for r in (await connector.request("resources/list"))["resources"]
+            if r["uri"].startswith("ui://")
+        }
+        if uri not in listed:
+            raise HubError(f"{server} declares no card at {uri}.")
+        contents = (await connector.request("resources/read", {"uri": uri}))["contents"]
+        if not contents:
+            raise HubError("The card has no content.")
+        content = contents[0]
+        if content.get("mimeType") != MIME_TYPE:
+            raise HubError(f"A card is {MIME_TYPE}.")
+        return CardPage(_html_of(content), _ui_meta(content) or _ui_meta(listed[uri]))
+
+
+def build_hub(mcp_url: str, connectors: tuple[str, ...], client: httpx.AsyncClient, token: str = "") -> Hub:
+    return Hub({name: f"{mcp_url}/{name}/mcp" for name in connectors}, client, token)

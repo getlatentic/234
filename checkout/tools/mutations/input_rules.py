@@ -1,0 +1,166 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""What the person approved, what the model may pass, and what never travels through a tool."""
+
+from tools.mutations.model import (
+    AIRTIME,
+    CONNECTOR_TOOLS,
+    FOOD,
+    MENU_CARD,
+    PAYMENT,
+    SRC,
+    TRANSFER,
+    Mutation,
+)
+
+MUTATIONS: list[Mutation] = [
+    Mutation(
+        "the card and the server must agree on the amount being approved",
+        f"{SRC}/flows/base.py",
+        "if displayed_amount_kobo != quote.amount_kobo:",
+        "if False:",
+        PAYMENT + TRANSFER,
+    ),
+    Mutation(
+        "the model's amount must match what the user said",
+        f"{SRC}/flows/inputs.py",
+        "if read.kobo != amount_kobo:",
+        "if False:",
+        ["tests/test_inputs.py", *PAYMENT],
+    ),
+    Mutation(
+        "an amount that cannot be read is refused, not guessed",
+        f"{SRC}/flows/inputs.py",
+        "if read.kobo is None:",
+        "if False:",
+        ["tests/test_inputs.py"],
+    ),
+    Mutation(
+        "ranges and estimates are refused, not guessed",
+        f"{SRC}/amount/parse.py",
+        "if _HEDGES.search(text) or _RANGE_DASH.search(text):",
+        "if False:",
+        ["tests/test_amount.py"],
+    ),
+    Mutation(
+        "an ambiguous comma or dot is refused",
+        f"{SRC}/amount/parse.py",
+        "if not (_GROUPED if grouped else _PLAIN).match(token):",
+        "if False:",
+        ["tests/test_amount.py"],
+    ),
+    Mutation(
+        "a word amount is read exactly or refused",
+        f"{SRC}/amount/words.py",
+        "if pending is None or not cursor.done():",
+        "if pending is None:",
+        ["tests/test_amount.py"],
+    ),
+    Mutation(
+        "a foreign currency is refused",
+        f"{SRC}/amount/parse.py",
+        "if _FOREIGN.search(text):",
+        "if False:",
+        ["tests/test_amount.py"],
+    ),
+    Mutation(
+        "the read-back must be confirmed before airtime is approved",
+        f"{SRC}/flows/airtime.py",
+        "if readback_confirmed is not True:",
+        "if False:",
+        [*AIRTIME, *CONNECTOR_TOOLS],
+    ),
+    Mutation(
+        "the total the person expected is checked against the server's",
+        f"{SRC}/flows/food.py",
+        "if total_as_user_said is not None:",
+        "if False:",
+        FOOD,
+    ),
+    Mutation(
+        "food is delivered only to areas the merchant serves",
+        f"{SRC}/food/menu.py",
+        '    if found is None:\n        raise DomainError("INVALID_INPUT", f"{RESTAURANT} delivers to:',
+        '    if False:\n        raise DomainError("INVALID_INPUT", f"{RESTAURANT} delivers to:',
+        ["tests/test_food_menu.py", *FOOD],
+    ),
+    Mutation(
+        "a basket is priced from the menu, never from the caller",
+        f"{SRC}/food/menu.py",
+        "return BasketLine(item_id, entry.name, quantity, entry.price_kobo)",
+        "return BasketLine(item_id, entry.name, quantity, 1)",
+        ["tests/test_food_menu.py", *FOOD],
+    ),
+    Mutation(
+        "only a Nigerian mobile number or a sandbox scenario number is accepted",
+        f"{SRC}/vtpass/phone.py",
+        "if is_nigerian_mobile(local) or local in SANDBOX_SCENARIO_NUMBERS | {SIMULATED_FAILURE_NUMBER}:",
+        "if True:",
+        AIRTIME,
+    ),
+    Mutation(
+        "every quote needs a well-formed idempotency key (airtime)",
+        f"{SRC}/flows/airtime.py",
+        "        async def work():\n            assert_idempotency_key(idempotency_key)\n            "
+        "number = normalise_phone(phone)\n            self._assert_number_on_network(network, number)"
+        "\n            confirm_stated_amount",
+        "        async def work():\n            number = normalise_phone(phone)\n            "
+        "self._assert_number_on_network(network, number)\n            confirm_stated_amount",
+        [*AIRTIME, *CONNECTOR_TOOLS],
+    ),
+    Mutation(
+        "no card data in a tool's input",
+        f"{SRC}/mcp/registry.py",
+        'assert_no_card_data(arguments, "input")',
+        "pass",
+        ["tests/test_mcp_guard.py", *CONNECTOR_TOOLS],
+    ),
+    Mutation(
+        "no card data in a tool's output",
+        f"{SRC}/mcp/registry.py",
+        'assert_no_card_data(content, "output")',
+        "pass",
+        ["tests/test_mcp_guard.py"],
+    ),
+    Mutation(
+        "an unexpected error is hidden from the caller",
+        f"{SRC}/mcp/registry.py",
+        "return failed(INTERNAL_MESSAGE)",
+        "return failed(str(error))",
+        ["tests/test_mcp_guard.py"],
+    ),
+    Mutation(
+        "phone numbers are masked in the audit log",
+        f"{SRC}/audit.py",
+        "return _LONG_DIGITS.sub(lambda m: mask_phone(m.group()), redact_keys(value))",
+        "return redact_keys(value)",
+        ["tests/test_audit_mask_clock.py"],
+    ),
+    Mutation(
+        "keys are removed from the audit log",
+        f"{SRC}/audit.py",
+        'return _KEY_LIKE.sub("[redacted-key]", value)',
+        "return value",
+        ["tests/test_audit_mask_clock.py"],
+    ),
+    Mutation(
+        "the card's tools are hidden from the model",
+        f"{SRC}/mcp/registry.py",
+        'APP_ONLY = ("app",)',
+        'APP_ONLY = ("model", "app")',
+        CONNECTOR_TOOLS,
+    ),
+    Mutation(
+        "the model is not handed the checkout link",
+        f"{SRC}/connectors/kit.py",
+        'return card_result({**view, "checkoutUrl": None}, summarise(view))',
+        "return card_result(view, summarise(view))",
+        CONNECTOR_TOOLS,
+    ),
+    Mutation(
+        "the approval token stays out of the model's text",
+        f"{SRC}/connectors/kit.py",
+        "return card_result(issued.quote, self.describe_issued(issued), meta)",
+        "return card_result(issued.quote, self.describe_issued(issued) + issued.approval_token, meta)",
+        CONNECTOR_TOOLS + MENU_CARD,
+    ),
+]

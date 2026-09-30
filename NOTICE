@@ -1,0 +1,19 @@
+234
+Copyright (C) 2026 Tosin Amuda
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
+Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option)
+any later version. The full text is in the file LICENSE.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+"Or later" is deliberate: the files are licensed under version 3 of the GNU AGPL or, at the recipient's option, any
+later version that the Free Software Foundation publishes. Each first-party source file carries the SPDX line
+above (tools/spdx.py adds and checks it).
+
+What this licence does not cover:
+  - the name "234", the wordmark, the plus symbol and the icons: see TRADEMARKS.md;
+  - the third-party components listed in THIRD_PARTY_NOTICES.md, which keep their own licences.
+
+If you run a modified version of this program as a service that other people use over a network, the AGPL
+requires you to offer those users the source of your modified version.

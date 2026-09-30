@@ -1,0 +1,37 @@
+{% load partials %}
+{% partialdef row %}
+<li class="flex items-center" data-slot="row">
+  <a {% if entry %}href="{% url 'chat:page' entry.id %}"{% endif %}{% if entry.id == chat.id %} aria-current="page"{% endif %} data-slot="open" class="focus-ring flex min-h-11 min-w-0 flex-1 items-center rounded-control px-3 text-ink no-underline hover:bg-sunken aria-[current]:bg-mint aria-[current]:font-semibold"><span class="truncate">{{ entry.title|default:"New chat" }}</span></a>
+  {% if not entry or entry.owner == request.owner %}
+  <form method="post" {% if entry %}action="{% url 'chat:delete' entry.id %}"{% endif %} data-confirm>{% csrf_token %}
+    <button aria-label="Delete chat" title="Delete chat" class="focus-ring grid size-11 cursor-pointer place-items-center rounded-control text-ink-3 hover:text-bad">
+      <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.600L14 6M8.500 9v4M11.500 9v4"/></svg>
+    </button>
+  </form>
+  {% endif %}
+</li>
+{% endpartialdef %}
+<chat-sheet class="contents">
+  <dialog aria-label="Chats" class="m-0 mr-auto h-dvh max-h-none w-80 max-w-[calc(100%-3rem)] rounded-r-sheet border-r border-line bg-raised p-0 text-ink shadow-soft backdrop:bg-scrim open:motion-safe:animate-drawer-in open:backdrop:motion-safe:animate-fade-in">
+    <div class="flex h-full flex-col gap-2 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] pr-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <div class="flex items-center justify-between">
+        <button type="button" data-action="close" aria-label="Close" title="Close" class="focus-ring grid size-11 cursor-pointer place-items-center rounded-control text-ink-2 hover:text-ink">
+          <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </div>
+      <div class="flex flex-col">
+        <a href="{% url 'chat:index' %}" class="focus-ring flex min-h-11 items-center gap-3 rounded-control px-3 text-ink no-underline hover:bg-sunken in-data-draft:hidden">
+          <svg viewBox="0 0 20 20" class="size-5 text-ink-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>New chat
+        </a>
+        <button type="button" data-action="share" aria-label="Copy a link to open this chat on another device" title="Copy link to open on another device" class="focus-ring flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-sunken in-data-draft:hidden">
+          <svg viewBox="0 0 20 20" class="size-5 text-ink-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 12.500V3.500M6.500 7L10 3.500 13.500 7M4 11v4.500a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V11"/></svg><span>Share</span><span class="ml-auto hidden text-sm text-ink-3 in-data-copied:block">Copied</span>
+        </button>
+      </div>
+      <ul class="m-0 mt-1 flex min-h-0 flex-1 list-none flex-col gap-0.5 overflow-y-auto overscroll-contain border-t border-line p-0 pt-2" data-slot="rows">
+        {% for entry in chats %}{% partial row %}{% endfor %}
+      </ul>
+      {% include "accounts/_account.html" %}
+    </div>
+  </dialog>
+  <template data-kind="chat-row">{% partial row %}</template>
+</chat-sheet>

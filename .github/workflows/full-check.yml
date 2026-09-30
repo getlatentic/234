@@ -1,0 +1,48 @@
+# The whole of tools/check.sh: Worker tests on local workerd and D1, the browser suites in Chromium and WebKit, the A2A
+# oracle, crash tests and the mutation checks. Started by hand. It takes about 35 minutes on a standard runner and
+# may need a larger one; it uses ports 8900 to 8999. It has no secrets and calls no model or provider.
+name: Full check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            host/uv.lock
+            checkout/uv.lock
+            conformance/a2a-python/uv.lock
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install the Python projects
+        run: |
+          uv sync --locked --project host
+          uv sync --locked --project checkout
+          uv sync --locked --project conformance/a2a-python
+      - name: Install the browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: tools/check.sh
+        run: tools/check.sh
+      - name: Keep the logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: stack-logs
+          path: .stack/
+          if-no-files-found: ignore
+          retention-days: 7

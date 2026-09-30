@@ -1,0 +1,46 @@
+[project]
+name = "checkout-host"
+version = "0.1.0"
+description = "A chat host for agent checkout: Django and Tailwind on a Cloudflare Python Worker."
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.14"
+dependencies = [
+    "django>=5.2.17,<5.3",
+    "django-cf>=0.2.16",
+    "django-template-partials>=25.3",
+    "httpx>=0.28",
+    "tzdata",
+]
+
+[dependency-groups]
+dev = [
+    "cryptography>=50.0.1",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-django>=4.14",
+    "ruff>=0.16",
+    "websockets>=17.1",
+    "workers-py>=1.17.4",
+    "workers-runtime-sdk>=1.9.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+asyncio_mode = "auto"
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "--strict-markers -m 'not worker'"
+markers = ["worker: needs `pywrangler dev` running on HOST_URL"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+src = ["src", "tests"]
+extend-exclude = [".wrangler", "python_modules", "staticfiles", "node_modules", "**/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "C90", "SIM", "RUF"]
+ignore = ["RUF012"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

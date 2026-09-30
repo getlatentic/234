@@ -1,0 +1,37 @@
+/* The parts every surface shares (the chat page, both cards): imported after the generated tokens and theme.
+   Only token utilities appear here, so a colour is never written twice. The primary colour (deep green) is
+   spent on the primary action, the focus ring and a selected edge; the vivid accent is a graphic, never text. */
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+/* The ring of a control whose focus lands on its parent, such as the label inside a <summary>: it hugs the label
+   instead of the whole 44px row. A pointer press (data-pointer on an ancestor) never draws it. */
+@utility focus-ring-target {
+  :focus-visible > & {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  [data-pointer] & {
+    outline: none;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply focus-ring min-h-11 w-full cursor-pointer rounded-control bg-primary px-4 py-3 text-base font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed disabled:cursor-not-allowed disabled:bg-sunken disabled:text-ink-3 disabled:hover:bg-sunken;
+  }
+  .btn-secondary {
+    @apply focus-ring min-h-11 w-full cursor-pointer rounded-control border border-line-strong bg-transparent px-4 py-2.5 text-base text-ink hover:bg-mint disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-quiet {
+    @apply focus-ring min-h-11 cursor-pointer rounded-control bg-transparent px-3 text-sm text-ink-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .field {
+    @apply focus-ring rounded-control border border-line-strong bg-transparent px-3 text-base text-ink placeholder:text-ink-3;
+  }
+}

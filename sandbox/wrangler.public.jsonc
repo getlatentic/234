@@ -1,0 +1,14 @@
+// Template of the public sandbox Worker. tools/deploy.sh fills in the @NAMES@ from its variables (the one
+// place names live). The Worker is static: no state, no binding, one secret (SIGNING_KEY, which tools/deploy.sh
+// makes and also gives the host). It answers only for the chat host's origin.
+{
+  "name": "@SANDBOX_WORKER@",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-21",
+  // The proxy and view scripts are served as their own source text: no __name() helper may be added to them.
+  "keep_names": false,
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "vars": { "HOST_ORIGINS": "https://@HOST_WORKER@.@SUBDOMAIN@.workers.dev" }
+}

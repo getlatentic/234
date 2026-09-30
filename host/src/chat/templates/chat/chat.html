@@ -1,0 +1,79 @@
+{% extends "chat/base.html" %}
+{% load static %}
+{% block title %}{{ chat.title|default:product_name }}{% endblock %}
+{% block head %}<script type="module" src="{% static 'chat/thread.js' %}"></script>{% endblock %}
+{% block content %}
+<chat-thread class="block min-h-dvh"
+    data-chat="{{ chat.id }}"{% if draft %} data-draft{% endif %}{% if chats or sign_in_enabled %} data-chats{% endif %}{% if transport %} data-transport="{{ transport }}"{% endif %} data-last-seq="{{ last_seq }}"{% if working %} data-working{% endif %}
+    data-send-url="{% url 'chat:send' chat.id %}" data-cancel-url="{% url 'chat:cancel' chat.id %}" data-start-url="{% url 'chat:start' chat.id %}" data-page-url="{% url 'chat:page' chat.id %}" data-delete-url="{% url 'chat:delete' chat.id %}"
+    data-ticket-url="{% url 'chat:ticket' chat.id %}"
+    data-events-url="{% url 'chat:events' chat.id %}" data-card-url="{% url 'chat:card' chat.id %}"
+    data-call-url="{% url 'chat:call' chat.id %}" data-context-url="{% url 'chat:context' chat.id %}"
+    data-message-url="{% url 'chat:message' chat.id %}" data-share-url="{% url 'chat:share' chat.id %}"
+    data-sandbox-origin="{{ sandbox_origin }}" data-sandbox="{{ sandbox_capabilities }}">
+  <h1 class="sr-only" data-slot="title">{{ chat.title|default:"New chat" }}</h1>
+
+  <button type="button" data-action="chats" aria-label="Chats" title="Chats"{% if not chats and not sign_in_enabled %} hidden{% endif %} class="focus-ring fixed left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-30 grid size-11 cursor-pointer place-items-center rounded-full border border-line bg-raised text-ink-2 shadow-soft hover:text-ink">
+    <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.500 4h11a1.500 1.500 0 0 1 1.500 1.500v6a1.500 1.500 0 0 1-1.500 1.500H10l-3.500 3v-3H4.500A1.500 1.500 0 0 1 3 11.500v-6A1.500 1.500 0 0 1 4.500 4z"/><path d="M7 7.500h6M7 10h3.500"/></svg>
+  </button>
+  <div class="pointer-events-none fixed inset-x-0 top-0 z-20 hidden h-[calc(max(0.75rem,env(safe-area-inset-top))+4.5rem)] bg-linear-to-b from-ground from-65% to-transparent in-data-chats:block" aria-hidden="true"></div>
+
+  <div class="mx-auto flex min-h-dvh w-full max-w-2xl flex-col pb-[var(--keyboard-inset,0px)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] in-data-chats:pt-[calc(max(0.75rem,env(safe-area-inset-top))+4rem)] in-data-draft:pb-[calc(var(--keyboard-inset,0px)+10dvh)]">
+    {% if model_problem %}<p class="m-0 mb-3 text-sm text-bad" role="alert">{{ model_problem }}</p>{% endif %}
+
+    <div class="hidden flex-col items-center gap-3 pb-8 text-center in-data-draft:mt-auto in-data-draft:flex" data-slot="home">
+      <p class="m-0 flex" data-slot="wordmark" role="img" aria-label="{{ product_name }}">{% include "chat/_wordmark.html" %}</p>
+      <p class="m-0 max-w-xs text-balance text-base text-ink-2" data-slot="tagline">I buy airtime, send money and order food, and you approve every payment.</p>
+    </div>
+
+    <div class="flex flex-col gap-3 pb-8 in-data-draft:hidden" data-slot="thread" aria-live="polite">
+      {% for item in items %}{% include "chat/_item.html" %}{% endfor %}
+    </div>
+
+    <chat-composer class="contents">
+      <form class="sticky bottom-[var(--keyboard-inset,0px)] z-10 mt-auto bg-ground pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-8 before:bg-linear-to-t before:from-ground before:to-transparent in-data-draft:mt-0 in-data-draft:bg-transparent in-data-draft:pb-0 in-data-draft:before:hidden" data-slot="composer">
+        <div class="pointer-events-none absolute inset-x-0 bottom-full flex flex-col items-center">
+          <button type="button" data-slot="latest" hidden class="focus-ring pointer-events-auto mb-2 flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-raised px-4 text-sm text-ink-2 shadow-soft hover:text-ink motion-safe:animate-fade-in">
+            <svg viewBox="0 0 20 20" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4v12M5 11l5 5 5-5"/></svg>Latest
+          </button>
+          <p class="m-0 mb-2 hidden items-center gap-2 text-sm text-ink-3 not-[.hidden]:flex" data-slot="offline" role="status"><span class="size-1.5 rounded-full bg-ink-3 motion-safe:animate-pulse-dot" aria-hidden="true"></span>Reconnecting</p>
+          <p class="m-0 mb-2 hidden px-2 text-center text-sm text-bad" data-slot="error" role="alert"></p>
+        </div>
+        <div data-slot="pill" class="flex w-full items-end gap-1 rounded-4xl border border-line-strong bg-raised p-1.5 shadow-soft has-[textarea:focus-visible]:border-primary has-[textarea:focus-visible]:ring-1 has-[textarea:focus-visible]:ring-primary">
+          <label class="sr-only" for="text">Ask {{ product_name }}</label>
+          <textarea id="text" name="text" rows="1" autocomplete="off" enterkeyhint="send" maxlength="500" placeholder="Ask {{ product_name }}" {% if draft and not model_problem %}autofocus{% endif %}{% if model_problem %}disabled{% endif %}
+                    class="max-h-41 min-h-11 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-2.5 pl-3.5 pr-1 text-base leading-6 text-ink outline-none placeholder:text-ink-3 disabled:cursor-not-allowed"></textarea>
+          <button type="submit" data-slot="send" aria-label="Send" disabled class="focus-ring grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-pressed in-data-working:bg-ink in-data-working:text-ground in-data-working:hover:bg-ink-2 disabled:cursor-default disabled:bg-sunken disabled:text-ink-3 disabled:hover:bg-sunken">
+            <svg viewBox="0 0 20 20" class="size-5 in-data-working:hidden" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg>
+            <svg viewBox="0 0 16 16" class="hidden size-4 in-data-working:block" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+          </button>
+        </div>
+      </form>
+    </chat-composer>
+
+    <chat-starters class="hidden pt-4 in-data-draft:mb-auto in-data-draft:block" role="group" aria-label="Suggestions">
+      <ul class="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3">
+        {% for starter in starters %}
+        <li class="flex">
+          <button type="button" data-text="{{ starter.text }}"{% if not starter.sends %} data-fill{% endif %} class="focus-ring flex min-h-11 w-full cursor-pointer flex-col items-start gap-2 rounded-control border border-line bg-raised p-3 text-left text-sm text-ink hover:bg-mint disabled:cursor-default disabled:opacity-60 disabled:hover:bg-raised sm:flex-row sm:items-center sm:gap-2.5 sm:px-2.5 sm:py-2">
+            <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-mint text-ink-2">{% include "chat/icons/"|add:starter.icon|add:".html" %}</span>
+            <span class="min-w-0 wrap-anywhere">{{ starter.label }}</span>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+    </chat-starters>
+  </div>
+
+  {% include "chat/_sheet.html" %}
+
+  <template data-kind="user">{% include "chat/_item.html#user" %}</template>
+  <template data-kind="assistant">{% include "chat/_item.html#assistant" %}</template>
+  <template data-kind="tool">{% include "chat/_item.html#tool" %}</template>
+  <template data-kind="card">{% include "chat/_item.html#card" %}</template>
+  <template data-kind="card_context">{% include "chat/_item.html#card_context" %}</template>
+  <template data-kind="card_message">{% include "chat/_item.html#card_message" %}</template>
+  <template data-kind="notice">{% include "chat/_item.html#notice" %}</template>
+  <template data-kind="compaction">{% include "chat/_item.html#compaction" %}</template>
+</chat-thread>
+{% endblock %}

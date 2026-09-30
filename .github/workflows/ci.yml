@@ -1,0 +1,79 @@
+# The fast checks: lint, unit tests and the Node tests that need no running stack. The full check is
+# full-check.yml (tools/check.sh), started by hand.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python lint and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            host/uv.lock
+            checkout/uv.lock
+      - name: Install the host and the connectors
+        run: |
+          uv sync --locked --project host
+          uv sync --locked --project checkout
+      - name: Host lint
+        working-directory: host
+        run: |
+          uv run ruff check src tests ../evaluation
+          uv run ruff format --check src tests ../evaluation
+      - name: Connectors lint
+        working-directory: checkout
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Host unit tests
+        working-directory: host
+        run: uv run pytest -q
+      - name: Evaluation unit tests
+        working-directory: host
+        run: uv run pytest -q -c ../evaluation/pytest.ini ../evaluation/tests
+      - name: Connectors unit tests
+        working-directory: checkout
+        run: uv run pytest -q
+
+  node:
+    name: Node tests, design tokens and licence headers
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: >
+          node --test conformance/menu-logic.test.mjs conformance/lib.test.mjs
+          conformance/palette.test.mjs conformance/tool-status.test.mjs
+      - name: Markdown
+        run: node conformance/markdown-unit.mjs
+      - name: Sandbox
+        run: node --test sandbox/test/*.test.mjs
+      - name: Generated design files are current
+        run: node design/build.mjs --check
+      - name: Licence headers
+        run: python3 tools/spdx.py --check

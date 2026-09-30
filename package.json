@@ -1,0 +1,22 @@
+{
+  "name": "234",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "devDependencies": {
+    "@a2a-js/sdk": "^1.3.0",
+    "@modelcontextprotocol/client": "^2.2.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
+    "@tailwindcss/cli": "^4.3.3",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.63.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.141.0"
+  },
+  "scripts": {
+    "build:host": "node host/build.mjs",
+    "build:card": "cd checkout && uv run python ../card/build.py"
+  }
+}

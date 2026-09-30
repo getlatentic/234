@@ -1,0 +1,14 @@
+{
+  // The sandbox origin of the card frames: static, no state, no bindings. Locally the stack starts it with
+  // --var HOST_ORIGINS:<the hosts' origins>; tools/deploy.sh renders wrangler.public.jsonc for the public one.
+  "name": "checkout-sandbox",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-21",
+  // The proxy and view scripts are served as their own source text: no __name() helper may be added to them.
+  "keep_names": false,
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  // Secret: SIGNING_KEY, the key the host signs a view's policy with (the stack gives it a dummy one).
+  "vars": { "HOST_ORIGINS": "http://localhost:8901" }
+}

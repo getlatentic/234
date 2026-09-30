@@ -1,0 +1,26 @@
+@import "tailwindcss" source(none);
+@import "../../design/generated/tokens.css";
+@import "../../design/generated/theme.css";
+@import "../../design/components.css";
+@source "./templates";
+@source "./src";
+@custom-variant fs (&:where([data-mode="fullscreen"], [data-mode="fullscreen"] *));
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .btn-step {
+    @apply focus-ring grid size-11 cursor-pointer place-items-center rounded-control border border-line-strong bg-transparent text-xl leading-none text-ink hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent;
+  }
+  .btn-add {
+    @apply focus-ring min-h-11 min-w-20 cursor-pointer rounded-control border border-line-strong bg-transparent px-4 font-semibold text-ink hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent;
+  }
+  .chip {
+    @apply focus-ring min-h-11 shrink-0 cursor-pointer rounded-full border border-line-strong bg-transparent px-4 text-sm text-ink-2 hover:bg-sunken aria-pressed:border-primary aria-pressed:bg-mint aria-pressed:font-medium aria-pressed:text-ink;
+  }
+}

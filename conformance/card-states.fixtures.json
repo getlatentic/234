@@ -1,0 +1,1242 @@
+{
+ "transfer/approve": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-6d3651c430ac8849c74f",
+    "phase": "awaiting_approval",
+    "amount": {
+     "kobo": 2500000,
+     "display": "₦25,000"
+    },
+    "description": "Rent share",
+    "merchant": "PAYSTACK TEST ACCOUNT",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.088Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": null
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦75,000"
+    },
+    "details": {
+     "kind": "transfer",
+     "recipientName": "PAYSTACK TEST ACCOUNT",
+     "bankName": "Zenith Bank",
+     "accountMasked": "******0000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "0890434baf4c739866b831955d5ab680809f839b3a6df07e1abbee1c7d9e4ff7"
+  }
+ },
+ "transfer/succeeded": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-6d3651c430ac8849c74f",
+    "phase": "succeeded",
+    "amount": {
+     "kobo": 2500000,
+     "display": "₦25,000"
+    },
+    "description": "Rent share",
+    "merchant": "PAYSTACK TEST ACCOUNT",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.088Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": null
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦50,000"
+    },
+    "details": {
+     "kind": "transfer",
+     "recipientName": "PAYSTACK TEST ACCOUNT",
+     "bankName": "Zenith Bank",
+     "accountMasked": "******0000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": {
+     "title": "Transfer sent",
+     "lines": [
+      {
+       "label": "Amount",
+       "value": "₦25,000"
+      },
+      {
+       "label": "To",
+       "value": "PAYSTACK TEST ACCOUNT"
+      },
+      {
+       "label": "Bank",
+       "value": "Zenith Bank"
+      },
+      {
+       "label": "Account",
+       "value": "******0000"
+      },
+      {
+       "label": "Reference",
+       "value": "trf-qt-6d3651c430ac8849c74f"
+      },
+      {
+       "label": "Mode",
+       "value": "Simulated: no money moves"
+      }
+     ]
+    },
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "0890434baf4c739866b831955d5ab680809f839b3a6df07e1abbee1c7d9e4ff7"
+  }
+ },
+ "transfer/declined": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-b734e69e56c017294e0a",
+    "phase": "declined",
+    "amount": {
+     "kobo": 2500000,
+     "display": "₦25,000"
+    },
+    "description": "Rent share",
+    "merchant": "PAYSTACK TEST ACCOUNT",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.137Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": null
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦50,000"
+    },
+    "details": {
+     "kind": "transfer",
+     "recipientName": "PAYSTACK TEST ACCOUNT",
+     "bankName": "Zenith Bank",
+     "accountMasked": "******0000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": "Declined. Nothing was charged.",
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "6a555b552dc30bd1ce48c5457927508c96483e3e3311dced7d71c9c19c1c0c1e"
+  }
+ },
+ "transfer/otp": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-a5122f89fa89d21a5ae7",
+    "phase": "awaiting_otp",
+    "amount": {
+     "kobo": 2500000,
+     "display": "₦25,000"
+    },
+    "description": "Rent share",
+    "merchant": "PAYSTACK TEST ACCOUNT",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.205Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": null
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦75,000"
+    },
+    "details": {
+     "kind": "transfer",
+     "recipientName": "PAYSTACK TEST ACCOUNT",
+     "bankName": "Zenith Bank",
+     "accountMasked": "******0000"
+    },
+    "checkoutUrl": null,
+    "otpHint": "Enter the one-time code Paystack sent. Simulated code: 123456.",
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "531cf848851e192bbb4ceab69a3f4f04612a50cc000411b708fefaf8655dd9bc"
+  }
+ },
+ "transfer/otp-rejected": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-a5122f89fa89d21a5ae7",
+    "phase": "awaiting_otp",
+    "amount": {
+     "kobo": 2500000,
+     "display": "₦25,000"
+    },
+    "description": "Rent share",
+    "merchant": "PAYSTACK TEST ACCOUNT",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.205Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": null
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦75,000"
+    },
+    "details": {
+     "kind": "transfer",
+     "recipientName": "PAYSTACK TEST ACCOUNT",
+     "bankName": "Zenith Bank",
+     "accountMasked": "******0000"
+    },
+    "checkoutUrl": null,
+    "otpHint": "Enter the one-time code Paystack sent. Simulated code: 123456.",
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "531cf848851e192bbb4ceab69a3f4f04612a50cc000411b708fefaf8655dd9bc"
+  },
+  "notice": "OTP_REJECTED: Paystack did not accept that code: Invalid OTP. Check it and try again."
+ },
+ "transfer/unavailable": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-c5495e68aaa1c5ac8bdc",
+    "phase": "unavailable",
+    "amount": {
+     "kobo": 2500000,
+     "display": "₦25,000"
+    },
+    "description": "Rent share",
+    "merchant": "PAYSTACK TEST ACCOUNT",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.311Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": null
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦100,000"
+    },
+    "details": {
+     "kind": "transfer",
+     "recipientName": "PAYSTACK TEST ACCOUNT",
+     "bankName": "Zenith Bank",
+     "accountMasked": "******0000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": "Paystack test transfers are not enabled on this account (Starter Business). Nothing was sent or charged. To continue in simulated mode, set SEND_MONEY_MODE=simulated and redeploy; the cards will then say so.",
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "67a10a252ea2384fed55babfb94afa852196551bf99c51943d1c4ff55e2de9a2"
+  }
+ },
+ "airtime/approve": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-2f0fe5f4fc9495581641",
+    "phase": "awaiting_approval",
+    "amount": {
+     "kobo": 50000,
+     "display": "₦500"
+    },
+    "description": "MTN airtime",
+    "merchant": "MTN",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.359Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦50,000"
+    },
+    "details": {
+     "kind": "airtime",
+     "network": "MTN",
+     "phone": "0801 111 1111",
+     "readBack": "₦500 MTN airtime to 0801 111 1111"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "b7091fd7332bd60009111c7e6fd48d6bb7eeea45e6b7d9d524121d047b788320"
+  }
+ },
+ "airtime/checkout": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-2f0fe5f4fc9495581641",
+    "phase": "awaiting_checkout",
+    "amount": {
+     "kobo": 50000,
+     "display": "₦500"
+    },
+    "description": "MTN airtime",
+    "merchant": "MTN",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.359Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦49,500"
+    },
+    "details": {
+     "kind": "airtime",
+     "network": "MTN",
+     "phone": "0801 111 1111",
+     "readBack": "₦500 MTN airtime to 0801 111 1111"
+    },
+    "checkoutUrl": "http://localhost:8890/sim/checkout/qt-2f0fe5f4fc9495581641-a1",
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": true
+   }
+  },
+  "_meta": {
+   "approvalToken": "b7091fd7332bd60009111c7e6fd48d6bb7eeea45e6b7d9d524121d047b788320"
+  }
+ },
+ "airtime/succeeded": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-9b52a71da624f6e200a3",
+    "phase": "succeeded",
+    "amount": {
+     "kobo": 50000,
+     "display": "₦500"
+    },
+    "description": "MTN airtime",
+    "merchant": "MTN",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.390Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦49,000"
+    },
+    "details": {
+     "kind": "airtime",
+     "network": "MTN",
+     "phone": "0801 111 1111",
+     "readBack": "₦500 MTN airtime to 0801 111 1111"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": {
+     "title": "Airtime delivered",
+     "lines": [
+      {
+       "label": "Amount",
+       "value": "₦500"
+      },
+      {
+       "label": "Network",
+       "value": "MTN"
+      },
+      {
+       "label": "Number",
+       "value": "0801 111 1111"
+      },
+      {
+       "label": "Paid",
+       "value": "29 Sep 2026, 12:05 WAT"
+      },
+      {
+       "label": "Payment reference",
+       "value": "qt-9b52a71da624f6e200a3-a1"
+      },
+      {
+       "label": "VTpass request",
+       "value": "202609291205qt9b52a71da624f6e200a3"
+      },
+      {
+       "label": "Mode",
+       "value": "Simulated: no money moves"
+      }
+     ]
+    },
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "b3733565d1fa6e21754e29fe9af24831b598ae3cc972a63754fdb31ac41f7e12"
+  }
+ },
+ "airtime/attention": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-3bb171653d9f92c48cf6",
+    "phase": "attention",
+    "amount": {
+     "kobo": 50000,
+     "display": "₦500"
+    },
+    "description": "MTN airtime",
+    "merchant": "MTN",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.457Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦48,500"
+    },
+    "details": {
+     "kind": "airtime",
+     "network": "MTN",
+     "phone": "100000000000",
+     "readBack": "₦500 MTN airtime to 100000000000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": "VTpass did not deliver: TRANSACTION FAILED. Refund due; this demo does not issue refunds.",
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "0c4e8f1000820459260fb15f6ab4f1b884ced76e93657fbd964f71fc1d8ead9b"
+  }
+ },
+ "airtime/processing": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-3d7b89e0141f9337f993",
+    "phase": "processing",
+    "amount": {
+     "kobo": 50000,
+     "display": "₦500"
+    },
+    "description": "MTN airtime",
+    "merchant": "MTN",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.520Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦48,000"
+    },
+    "details": {
+     "kind": "airtime",
+     "network": "MTN",
+     "phone": "201000000000",
+     "readBack": "₦500 MTN airtime to 201000000000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": "Payment received. Confirming delivery.",
+    "poll": true
+   }
+  },
+  "_meta": {
+   "approvalToken": "ca29276ff89ae158ef89c8f80cef9f93a9b883373f297198a3a4e35a54fd0639"
+  }
+ },
+ "data/approve": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-09bd7005c3d5da47e646",
+    "phase": "awaiting_approval",
+    "amount": {
+     "kobo": 100000,
+     "display": "₦1,000"
+    },
+    "description": "N1000 1.5GB - 30 days (MTN data)",
+    "merchant": "MTN",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.583Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦48,000"
+    },
+    "details": {
+     "kind": "data",
+     "network": "MTN",
+     "phone": "0801 111 1111",
+     "plan": "N1000 1.5GB - 30 days",
+     "readBack": "N1000 1.5GB - 30 days on MTN to 0801 111 1111 for ₦1,000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "61b096fce4d2858bc75d8c9089332c8b976279e651b32d7c7dc3a1663f1dc8e3"
+  }
+ },
+ "data/succeeded": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-09bd7005c3d5da47e646",
+    "phase": "succeeded",
+    "amount": {
+     "kobo": 100000,
+     "display": "₦1,000"
+    },
+    "description": "N1000 1.5GB - 30 days (MTN data)",
+    "merchant": "MTN",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.583Z",
+    "mode": {
+     "label": "Simulated: no money moves",
+     "simulated": true,
+     "note": "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦47,000"
+    },
+    "details": {
+     "kind": "data",
+     "network": "MTN",
+     "phone": "0801 111 1111",
+     "plan": "N1000 1.5GB - 30 days",
+     "readBack": "N1000 1.5GB - 30 days on MTN to 0801 111 1111 for ₦1,000"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": {
+     "title": "Data delivered",
+     "lines": [
+      {
+       "label": "Amount",
+       "value": "₦1,000"
+      },
+      {
+       "label": "Plan",
+       "value": "N1000 1.5GB - 30 days"
+      },
+      {
+       "label": "Network",
+       "value": "MTN"
+      },
+      {
+       "label": "Number",
+       "value": "0801 111 1111"
+      },
+      {
+       "label": "Paid",
+       "value": "29 Sep 2026, 12:05 WAT"
+      },
+      {
+       "label": "Payment reference",
+       "value": "qt-09bd7005c3d5da47e646-a1"
+      },
+      {
+       "label": "VTpass request",
+       "value": "202609291205qt09bd7005c3d5da47e646"
+      },
+      {
+       "label": "Mode",
+       "value": "Simulated: no money moves"
+      }
+     ]
+    },
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "61b096fce4d2858bc75d8c9089332c8b976279e651b32d7c7dc3a1663f1dc8e3"
+  }
+ },
+ "food/approve": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-0451ca6cb2b46611235d",
+    "phase": "awaiting_approval",
+    "amount": {
+     "kobo": 830000,
+     "display": "₦8,300"
+    },
+    "description": "Food order: 3 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.642Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦47,000"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Surulere",
+     "lines": [
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 1,
+       "unit": "₦3,500",
+       "total": "₦3,500"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      }
+     ],
+     "subtotal": "₦7,100",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "cff43d8a9befc46931c0593a3737c6aea1914645ab69a8eddad48de99bbc59e8"
+  }
+ },
+ "food/checkout": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-0451ca6cb2b46611235d",
+    "phase": "awaiting_checkout",
+    "amount": {
+     "kobo": 830000,
+     "display": "₦8,300"
+    },
+    "description": "Food order: 3 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.642Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦38,700"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Surulere",
+     "lines": [
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 1,
+       "unit": "₦3,500",
+       "total": "₦3,500"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      }
+     ],
+     "subtotal": "₦7,100",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": "http://localhost:8890/sim/checkout/qt-0451ca6cb2b46611235d-a1",
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": true
+   }
+  },
+  "_meta": {
+   "approvalToken": "cff43d8a9befc46931c0593a3737c6aea1914645ab69a8eddad48de99bbc59e8"
+  }
+ },
+ "food/track-0": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-0451ca6cb2b46611235d",
+    "phase": "processing",
+    "amount": {
+     "kobo": 830000,
+     "display": "₦8,300"
+    },
+    "description": "Food order: 3 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.642Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦38,700"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Surulere",
+     "lines": [
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 1,
+       "unit": "₦3,500",
+       "total": "₦3,500"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      }
+     ],
+     "subtotal": "₦7,100",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": {
+     "steps": [
+      "Order accepted",
+      "Being prepared",
+      "On the way",
+      "Delivered"
+     ],
+     "current": 0
+    },
+    "receipt": null,
+    "message": "Payment received. Order accepted. Simulated: the steps follow a clock.",
+    "poll": true
+   }
+  },
+  "_meta": {
+   "approvalToken": "cff43d8a9befc46931c0593a3737c6aea1914645ab69a8eddad48de99bbc59e8"
+  }
+ },
+ "food/track-1": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-0451ca6cb2b46611235d",
+    "phase": "processing",
+    "amount": {
+     "kobo": 830000,
+     "display": "₦8,300"
+    },
+    "description": "Food order: 3 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.642Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦38,700"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Surulere",
+     "lines": [
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 1,
+       "unit": "₦3,500",
+       "total": "₦3,500"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      }
+     ],
+     "subtotal": "₦7,100",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": {
+     "steps": [
+      "Order accepted",
+      "Being prepared",
+      "On the way",
+      "Delivered"
+     ],
+     "current": 1
+    },
+    "receipt": null,
+    "message": "Payment received. Being prepared. Simulated: the steps follow a clock.",
+    "poll": true
+   }
+  },
+  "_meta": {
+   "approvalToken": "cff43d8a9befc46931c0593a3737c6aea1914645ab69a8eddad48de99bbc59e8"
+  }
+ },
+ "food/track-2": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-0451ca6cb2b46611235d",
+    "phase": "processing",
+    "amount": {
+     "kobo": 830000,
+     "display": "₦8,300"
+    },
+    "description": "Food order: 3 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.642Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦38,700"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Surulere",
+     "lines": [
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 1,
+       "unit": "₦3,500",
+       "total": "₦3,500"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      }
+     ],
+     "subtotal": "₦7,100",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": {
+     "steps": [
+      "Order accepted",
+      "Being prepared",
+      "On the way",
+      "Delivered"
+     ],
+     "current": 2
+    },
+    "receipt": null,
+    "message": "Payment received. On the way to Surulere. Simulated: the steps follow a clock.",
+    "poll": true
+   }
+  },
+  "_meta": {
+   "approvalToken": "cff43d8a9befc46931c0593a3737c6aea1914645ab69a8eddad48de99bbc59e8"
+  }
+ },
+ "food/succeeded": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-0451ca6cb2b46611235d",
+    "phase": "succeeded",
+    "amount": {
+     "kobo": 830000,
+     "display": "₦8,300"
+    },
+    "description": "Food order: 3 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:11.642Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦38,700"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Surulere",
+     "lines": [
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 1,
+       "unit": "₦3,500",
+       "total": "₦3,500"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      }
+     ],
+     "subtotal": "₦7,100",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": {
+     "title": "Order delivered",
+     "lines": [
+      {
+       "label": "1 × Beef suya, 200g",
+       "value": "₦3,500"
+      },
+      {
+       "label": "2 × Chapman, 500ml",
+       "value": "₦3,600"
+      },
+      {
+       "label": "Delivery",
+       "value": "₦1,200"
+      },
+      {
+       "label": "Total",
+       "value": "₦8,300"
+      },
+      {
+       "label": "Delivered to",
+       "value": "Surulere"
+      },
+      {
+       "label": "Paid",
+       "value": "29 Sep 2026, 12:05 WAT"
+      },
+      {
+       "label": "Payment reference",
+       "value": "qt-0451ca6cb2b46611235d-a1"
+      },
+      {
+       "label": "Mode",
+       "value": "Simulated merchant: not Chowdeck · Simulated: no money moves"
+      }
+     ]
+    },
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "cff43d8a9befc46931c0593a3737c6aea1914645ab69a8eddad48de99bbc59e8"
+  }
+ },
+ "food/approve-many": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-7d7fcfc6e3e44cf77f15",
+    "phase": "awaiting_approval",
+    "amount": {
+     "kobo": 2870000,
+     "display": "₦28,700"
+    },
+    "description": "Food order: 10 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:24.504Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦38,700"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Victoria Island",
+     "lines": [
+      {
+       "name": "Jollof rice with fried chicken",
+       "quantity": 1,
+       "unit": "₦4,500",
+       "total": "₦4,500"
+      },
+      {
+       "name": "Fried rice, dodo and grilled chicken",
+       "quantity": 1,
+       "unit": "₦4,800",
+       "total": "₦4,800"
+      },
+      {
+       "name": "Egusi soup with pounded yam",
+       "quantity": 1,
+       "unit": "₦5,200",
+       "total": "₦5,200"
+      },
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 2,
+       "unit": "₦3,500",
+       "total": "₦7,000"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      },
+      {
+       "name": "Zobo, 500ml",
+       "quantity": 3,
+       "unit": "₦800",
+       "total": "₦2,400"
+      }
+     ],
+     "subtotal": "₦27,500",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": null,
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "02c7edb2628e9c25b18bac40e740fec03b9df60c3d378e1a4541a858ef38ef95"
+  }
+ },
+ "food/succeeded-many": {
+  "structuredContent": {
+   "quote": {
+    "id": "qt-7d7fcfc6e3e44cf77f15",
+    "phase": "succeeded",
+    "amount": {
+     "kobo": 2870000,
+     "display": "₦28,700"
+    },
+    "description": "Food order: 10 items from Mama Put Yaba (simulated)",
+    "merchant": "Mama Put Yaba (simulated)",
+    "merchantRef": null,
+    "expiresAt": "2026-09-29T11:15:24.504Z",
+    "mode": {
+     "label": "Simulated merchant: not Chowdeck · Simulated: no money moves",
+     "simulated": true,
+     "note": "The menu, prices and delivery updates are invented."
+    },
+    "limits": {
+     "perPayment": "₦50,000",
+     "daily": "₦100,000",
+     "remainingToday": "₦10,000"
+    },
+    "details": {
+     "kind": "food",
+     "restaurant": "Mama Put Yaba (simulated)",
+     "area": "Victoria Island",
+     "lines": [
+      {
+       "name": "Jollof rice with fried chicken",
+       "quantity": 1,
+       "unit": "₦4,500",
+       "total": "₦4,500"
+      },
+      {
+       "name": "Fried rice, dodo and grilled chicken",
+       "quantity": 1,
+       "unit": "₦4,800",
+       "total": "₦4,800"
+      },
+      {
+       "name": "Egusi soup with pounded yam",
+       "quantity": 1,
+       "unit": "₦5,200",
+       "total": "₦5,200"
+      },
+      {
+       "name": "Beef suya, 200g",
+       "quantity": 2,
+       "unit": "₦3,500",
+       "total": "₦7,000"
+      },
+      {
+       "name": "Chapman, 500ml",
+       "quantity": 2,
+       "unit": "₦1,800",
+       "total": "₦3,600"
+      },
+      {
+       "name": "Zobo, 500ml",
+       "quantity": 3,
+       "unit": "₦800",
+       "total": "₦2,400"
+      }
+     ],
+     "subtotal": "₦27,500",
+     "deliveryFee": "₦1,200"
+    },
+    "checkoutUrl": null,
+    "otpHint": null,
+    "tracking": null,
+    "receipt": {
+     "title": "Order delivered",
+     "lines": [
+      {
+       "label": "1 × Jollof rice with fried chicken",
+       "value": "₦4,500"
+      },
+      {
+       "label": "1 × Fried rice, dodo and grilled chicken",
+       "value": "₦4,800"
+      },
+      {
+       "label": "1 × Egusi soup with pounded yam",
+       "value": "₦5,200"
+      },
+      {
+       "label": "2 × Beef suya, 200g",
+       "value": "₦7,000"
+      },
+      {
+       "label": "2 × Chapman, 500ml",
+       "value": "₦3,600"
+      },
+      {
+       "label": "3 × Zobo, 500ml",
+       "value": "₦2,400"
+      },
+      {
+       "label": "Delivery",
+       "value": "₦1,200"
+      },
+      {
+       "label": "Total",
+       "value": "₦28,700"
+      },
+      {
+       "label": "Delivered to",
+       "value": "Victoria Island"
+      },
+      {
+       "label": "Paid",
+       "value": "29 Sep 2026, 12:05 WAT"
+      },
+      {
+       "label": "Payment reference",
+       "value": "qt-7d7fcfc6e3e44cf77f15-a1"
+      },
+      {
+       "label": "Mode",
+       "value": "Simulated merchant: not Chowdeck · Simulated: no money moves"
+      }
+     ]
+    },
+    "message": null,
+    "poll": false
+   }
+  },
+  "_meta": {
+   "approvalToken": "02c7edb2628e9c25b18bac40e740fec03b9df60c3d378e1a4541a858ef38ef95"
+  }
+ }
+}

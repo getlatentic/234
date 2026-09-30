@@ -1,0 +1,39 @@
+[project]
+name = "checkout"
+version = "0.1.0"
+description = "Agent-checkout MCP connectors on Cloudflare Python Workers, with a D1 ledger."
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.12,<2.13",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1",
+    "pytest-asyncio>=1.0",
+    "httpx>=0.28",
+    "ruff>=0.16",
+    "workers-py>=1.17.4",
+    "workers-runtime-sdk>=1.9.0",
+    "django>=5.2,<5.3",
+    "mcp>=2.2,<3",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-m 'not worker'"
+markers = ["worker: needs `pywrangler dev` running on CHECKOUT_URL"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+extend-exclude = ["python_modules", ".wrangler", ".venv-workers"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C90", "SIM", "RUF", "ASYNC"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

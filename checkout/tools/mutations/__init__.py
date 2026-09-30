@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Each guardrail, the one place that enforces it, and the tests that must notice when it is undone.
+
+`find` must appear exactly once in `file`. A mutation names its project: the connector Worker (the default) or
+the Django host, whose tests run in the host's own environment. Guardrails of the TypeScript demo that live in
+its React card and its loopback HTTP server have no counterpart here; the card's own rules (full screen,
+focus, the sandbox as the browser enforces it) are checked by the browser conformance runs, not by mutation.
+"""
+
+from tools.mutations import (
+    account_rules,
+    airtime_rules,
+    compaction_rules,
+    config_rules,
+    host_rules,
+    input_rules,
+    ledger_rules,
+    menu_rules,
+    model_choice_rules,
+    owner_rules,
+    payment_leg,
+    sandbox_rules,
+    token_rules,
+    transfer_and_food,
+    vtpass_number_rules,
+    webhook_rules,
+)
+from tools.mutations.model import Mutation
+
+MUTATIONS: list[Mutation] = [
+    *config_rules.MUTATIONS,
+    *ledger_rules.MUTATIONS,
+    *owner_rules.MUTATIONS,
+    *input_rules.MUTATIONS,
+    *payment_leg.MUTATIONS,
+    *airtime_rules.MUTATIONS,
+    *vtpass_number_rules.MUTATIONS,
+    *webhook_rules.MUTATIONS,
+    *transfer_and_food.MUTATIONS,
+    *model_choice_rules.MUTATIONS,
+    *menu_rules.MUTATIONS,
+    *sandbox_rules.MUTATIONS,
+    *host_rules.MUTATIONS,
+    *token_rules.MUTATIONS,
+    *account_rules.MUTATIONS,
+    *compaction_rules.MUTATIONS,
+]

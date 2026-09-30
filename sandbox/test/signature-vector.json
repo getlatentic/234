@@ -1,0 +1,14 @@
+{
+  "key": "test-signing-key",
+  "host": "https://host.example",
+  "csp": {
+    "resourceDomains": [
+      "https://js.paystack.co"
+    ],
+    "frameDomains": [
+      "https://checkout.paystack.com"
+    ]
+  },
+  "canonical": "https://host.example\nresourceDomains=https://js.paystack.co\nframeDomains=https://checkout.paystack.com",
+  "signature": "70b88820f243e12d7e0a48efafc64fd561b3029510d2db4aca263fa5919041fd"
+}

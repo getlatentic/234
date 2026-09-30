@@ -1,0 +1,27 @@
+<template id="t-card">
+  <article class="mx-auto max-w-sm rounded-card border border-line bg-raised p-5" data-slot="card">
+    <p class="m-0 mb-5 flex items-center gap-1.5 text-xs text-ink-3">
+      <span class="size-1.5 shrink-0 rounded-full bg-ink-3" aria-hidden="true"></span><span data-slot="mode"></span>
+    </p>
+    <div data-slot="status" role="status" class="mb-4 hidden rounded-control bg-sunken px-3 py-2.5 text-ink data-[tone=bad]:bg-bad-soft data-[tone=bad]:text-bad data-[tone=ok]:bg-ok-soft data-[tone=ok]:text-ok">
+      <p class="m-0 flex items-center gap-2 font-medium">
+        <svg data-glyph="spin" class="hidden size-5 shrink-0 animate-spin motion-reduce:animate-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="10" cy="10" r="7.5" class="opacity-25"/><path d="M10 2.5a7.5 7.5 0 0 1 7.5 7.5" stroke-linecap="round"/></svg>
+        <svg data-glyph="ok" class="hidden size-5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M6.5 10.5l2.5 2.5 4.5-5.5"/></svg>
+        <svg data-glyph="bad" class="hidden size-5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M10 6v5M10 13.75v.01"/></svg>
+        <svg data-glyph="off" class="hidden size-5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M7 10h6"/></svg>
+        <span data-slot="status-text"></span>
+      </p>
+      <p data-slot="reason" class="m-0 mt-1 hidden text-sm text-ink-2"></p>
+    </div>
+    <div>
+      <h2 data-slot="who" class="m-0 text-base font-medium wrap-break-word"></h2>
+      <p data-slot="sub" class="m-0 hidden text-sm text-ink-3 tabular-nums wrap-break-word"></p>
+      <p data-slot="amount" class="m-0 my-1 text-5xl font-semibold tracking-tight tabular-nums"></p>
+      <p data-slot="what" class="m-0 hidden text-sm text-ink-3 wrap-break-word"></p>
+    </div>
+    <div data-slot="body" class="empty:hidden"></div>
+    <p data-slot="notice" id="notice" role="alert" class="m-0 mt-4 hidden text-sm font-medium text-bad"></p>
+    <div data-slot="actions" class="mt-5 empty:hidden"></div>
+    <p data-slot="expiry" class="m-0 mt-3 hidden text-center text-xs text-ink-3 tabular-nums"></p>
+  </article>
+</template>
