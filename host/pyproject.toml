@@ -5,7 +5,7 @@ description = "A chat host for agent checkout: Django and Tailwind on a Cloudfla
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.14"
 dependencies = [
-    "django>=5.2.17,<5.3",
+    "django>=5.2.17,<6.2",
     "django-cf>=0.2.16",
     "django-template-partials>=25.3",
     "httpx>=0.28",
