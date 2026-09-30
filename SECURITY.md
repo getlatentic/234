@@ -2,8 +2,8 @@
 
 ## Reporting a vulnerability
 
-Please report it privately, not in a public issue or pull request. Write to <security contact> with what you found,
-the steps to reproduce it and, if you can, the commit you tested. You will get an answer within a few days. Please
+Please report it privately, not in a public issue or pull request. Use GitHub's "Report a vulnerability" button on the
+repository's Security tab, with what you found, the steps to reproduce it and, if you can, the commit you tested. You will get an answer within a few days. Please
 give us a reasonable time to fix the problem before you publish it, and do not use it against the public demo
 beyond what you need to show it.
 
