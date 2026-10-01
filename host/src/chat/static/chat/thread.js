@@ -132,7 +132,8 @@ customElements.define(
         this.composer.clear(text);
         this.#title(text);
         this.#opened(text.slice(0, TITLE_CHARS));
-        if (this.seq < seq) this.#working(true);
+        // The turn opens right after the message: until its `turn.started` arrives the button is already Stop.
+        if (this.seq <= seq) this.#working(true);
         this.follow.jump();
       } catch (error) {
         this.starters.disabled = false;
