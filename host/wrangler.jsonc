@@ -7,9 +7,25 @@
   "preview_urls": false,
   "observability": { "enabled": true },
   "assets": { "directory": "./staticfiles" },
-  "build": { "command": "npm run build:host --prefix .. && WORKERS_CI=1 uv run python src/manage.py collectstatic --noinput --clear" },
-  "rules": [{ "type": "Text", "globs": ["**/*.json"], "fallthrough": true }],
-  "python_modules": { "exclude": ["**/*.pyc", "**/__pycache__", "**/*.po", "**/*.css", "**/*.js", "**/*.svg", "**/*.png"] },
+  // The bytecode of the packages is built here and shipped next to them (checked against its source on import), so
+  // the Worker's startup compiles nothing of theirs. The public template also does src, which this config cannot:
+  // `wrangler dev` watches src and would rebuild for the bytecode it has just written.
+  "build": {
+    "command": "npm run build:host --prefix .. && WORKERS_CI=1 uv run python src/manage.py collectstatic --noinput --clear && uv run python -m compileall -q -f -j 0 --invalidation-mode checked-hash python_modules"
+  },
+  "rules": [
+    { "type": "Text", "globs": ["**/*.json"], "fallthrough": true },
+    { "type": "Data", "globs": ["**/*.pyc"], "fallthrough": true }
+  ],
+  // Django's translations and the contrib apps this host does not install are not uploaded.
+  "python_modules": {
+    "exclude": [
+      "**/*.po", "**/*.mo", "**/*.css", "**/*.js", "**/*.svg", "**/*.png",
+      "django/contrib/admin/**", "django/contrib/admindocs/**", "django/contrib/gis/**", "django/contrib/postgres/**",
+      "django/contrib/humanize/**", "django/contrib/flatpages/**", "django/contrib/redirects/**",
+      "django/contrib/sites/**", "django/contrib/sitemaps/**", "django/contrib/syndication/**"
+    ]
+  },
   // One Durable Object per chat runs its turns and pushes its log to open sockets.
   "durable_objects": { "bindings": [{ "name": "CHAT", "class_name": "Chat" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Chat"] }],
