@@ -24,7 +24,8 @@ from .db import Db
 from .eventlog import Event, EventLog
 from .hub import Hub, HubError, ToolOutcome, refused
 from .idempotency import derive_key
-from .ledger_owner import ledger_owner
+from .ledger_owner import is_account, ledger_owner
+from .memory import NOT_AN_ACCOUNT, is_memory_tool, notes_message, offered, read_index, with_notes
 from .model import ContextTooLong, Finished, Model, ModelError, TextDelta
 from .prompt import system_prompt
 from .settings import Settings
@@ -158,16 +159,19 @@ class TurnRunner:
             return
         streamed = _Streamed()
         try:
-            system = system_prompt(self._settings.connectors)
-            tools = await self._hub.model_tools()
-            events = await self._compacted(events, system, tools)
+            system = system_prompt(self._settings.connectors, memory=is_account(self._owner))
+            tools = offered(await self._hub.model_tools(), self._owner)
+            index = await read_index(self._hub, self._owner)
+            head = with_notes(system, index)
+            notes = notes_message(index) if index else None
+            events = await self._compacted(events, head, tools)
             upto = events[-1].seq
             try:
-                sent = await self._stream_round(events, upto, message, streamed, system, tools)
+                sent = await self._stream_round(events, upto, message, streamed, system, tools, notes)
             except ContextTooLong:
-                events = await self._squeezed(events, system, tools)
+                events = await self._squeezed(events, head, tools)
                 upto = events[-1].seq
-                sent = await self._stream_round(events, upto, message, streamed, system, tools)
+                sent = await self._stream_round(events, upto, message, streamed, system, tools, notes)
         except (ModelError, HubError, httpx.HTTPError) as error:
             text = str(error) if isinstance(error, ModelError | HubError) else UNREACHABLE
             await self._log.append(kinds.NOTICE, {"level": "error", "text": text}, task=self._task)
@@ -191,10 +195,11 @@ class TurnRunner:
         streamed: _Streamed,
         system: str,
         tools: list[dict[str, Any]],
+        notes: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Asks the model once, for the conversation as it stands; the messages sent."""
         self._round = _Round(message, upto, streamed)
-        sent = messages.render(events, system)
+        sent = messages.render(events, system, notes)
         await self._stream(streamed, message, sent, tools)
         return sent
 
@@ -223,6 +228,11 @@ class TurnRunner:
             self._settings.model_calls_per_day,
         )
         return verdict is None
+
+    def use_owner(self, owner: str) -> None:
+        """The chat's owner as it is now: signing in moves a visitor's chats to their account while this
+        runner may be alive, and the next turn is theirs."""
+        self._owner = owner
 
     def close_compaction(self) -> None:
         self._compactor.close()
@@ -329,6 +339,9 @@ class TurnRunner:
         return ToolOutcome(server, tool, result, None)
 
     async def _call(self, call: dict[str, Any], arguments: dict[str, Any]) -> ToolOutcome:
+        if is_memory_tool(call["name"]) and not is_account(self._owner):
+            server, _, tool = call["name"].partition("__")
+            return refused(server, tool, NOT_AN_ACCOUNT)
         owner = ledger_owner(self._owner)
         key = derive_key(owner, self._log.chat_id, call["id"])
         try:

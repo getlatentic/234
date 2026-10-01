@@ -12,6 +12,8 @@ import httpx
 from .idempotency import FIELD as KEY_FIELD
 
 OWNER_HEADER = "x-ledger-owner"
+MEMORY_OWNER_HEADER = "x-memory-owner"
+MEMORY_SERVER = "memory"
 SEPARATOR = "__"
 PROTOCOL_VERSION = "2025-11-25"
 MIME_TYPE = "text/html;profile=mcp-app"
@@ -106,10 +108,14 @@ class McpHttp:
         self._session: str | None = None
         self._ready = False
 
-    async def _post(self, body: dict[str, Any], owner: str | None = None) -> httpx.Response:
+    async def _post(
+        self, body: dict[str, Any], owner: str | None = None, notes: bool = False
+    ) -> httpx.Response:
         headers = {"accept": "application/json, text/event-stream", "mcp-protocol-version": PROTOCOL_VERSION}
         if owner is not None:
             headers[OWNER_HEADER] = owner
+            if notes:
+                headers[MEMORY_OWNER_HEADER] = owner
         if self._session:
             headers["mcp-session-id"] = self._session
         if self._token:
@@ -138,15 +144,16 @@ class McpHttp:
         self._ready = True
 
     async def request(
-        self, method: str, params: dict[str, Any] | None = None, owner: str | None = None
+        self, method: str, params: dict[str, Any] | None = None, owner: str | None = None, notes: bool = False
     ) -> dict[str, Any]:
         """`owner` is whose money a tool call touches; it travels in a header of its own that only this
-        client sets, never in the arguments or `_meta`, which a card or the model can shape."""
+        client sets, never in the arguments or `_meta`, which a card or the model can shape. `notes`: the
+        call is to the memory connector, which is also told the owner in its own header."""
         if not self._ready:
             await self._initialize()
         self._ids += 1
         response = await self._post(
-            {"jsonrpc": "2.0", "id": self._ids, "method": method, "params": params or {}}, owner
+            {"jsonrpc": "2.0", "id": self._ids, "method": method, "params": params or {}}, owner, notes
         )
         body = response.json()
         if "error" in body:
@@ -211,7 +218,9 @@ class Hub:
         self, server: str, name: str, arguments: dict[str, Any], owner: str
     ) -> dict[str, Any]:
         params = {"name": name, "arguments": arguments}
-        return await self._server(server).request("tools/call", params, _owner_key(owner))
+        return await self._server(server).request(
+            "tools/call", params, _owner_key(owner), notes=server == MEMORY_SERVER
+        )
 
     async def keyed(self, qualified: str) -> bool:
         """Whether the tool makes a request the ledger remembers by its idempotency key."""

@@ -20,7 +20,7 @@ from .eventlog import Event, EventLog
 from .fanout import Fanout, SocketPool
 from .hub import Hub, HubError
 from .inputs import InputRefused, clean_text
-from .ledger_owner import ledger_owner
+from .ledger_owner import is_account, ledger_owner
 from .model import Model
 from .runner import TurnRunner, new_id
 from .settings import Settings
@@ -54,7 +54,7 @@ class ChatCore:
         self._alarms, self._clock, self._starter = alarms, clock, starter
         self.log = EventLog(db, chat_id, clock, on_append=self._publish)
         self._fanout = Fanout(pool, self.log)
-        self._cards = CardCalls(db, self.log, hub, self.note, self._ledger_owner)
+        self._cards = CardCalls(db, self.log, hub, self.note, self._ledger_owner, self._has_memory)
         self._pool = pool
         self._driver: asyncio.Task[None] | None = None
         self._runner: TurnRunner | None = None
@@ -76,6 +76,9 @@ class ChatCore:
 
     async def _ledger_owner(self) -> str:
         return ledger_owner(await self._owner_of_chat())
+
+    async def _has_memory(self) -> bool:
+        return is_account(await self._owner_of_chat())
 
     async def submit(self, kind: str, text: str, task: str | None = None) -> dict[str, Any]:
         """Records what the person (or a card, or an A2A caller) said and makes sure a turn answers it."""
@@ -130,6 +133,8 @@ class ChatCore:
         async with self._making_runner:
             if self._runner is None:
                 self._runner = await self.new_runner()
+            else:
+                self._runner.use_owner(await self._owner_of_chat())
             return self._runner
 
     async def _drive(self) -> None:

@@ -93,6 +93,20 @@ def test_after_a_compaction_the_model_reads_the_summary_then_what_follows_the_cu
     assert [m["content"] for m in sent[2:]] == ["third", "three"]
 
 
+def test_the_notes_come_right_after_the_system_prompt_and_before_the_summary():
+    log = Log()
+    log.turn("first", "one")
+    cut_after = log.last
+    log.turn("second", "two")
+    log.compaction(cut_after, "They asked for first.")
+    notes = {"role": "user", "content": "the notes"}
+    sent = messages.render(log.events, "sys", notes)
+    assert sent[0] == {"role": "system", "content": "sys"} and sent[1] == notes
+    assert sent[2]["content"].startswith(messages.SUMMARY_LABEL)
+    assert [m["content"] for m in sent[3:]] == ["second", "two"]
+    assert messages.render(log.events, "sys", None) == messages.render(log.events, "sys")
+
+
 def test_a_later_compaction_replaces_the_earlier_summary():
     log = Log()
     log.turn("first", "one")

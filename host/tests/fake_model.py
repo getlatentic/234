@@ -19,7 +19,9 @@ more than n characters is refused the way the Bedrock endpoint refuses a prompt 
 an error event), and `GET /v1/_reset` puts it back.
 Every streamed reply ends with the usage of the request (prompt tokens counted as one per three characters)
 when the request asks for it, as the real endpoint does.
-The suggestions on the empty home and what follows them are in scripted_intents.py.
+The suggestions on the empty home and what follows them are in scripted_intents.py; what it does with the
+person's saved notes (remember, save a recipient, forget, recall, send to a saved recipient) is in
+scripted_memory.py.
 """
 
 import hashlib
@@ -30,6 +32,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import scripted_intents
+import scripted_memory
 import scripted_recall
 import scripted_summary
 
@@ -70,6 +73,8 @@ def answer(messages: list[dict], tools: list[dict] | None = None) -> dict:
         return summary_answer(messages)
     if recalled := scripted_recall.answer(messages):
         return {"text": recalled}
+    if remembered := scripted_memory.answer(messages, tools or []):
+        return remembered
     return scripted_intents.answer(messages, tools or []) or _answer(messages, tools or [])
 
 

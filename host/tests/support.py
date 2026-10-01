@@ -181,6 +181,9 @@ class FakeBackend:
         self.compact_answer: dict = {"compacted": True, "seq": 9, "trigger": "manual"}
         self.html = "<html><body>card</body></html>"
         self.ui: dict = {}
+        self.owner: str = ""
+        self.memory_calls: list[tuple] = []
+        self.memory_answers: dict[str, dict] = {}
 
     def submit(self, chat_id, kind, text, task=None):
         self.submitted.append((chat_id, kind, text, task))
@@ -209,6 +212,12 @@ class FakeBackend:
         from turns.hub import CardPage
 
         return CardPage(self.html, self.ui)
+
+    def memory(self, owner, name, arguments):
+        self.memory_calls.append((owner, name, arguments))
+        return self.memory_answers.get(
+            name, {"content": [{"type": "text", "text": "ok"}], "structuredContent": {}}
+        )
 
     def rate_ok(self, key):
         self.rate_keys.append(key)

@@ -130,10 +130,16 @@ def summary_message(summary: str) -> dict[str, Any]:
     return {"role": "user", "content": SUMMARY_LABEL + summary}
 
 
-def render(events: list[Event], system: str) -> list[dict[str, Any]]:
-    """The system prompt, the latest summary and the messages kept after it."""
+def render(events: list[Event], system: str, notes: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """The system prompt, the person's memory notes when there are any, the latest summary and the messages
+    kept after it. The notes are not in the log: they are read afresh for every round."""
     compaction = latest_compaction(events)
     cut = compaction.cut if compaction else 0
     kept = [u for u in units_of(events, compaction.pruned_before if compaction else 0) if u.first >= cut]
     head = [summary_message(compaction.summary)] if compaction and compaction.summary else []
-    return [{"role": "system", "content": system}, *head, *(m for unit in kept for m in unit.messages)]
+    return [
+        {"role": "system", "content": system},
+        *([notes] if notes else []),
+        *head,
+        *(m for unit in kept for m in unit.messages),
+    ]

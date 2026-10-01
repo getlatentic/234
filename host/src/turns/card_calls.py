@@ -18,15 +18,18 @@ import httpx
 from . import kinds
 from .db import Db
 from .eventlog import EventLog
-from .hub import Hub, HubError, card_uri_of
+from .hub import MEMORY_SERVER, Hub, HubError, card_uri_of
+from .memory import NOT_AN_ACCOUNT
 
 CARD_FIELDS = ("content", "structuredContent")
 SPAWNED = "spawned"
 ORDER_READY = "Order ready to approve"
-_REF_KEYS = ("quote_id", "card_id")
+_REF_KEYS = ("quote_id", "card_id", "proposal_id")
+_STATE_KEYS = ("quote", "memory")
 
 Note = Callable[[str], Awaitable[dict[str, Any]]]
 Owner = Callable[[], Awaitable[str]]
+HasMemory = Callable[[], Awaitable[bool]]
 
 
 def public_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -35,9 +38,10 @@ def public_result(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def card_ref(result: dict[str, Any]) -> str | None:
-    """What a card is called in the log: the id of its quote, or the `card_id` its data names."""
+    """What a card is called in the log: the id of its quote, or the `card_id` or `proposal_id` its data
+    names."""
     data = result.get("structuredContent") or {}
-    ref = (data.get("quote") or {}).get("id") or data.get("card_id")
+    ref = (data.get("quote") or {}).get("id") or data.get("card_id") or data.get("proposal_id")
     return ref if isinstance(ref, str) and 0 < len(ref) <= 64 else None
 
 
@@ -61,10 +65,14 @@ def _opened_view(server: str, result: dict[str, Any]) -> str | None:
 
 
 class CardCalls:
-    def __init__(self, db: Db, log: EventLog, hub: Hub, note: Note, owner: Owner) -> None:
+    def __init__(
+        self, db: Db, log: EventLog, hub: Hub, note: Note, owner: Owner, has_memory: HasMemory | None = None
+    ) -> None:
         """`owner` says whose money this chat's cards touch: the key of the chat's owner, whoever is
-        looking at the card."""
+        looking at the card. `has_memory` says whether the chat's owner is an account: only then may a card
+        call the memory connector."""
         self._db, self._log, self._hub, self._note, self._owner = db, log, hub, note, owner
+        self._has_memory = has_memory
         self._opening = asyncio.Lock()
 
     async def _card(self, ref: str) -> dict[str, Any] | None:
@@ -87,6 +95,8 @@ class CardCalls:
         if card is None or card["server"] != server:
             raise HubError("This chat has no card for that request.")
         await self._own_tool(server, name, card["resource_uri"])
+        if server == MEMORY_SERVER and not (self._has_memory and await self._has_memory()):
+            raise HubError(NOT_AN_ACCOUNT)
         result = await self._hub.call_app_tool(server, name, arguments, await self._owner())
         if view := _opened_view(server, result):
             return await self._open(ref, server, name, view, result)
@@ -109,7 +119,7 @@ class CardCalls:
 
     async def push_state(self, ref: str, result: dict[str, Any]) -> None:
         shown = public_result(result)
-        if not shown.get("structuredContent", {}).get("quote"):
+        if not any(shown.get("structuredContent", {}).get(key) for key in _STATE_KEYS):
             return
         last = await self._db.row(
             "SELECT payload FROM chat_event WHERE chat_id = ? AND ref = ? AND type IN (?, ?) "

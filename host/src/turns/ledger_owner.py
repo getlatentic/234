@@ -13,8 +13,14 @@ import hashlib
 import re
 
 VISITOR = re.compile(r"v:([0-9a-f]{32})")
+ACCOUNT = re.compile(r"u:[0-9a-f]{32}")
 
 
 def ledger_owner(chat_owner: str) -> str:
     found = VISITOR.fullmatch(chat_owner)
     return found[1] if found else hashlib.sha256(chat_owner.encode()).hexdigest()[:32]
+
+
+def is_account(chat_owner: str) -> bool:
+    """Whether the chat belongs to a signed-in account: the only owner that has memory."""
+    return ACCOUNT.fullmatch(chat_owner) is not None

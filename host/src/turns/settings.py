@@ -8,7 +8,7 @@ class Settings:
     mcp_url: str
     mcp_token: str = ""
     mcp_binding: str = ""
-    connectors: tuple[str, ...] = ("paystack-pay", "send-money", "airtime", "food-order")
+    connectors: tuple[str, ...] = ("paystack-pay", "send-money", "airtime", "food-order", "memory")
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = "openai.gpt-oss-120b"

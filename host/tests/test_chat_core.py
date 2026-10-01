@@ -272,3 +272,22 @@ async def test_a_chat_moved_to_an_account_while_its_object_is_alive_is_spent_for
     moved = account_owner("uid-abc", "key")
     await sql.execute("UPDATE chat_chat SET owner = ? WHERE id = ?", moved, chat.id)
     assert await c.core._ledger_owner() == ledger_owner(moved) != before
+
+
+async def test_a_turn_after_the_chat_moved_to_an_account_is_the_accounts_with_its_notes(core, chat, sql):
+    from accounts.owner import account_owner
+    from turns.ledger_owner import ledger_owner
+
+    from .memory_support import MemoryHub
+
+    hub = MemoryHub()
+    c = core(ScriptedModel("one", "two"), hub)
+    await c.core.submit(kinds.USER, "first")
+    await c.settle()
+    assert hub.calls == []
+    moved = account_owner("uid-abc", "key")
+    await sql.execute("UPDATE chat_chat SET owner = ? WHERE id = ?", moved, chat.id)
+    await c.core.submit(kinds.USER, "second")
+    await c.settle()
+    assert hub.owners == [ledger_owner(moved)] and hub.index_calls() == 1
+    assert c.core._model.sent[1][1]["content"].startswith("What this person asked 234 to remember.")
