@@ -238,10 +238,12 @@ Chats and the ledger do not move: they are demo data.
 ## Measured
 
 - Startup snapshot, gzip (Cloudflare's limit is unpublished; it was measured near 19.7 MB elsewhere): connectors 10.80 MB
-  (raw 45.4 MB), host 12.12 MB (raw 45.4 MB), by `tools/snapshot-size.sh`.
-- Upload: connectors 7.3 MiB (1.98 gzip), host 14.3 MiB (3.5 gzip). Both deployed on the first try, and again
-  every time after; no size or startup-snapshot refusal happened.
-- Wrangler's own report of startup time at deploy: connectors 2.5 to 2.7 s, host 4.3 to 7.4 s.
+  (raw 45.4 MB), host 11.66 MB (raw 45.4 MB), by `tools/startup-budget.sh`, which fails over 12.24 MB.
+- Upload: connectors 7.3 MiB (1.98 gzip), host 14.3 MiB (4.6 gzip, the packages' bytecode included). Both deployed on
+  the first try, and again every time after; no size or startup-snapshot refusal happened.
+- Wrangler's own report of startup time at deploy: connectors 2.5 to 2.7 s, host about 2.1 s on a probe of the same code
+  (2.0 to 2.8 s, against 3.1 to 6.4 s before the bytecode and the Django 6 change). The platform alone moves this by a
+  factor of two over a day; docs/performance.md has the method, the cold-request and idle measurements and the budget.
 - Checked with curl on the public addresses: the page, a chat created, a message answered with the one plain
   "No model is configured" line (a Durable Object ran the turn and wrote to D1), the event stream, a WebSocket
   upgrade (101; 403 from a foreign origin), the card served through the binding, the connectors' 401 without or
