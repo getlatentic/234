@@ -15,54 +15,10 @@ from accounts.owner import account_owner
 from chat.models import Access, Chat
 from turns.ledger_owner import ledger_owner
 
-from .firebase_support import NOW, PROJECT, Google, SigningKey, claims, token
+from .account_support import ACCOUNT_KEY, Device
+from .firebase_support import NOW, claims, token
 
 pytestmark = pytest.mark.django_db
-
-ACCOUNT_KEY = "test-account-key"
-
-
-@pytest.fixture(scope="module")
-def key() -> SigningKey:
-    return SigningKey.generate("key-1")
-
-
-@pytest.fixture
-def sign_in_on(settings, key, monkeypatch):
-    settings.FIREBASE_PROJECT_ID = PROJECT
-    settings.FIREBASE_API_KEY = "public-api-key"
-    settings.FIREBASE_AUTH_DOMAIN = "demo.firebaseapp.com"
-    settings.ACCOUNT_KEY = ACCOUNT_KEY
-    settings.SIGN_IN_ENABLED = True
-    google = Google(key)
-    service.set_keys(google.cache())
-    monkeypatch.setattr("accounts.service.time.time", lambda: NOW)
-    yield google
-    service.set_keys(None)
-
-
-class Device:
-    """One browser: its own cookies and the CSRF token its page carries."""
-
-    def __init__(self) -> None:
-        self.client = Client()
-
-    def token(self) -> str:
-        page = self.client.get("/")
-        return re.search(r'csrf-token" content="([^"]+)', page.content.decode()).group(1)
-
-    def post(self, path: str, body: dict | None = None):
-        return self.client.post(
-            path, json.dumps(body or {}), content_type="application/json", HTTP_X_CSRFTOKEN=self.token()
-        )
-
-    def sign_in(self, key, uid="uid-abc", email="ada@example.com", **changes):
-        return self.post("/auth/session", {"idToken": token(key, claims(sub=uid, email=email, **changes))})
-
-    def chat(self) -> str:
-        page = self.client.get("/")
-        chat_id = re.search(r'data-chat="([0-9a-f]{32})"', page.content.decode()).group(1)
-        return Chat.objects.create(id=chat_id, owner=page.wsgi_request.owner).id
 
 
 def test_the_owner_is_a_stable_32_hex_value_from_the_uid_and_the_key():

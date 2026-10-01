@@ -10,7 +10,8 @@ from django.conf import settings
 
 from config import runtime
 from turns.binding import connector_client
-from turns.hub import CardPage, Hub, build_hub
+from turns.hub import MEMORY_SERVER, CardPage, Hub, build_hub
+from turns.ledger_owner import ledger_owner
 
 
 class Backend(Protocol):
@@ -29,6 +30,8 @@ class Backend(Protocol):
     def erase(self, chat_id: str) -> None: ...
 
     def card_page(self, server: str, uri: str) -> CardPage: ...
+
+    def memory(self, owner: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]: ...
 
     def rate_ok(self, key: str) -> bool: ...
 
@@ -100,6 +103,13 @@ class WorkerBackend:
         from pyodide.ffi import run_sync
 
         return run_sync(self._connectors().read_card(server, uri))
+
+    def memory(self, owner: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """A call of the page's own to the memory connector, for the signed-in account whose chat owner string
+        is `owner`."""
+        from pyodide.ffi import run_sync
+
+        return run_sync(self._connectors().call_app_tool(MEMORY_SERVER, name, arguments, ledger_owner(owner)))
 
     def rate_ok(self, key: str) -> bool:
         from js import Object

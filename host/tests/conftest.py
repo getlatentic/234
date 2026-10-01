@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import pytest
 
+from .account_support import ACCOUNT_KEY
+from .firebase_support import NOW, PROJECT, Google, SigningKey
 from .support import ManualClock, SqliteDb
 
 
@@ -71,3 +73,25 @@ def visitor(client):
             return Chat.objects.create(id=chat_id, owner=page.wsgi_request.owner).id
 
     return Browser()
+
+
+@pytest.fixture(scope="module")
+def key() -> SigningKey:
+    return SigningKey.generate("key-1")
+
+
+@pytest.fixture
+def sign_in_on(settings, key, monkeypatch):
+    """Sign-in with Google is on, against a stand-in for Google's keys."""
+    from accounts import service
+
+    settings.FIREBASE_PROJECT_ID = PROJECT
+    settings.FIREBASE_API_KEY = "public-api-key"
+    settings.FIREBASE_AUTH_DOMAIN = "demo.firebaseapp.com"
+    settings.ACCOUNT_KEY = ACCOUNT_KEY
+    settings.SIGN_IN_ENABLED = True
+    google = Google(key)
+    service.set_keys(google.cache())
+    monkeypatch.setattr("accounts.service.time.time", lambda: NOW)
+    yield google
+    service.set_keys(None)

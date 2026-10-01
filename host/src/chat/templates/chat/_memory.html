@@ -1,0 +1,62 @@
+<chat-memory class="block" data-url="{% url 'chat:memory' %}" data-edit-url="{% url 'chat:memory-edit' '0000000000000000' %}" data-forget-url="{% url 'chat:memory-forget' '0000000000000000' %}" data-undo-url="{% url 'chat:memory-undo' %}" data-delete-all-url="{% url 'chat:memory-delete-all' %}">
+  <button type="button" data-action="open-memory" class="focus-ring flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-sunken">
+    <svg viewBox="0 0 20 20" class="size-5 text-ink-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.500 3h9a1 1 0 0 1 1 1v13l-5.500-3.500L4.500 17V4a1 1 0 0 1 1-1z"/></svg>What 234 remembers
+  </button>
+  <dialog aria-labelledby="memory-title" class="m-auto max-h-[calc(100dvh-2rem)] w-[min(calc(100%-2rem),28rem)] overflow-hidden rounded-card border border-line bg-raised p-0 text-ink shadow-soft backdrop:bg-scrim">
+    <div class="flex max-h-[calc(100dvh-2rem)] flex-col">
+      <div class="flex items-center justify-between gap-2 border-b border-line py-1 pl-4 pr-1">
+        <h2 id="memory-title" class="m-0 text-base font-semibold">What 234 remembers</h2>
+        <button type="button" data-action="close-memory" aria-label="Close" title="Close" class="focus-ring grid size-11 shrink-0 cursor-pointer place-items-center rounded-control text-ink-2 hover:text-ink">
+          <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+        <p data-slot="status" role="status" class="m-0 px-2 pb-1 text-sm text-bad empty:hidden"></p>
+        <p data-slot="empty" class="m-0 px-2 py-8 text-center text-ink-3" hidden>Nothing yet.</p>
+        <div data-slot="groups" class="flex flex-col gap-3"></div>
+      </div>
+      <div class="flex items-center justify-between gap-2 border-t border-line px-2 py-1">
+        <a data-action="export" href="{% url 'chat:memory-export' %}" download="234-memory.json" class="focus-ring inline-flex min-h-11 items-center rounded-control px-3 text-sm text-ink-2 no-underline hover:text-ink">Export</a>
+        <button type="button" data-action="delete-all" class="focus-ring min-h-11 cursor-pointer rounded-control px-3 text-sm text-bad hover:bg-sunken disabled:cursor-default disabled:opacity-50">Delete everything</button>
+      </div>
+    </div>
+  </dialog>
+  <template data-kind="group">
+    <section>
+      <h3 class="m-0 px-2 pb-1 text-sm font-semibold text-ink-3" data-slot="heading"></h3>
+      <ul class="m-0 flex list-none flex-col p-0" data-slot="rows"></ul>
+    </section>
+  </template>
+  <template data-kind="row">
+    <li class="flex items-start gap-1 rounded-control px-2 py-1" data-slot="row">
+      <div class="min-w-0 flex-1 py-2">
+        <p class="m-0 text-base wrap-anywhere" data-slot="title"></p>
+        <p class="m-0 text-sm text-ink-3 wrap-anywhere" data-slot="hook"></p>
+      </div>
+      <button type="button" data-action="edit" aria-label="Edit" title="Edit" class="focus-ring grid size-11 shrink-0 cursor-pointer place-items-center rounded-control text-ink-3 hover:text-ink">
+        <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.500 4.500l3 3L7 16H4v-3l8.500-8.500z"/></svg>
+      </button>
+      <button type="button" data-action="forget" aria-label="Delete" title="Delete" class="focus-ring grid size-11 shrink-0 cursor-pointer place-items-center rounded-control text-ink-3 hover:text-bad">
+        <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.600L14 6M8.500 9v4M11.500 9v4"/></svg>
+      </button>
+    </li>
+  </template>
+  <template data-kind="editing">
+    <li class="rounded-control bg-sunken px-2 py-2" data-slot="row">
+      <form class="grid gap-2" data-slot="form">
+        <label class="grid gap-1 text-sm text-ink-3">Title<input data-slot="title-input" maxlength="60" autocomplete="off" class="field min-h-11"></label>
+        <label class="grid gap-1 text-sm text-ink-3" data-slot="hook-label">Line<input data-slot="hook-input" maxlength="120" autocomplete="off" class="field min-h-11"></label>
+        <div class="flex gap-2">
+          <button type="submit" class="btn-primary">Save</button>
+          <button type="button" data-action="cancel" class="btn-secondary">Cancel</button>
+        </div>
+      </form>
+    </li>
+  </template>
+  <template data-kind="forgot">
+    <li class="flex items-center justify-between gap-2 rounded-control px-2 py-1" data-slot="row">
+      <p class="m-0 min-w-0 py-2 text-sm text-ink-2 wrap-anywhere" role="status" data-slot="text"></p>
+      <button type="button" data-action="undo" class="focus-ring min-h-11 shrink-0 cursor-pointer rounded-control px-3 text-sm font-semibold text-ink hover:bg-sunken">Undo</button>
+    </li>
+  </template>
+</chat-memory>

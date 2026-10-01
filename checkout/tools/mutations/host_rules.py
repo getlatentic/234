@@ -107,8 +107,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "nothing the model or a card sends becomes the owner of a call",
         "turns/hub.py",
-        'request("tools/call", params, _owner_key(owner))',
-        'request("tools/call", params, arguments.get("owner", owner))',
+        '"tools/call", params, _owner_key(owner), notes=server == MEMORY_SERVER',
+        '"tools/call", params, arguments.get("owner", owner), notes=server == MEMORY_SERVER',
         OWNER,
     ),
     host(

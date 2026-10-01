@@ -2,7 +2,7 @@
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
-from turns.hub import HubError
+from turns.hub import MEMORY_SERVER, HubError
 
 from .. import card_csp, sandbox
 from ..access import chat_for
@@ -57,6 +57,10 @@ def call(request: HttpRequest, chat_id: str) -> JsonResponse:
     """A card's tools/call, relayed to the connector that served it by the chat's Durable Object."""
     chat = chat_for(request, chat_id)
     body = json_body(request)
+    if body.get("server") == MEMORY_SERVER and chat.owner != request.owner:
+        return JsonResponse(
+            {"error": "Only the owner of this chat can change what 234 remembers."}, status=403
+        )
     arguments = body.get("arguments") if isinstance(body.get("arguments"), dict) else {}
     answer = get_backend().card_call(
         chat.id, str(body.get("server", "")), str(body.get("name", "")), arguments

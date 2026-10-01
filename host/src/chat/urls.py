@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from django.urls import path, re_path
 
-from .views import cancel, cards, compact, events, hooks, pages, send, socket
+from .views import cancel, cards, compact, events, hooks, memory, pages, send, socket
 
 app_name = "chat"
 
@@ -12,6 +12,12 @@ urlpatterns = [
     path("manifest.webmanifest", pages.manifest, name="manifest"),
     path("hooks/payment", hooks.payment, name="payment-hook"),
     path("join/<str:token>", pages.join, name="join"),
+    path("memory/", memory.entries, name="memory"),
+    path("memory/export.json", memory.export, name="memory-export"),
+    path("memory/undo", memory.undo, name="memory-undo"),
+    path("memory/delete-all", memory.delete_everything, name="memory-delete-all"),
+    re_path(r"^memory/(?P<entry_id>[0-9a-f]{16})/edit$", memory.edit, name="memory-edit"),
+    re_path(r"^memory/(?P<entry_id>[0-9a-f]{16})/forget$", memory.forget, name="memory-forget"),
     re_path(CHAT + r"$", pages.page, name="page"),
     re_path(CHAT + r"delete$", pages.delete, name="delete"),
     re_path(CHAT + r"share$", pages.share, name="share"),
