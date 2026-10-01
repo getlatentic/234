@@ -7,7 +7,7 @@
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-composer.mjs
 import { mkdirSync } from "node:fs";
-import { HOST, browser, pause, seen, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
+import { browser, HOST, openHome, pause, seen, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Composer");
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
@@ -50,7 +50,7 @@ for (const scheme of ["light", "dark"]) {
   const context = await chromium.newContext({ colorScheme: scheme, viewport: { width: 420, height: 800 } });
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await pause(300);
 
   const height = 800;
@@ -197,7 +197,7 @@ for (const scheme of ["light", "dark"]) {
   check(await seen(page.locator("assistant-text", { hasText: "after the stop" }).waitFor({ timeout: 15000 })), "the chat carries on: the next message is answered");
   await settled(page);
   const counted = await page.locator("chat-thread").evaluate(async (el) => {
-    const answer = await fetch(el.dataset.eventsUrl.replace(/events$/, "cancel"), { method: "POST", headers: { "content-type": "application/json", "X-CSRFToken": document.querySelector('meta[name="csrf-token"]').content }, body: "{}" });
+    const answer = await fetch(el.dataset.eventsUrl.replace(/events$/, "cancel"), { method: "POST", headers: { "content-type": "application/json", "X-CSRFToken": (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf }, body: "{}" });
     return answer.json();
   });
   check(counted.cancelled === false, "stopping a chat that is idle changes nothing");
@@ -209,7 +209,7 @@ console.log("\na quiet stop: reduced motion");
   const context = await chromium.newContext({ viewport: { width: 420, height: 800 }, reducedMotion: "reduce" });
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await page.evaluate(() => {
     window.__animated = 0;
     new MutationObserver(() => (window.__animated += document.querySelector("form").getAnimations().length)).observe(document.querySelector("chat-thread"), { attributes: true });
@@ -228,7 +228,7 @@ console.log("\na 320px phone");
   const context = await chromium.newContext({ viewport: { width: 320, height: 568 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await pause(300);
   const fits = () =>
     page.evaluate(() => {
@@ -285,7 +285,7 @@ console.log("\na 320px phone");
   await pause(200);
   now = await fits();
   check(now.bottom <= 300 && now.bottom > 300 - 20, "when the browser shrinks the layout for the keyboard (300px left), the docked pill follows the new bottom");
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await page.setViewportSize({ width: 320, height: 300 });
   await pause(300);
   now = await fits();
@@ -297,7 +297,7 @@ console.log("\nthe keyboard's inset");
 {
   const context = await chromium.newContext({ viewport: { width: 320, height: 568 } });
   const page = await context.newPage();
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   const cases = await page.evaluate(async () => {
     const { keyboardInset } = await import("/static/chat/keyboard.js");
     return [

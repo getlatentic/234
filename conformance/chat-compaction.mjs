@@ -5,7 +5,7 @@
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-compaction.mjs
 import { mkdirSync } from "node:fs";
-import { HOST, browser, pause, say, sendFirst, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
+import { browser, HOST, openHome, pause, say, sendFirst, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Compaction");
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
@@ -20,7 +20,7 @@ const bubbles = (page) => page.locator('[data-slot="thread"] [data-kind="user"]'
 const compact = (page, chat, keep = 50) =>
   page.evaluate(
     async ({ url, keep }) => {
-      const token = document.querySelector('meta[name="csrf-token"]').content;
+      const token = (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf;
       const reply = await fetch(url, { method: "POST", headers: { "X-CSRFToken": token, "content-type": "application/json" }, body: JSON.stringify({ keep_recent_tokens: keep }) });
       return reply.json();
     },
@@ -38,7 +38,7 @@ for (const scheme of ["light", "dark"]) {
   const context = await chromium.newContext({ colorScheme: scheme, viewport: { width: 420, height: 760 } });
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   const chat = await sendFirst(page, talk(0));
   for (let n = 1; n < 6; n += 1) await say(page, talk(n));
   await settled(page);

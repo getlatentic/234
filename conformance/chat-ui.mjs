@@ -6,7 +6,7 @@
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-ui.mjs
 import { mkdirSync } from "node:fs";
-import { HOST, MODEL, browser, cardIn, freshLedger, modelRequests, openDrawer, sendFirst, seen, settled, suite, watchErrors } from "./lib.mjs";
+import { browser, cardIn, freshLedger, HOST, MODEL, modelRequests, openDrawer, openHome, seen, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Chat UI");
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
@@ -20,7 +20,7 @@ for (const scheme of ["light", "dark"]) {
   const page = await context.newPage();
   const errors = watchErrors(page);
 
-  const first = await page.goto(`${HOST}/`);
+  const first = await openHome(page);
   check(first.ok(), "the home page renders");
   check(first.headers()["content-security-policy"]?.includes("script-src 'self'"), "the page carries a policy that allows only its own scripts");
   const cookie = (await context.cookies()).find((c) => c.name === "visitor");
@@ -64,7 +64,7 @@ for (const scheme of ["light", "dark"]) {
   check(text.includes("Card: Payment received") && text.includes("I have prepared this for you"), "after a reload the stored history is the same conversation");
   check(await seen(cardIn(page).getByText("Payment received").first().waitFor({ timeout: 10000 })), "and the card comes back showing the receipt, not the first quote");
 
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await openDrawer(page);
   check((await page.locator("chat-sheet li").count()) === 1 && (await page.locator("chat-sheet").innerText()).includes("Pay ₦2,500"), "the list shows the chat under its first message");
   await page.screenshot({ path: `${screens}list-${scheme}.png` });

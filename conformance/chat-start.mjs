@@ -5,7 +5,7 @@
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-start.mjs
 import { mkdirSync } from "node:fs";
-import { HOST, browser, openDrawer, pause, say, seen, sendFirst, suite, watchErrors } from "./lib.mjs";
+import { browser, HOST, openDrawer, openHome, pause, say, seen, sendFirst, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Chat start");
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
@@ -40,7 +40,7 @@ for (const scheme of ["light", "dark"]) {
   const context = await chromium.newContext({ colorScheme: scheme, viewport: { width: 420, height: 800 } });
   const page = await context.newPage();
   watchErrors(page, errors);
-  const home = await page.goto(`${HOST}/`);
+  const home = await openHome(page);
   check(home.ok() && new URL(page.url()).pathname === "/", "the home page opens at /");
   check((await focusedId(page)) === "text", "the input has focus with no click");
   check((await page.locator("chat-thread[data-draft]").count()) === 1, "the page is a chat that is not made yet");
@@ -81,7 +81,7 @@ for (const scheme of ["light", "dark"]) {
   await page.getByRole("button", { name: "Close" }).click();
 
   console.log(`\n${scheme}: the drawer, by keyboard`);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   check(await page.getByRole("button", { name: "Chats" }).isVisible(), "a visitor with an earlier chat has the chats button, on the empty page too");
   await page.keyboard.press("Shift+Tab");
   check(await seen(page.getByRole("button", { name: "Chats" }).evaluate((b) => b === document.activeElement || Promise.reject())), "Shift+Tab reaches the Chats button");
@@ -113,6 +113,7 @@ for (const scheme of ["light", "dark"]) {
   await openChats(page);
   await page.getByRole("link", { name: "New chat" }).click();
   await page.waitForURL(`${HOST}/`);
+  await page.locator("chat-thread[data-me]").waitFor({ state: "attached" });
   check((await focusedId(page)) === "text" && (await page.locator("chat-thread[data-draft]").count()) === 1, "New chat lands on the same ready composer");
   check((await rows(page).count()) === 1, "a visitor with an earlier chat still gets a fresh composer, with the list one tap away");
   const again = await visibleText(page);
@@ -133,10 +134,10 @@ for (const scheme of ["light", "dark"]) {
   check((await rows(page).count()) === before + 1, "a double submit makes one chat");
   check((await page.locator(".self-end").count()) === 1, "and sends the message once");
 
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   const outcome = await page.evaluate(async () => {
     const thread = document.querySelector("chat-thread");
-    const token = document.querySelector('meta[name="csrf-token"]').content;
+    const token = (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf;
     const send = (text) => fetch(thread.dataset.startUrl, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "X-CSRFToken": token }, body: JSON.stringify({ text }) });
     const answers = await Promise.all([send("echo: first of two"), send("echo: second of two")]);
     return { statuses: answers.map((a) => a.status), url: thread.dataset.pageUrl };
@@ -146,18 +147,18 @@ for (const scheme of ["light", "dark"]) {
   await page.waitForFunction(() => document.querySelectorAll(".self-end").length === 2, null, { timeout: 8000 });
   await idle(page); // a round that starts after both messages arrived answers both in one reply
   check((await page.locator(".self-end").allInnerTexts()).sort().join() === "echo: first of two,echo: second of two", "they are two messages of one chat");
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await openChats(page);
   check((await rows(page).count()) === before + 2, "and the list holds one chat for them, not two");
 
   console.log(`\n${scheme}: the list is newest first`);
   for (const text of ["echo: alpha", "echo: bravo", "echo: charlie"]) {
-    await page.goto(`${HOST}/`);
+    await openHome(page);
     await sendFirst(page, text);
     await idle(page);
     await pause(300);
   }
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await openChats(page);
   const titles = (await rowTitles(page)).slice(0, 3);
   check(titles.join() === "echo: charlie,echo: bravo,echo: alpha", `newest first: ${titles.join(" | ")}`);
@@ -169,7 +170,7 @@ console.log("\na 320px phone");
 const small = await chromium.newContext({ viewport: { width: 320, height: 568 }, colorScheme: "light" });
 const phone = await small.newPage();
 watchErrors(phone, errors);
-await phone.goto(`${HOST}/`);
+await openHome(phone);
 const layout = () =>
   phone.evaluate(() => {
     const floating = [...document.querySelectorAll("*")].filter((el) => ["fixed", "sticky"].includes(getComputedStyle(el).position) && el.getClientRects().length > 0).map((el) => el.localName);

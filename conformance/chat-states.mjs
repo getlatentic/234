@@ -6,7 +6,7 @@
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-states.mjs
 import { mkdirSync } from "node:fs";
-import { HOST, browser, pause, sendFirst, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
+import { browser, HOST, openHome, pause, sendFirst, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("States above the composer");
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
@@ -19,7 +19,7 @@ for (const scheme of ["light", "dark"]) {
   const context = await chromium.newContext({ colorScheme: scheme, viewport: { width: 420, height: 700 } });
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, "echo: a reply to stay above");
   await settled(page);
   const offline = page.locator('[data-slot="offline"]');

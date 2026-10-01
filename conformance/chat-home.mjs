@@ -8,7 +8,7 @@
 // needs the stack (tools/up.sh). usage: node conformance/chat-home.mjs
 import { mkdirSync } from "node:fs";
 import { contrastReport } from "./card-checks.mjs";
-import { HOST, browser, cardIn, freshLedger, openDrawer, seen, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
+import { browser, cardIn, freshLedger, HOST, openDrawer, openHome, seen, settled, suite, tokenColor, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Home");
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
@@ -32,7 +32,7 @@ const visit = async (options = {}, watch = true) => {
   const context = await chromium.newContext({ viewport: { width: 420, height: 860 }, ...options });
   const page = await context.newPage();
   if (watch) watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   return { context, page };
 };
 
@@ -171,7 +171,7 @@ console.log("\none press is one message");
   check((await page.locator("chat-starters").isVisible()) === false, "and stay gone when the chat is reloaded");
   const asFirst = await page.locator("#text").evaluate((el) => el.value);
   check(asFirst === "", "the composer is empty again after the starter was sent");
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   check(await page.locator("chat-starters").isVisible(), "a new empty home has them again");
   await context.close();
 }
@@ -206,7 +206,7 @@ console.log("\nthe chats button");
   const styleTop = await page.evaluate(() => getComputedStyle(document.querySelector('[data-action="chats"]')).top);
   const source = await page.evaluate(() => [...document.styleSheets].flatMap((s) => [...s.cssRules]).map((r) => r.cssText).join("\n"));
   check(/safe-area-inset-top/.test(source) && /safe-area-inset-left/.test(source) && parseFloat(styleTop) >= 12, "it and the first line respect the safe-area insets (env() in the stylesheet; Chromium reports 0 for them)");
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   check(await button.isVisible(), "it is there on the empty home too, for the visitor with earlier chats");
   b = await spot();
   const markBox = await page.locator('[data-slot="wordmark"]').boundingBox();

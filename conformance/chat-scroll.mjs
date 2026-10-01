@@ -5,7 +5,7 @@
 // explains something (the drawer sliding in, the button going down) and not at all under reduced motion.
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-scroll.mjs
-import { HOST, browser, pause, say, seen, settled, sendFirst, suite, watchErrors } from "./lib.mjs";
+import { browser, HOST, openHome, pause, say, seen, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Scroll");
 const chromium = await browser();
@@ -26,7 +26,7 @@ console.log("a reply that streams");
   const context = await chromium.newContext({ viewport: { width: 420, height: 700 } });
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   check((await page.locator('[data-slot="latest"]').count()) === 1 && !(await visible(page)), "the Latest button exists and is not shown on the empty home");
   await sendFirst(page, "slow:600@0.03");
   await page.waitForFunction(() => document.documentElement.scrollHeight > innerHeight + 200, null, { timeout: 30000 });
@@ -82,7 +82,7 @@ console.log("\nreduced motion");
   const context = await chromium.newContext({ viewport: { width: 420, height: 700 }, reducedMotion: "reduce" });
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, "slow:500@0.005");
   await settled(page, 30000);
   await page.evaluate(() => scrollTo(0, 0));

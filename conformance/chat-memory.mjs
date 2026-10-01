@@ -12,7 +12,7 @@ import { readFileSync, mkdirSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { chromium } from "playwright";
 import { contrastReport } from "./card-checks.mjs";
-import { HOST, MODEL, cardFrames, freshLedger, inCard, openDrawer, say, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
+import { cardFrames, csrfOf, freshLedger, HOST, inCard, MODEL, openDrawer, openHome, say, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("What 234 remembers");
 const base = Number(process.env.PORT_BASE ?? 8900);
@@ -43,12 +43,12 @@ async function person(who, options = {}, watch = true) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...options });
   const page = await context.newPage();
   if (watch) watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   if (who) {
-    const csrf = await page.locator('meta[name="csrf-token"]').getAttribute("content");
+    const csrf = await csrfOf(page);
     const signed = await context.request.post(`${HOST}/auth/session`, { data: { idToken: await emulatorToken(`${who}.${run}@example.com`) }, headers: { "X-CSRFToken": csrf } });
     if (signed.status() !== 200) throw new Error(`sign-in refused: ${signed.status()}`);
-    await page.goto(`${HOST}/`);
+    await openHome(page);
   }
   return { context, page };
 }
@@ -81,7 +81,7 @@ const visitor = await person(null);
   check(!tools.some((name) => name.startsWith("memory__")), "the model was offered no memory tool");
   check((await page.request.get(`${HOST}/memory/`)).status() === 404 && (await page.request.get(`${HOST}/memory/export.json`)).status() === 404, "the page's memory addresses are 404");
   await openDrawer(page);
-  check((await page.getByText("What 234 remembers").count()) === 0 && !(await page.content()).includes("chat-memory"), "the drawer says nothing of memory");
+  check((await page.getByText("What 234 remembers").count()) === 0 && (await page.locator("chat-memory").count()) === 0, "the drawer says nothing of memory (the sheet and the entry wait, inert, in templates)");
   check(Boolean(chat), "and the chat itself works");
   await context.close();
 }
@@ -112,7 +112,7 @@ console.log("\nthe notes reach a NEW chat as labelled data right after the syste
 {
   const { page } = ada;
   await reset();
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, "recall usual");
   await page.locator("assistant-text").last().waitFor({ timeout: 25000 });
   const sent = await sentFor("recall usual");
@@ -183,7 +183,7 @@ console.log("\nforget has an Undo");
 console.log("\nthe sheet in the chats drawer");
 {
   const { page } = ada;
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await openDrawer(page);
   const opener = page.getByRole("button", { name: "What 234 remembers" });
   check((await opener.count()) === 1, "the drawer has a 'What 234 remembers' entry under the account line");
@@ -248,7 +248,7 @@ console.log("\na guest of a shared chat cannot change the owner's notes");
   await waitForCard(page, cards + 1);
   const ref = await memoryCards(page).last().getAttribute("data-ref");
   const shared = await page.evaluate(async (chat) => {
-    const token = document.querySelector('meta[name="csrf-token"]').content;
+    const token = (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf;
     const r = await fetch(`/c/${chat}/share`, { method: "POST", headers: { "X-CSRFToken": token } });
     return (await r.json()).url;
   }, adaChat);
@@ -256,7 +256,7 @@ console.log("\na guest of a shared chat cannot change the owner's notes");
   await guest.page.goto(shared);
   const call = await guest.page.evaluate(
     async ({ chat, ref }) => {
-      const token = document.querySelector('meta[name="csrf-token"]').content;
+      const token = (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf;
       const body = { server: "memory", name: "confirm_memory", arguments: { proposal_id: ref, confirm_token: "x" } };
       const r = await fetch(`/c/${chat}/call`, { method: "POST", headers: { "X-CSRFToken": token, "content-type": "application/json" }, body: JSON.stringify(body) });
       return { status: r.status, body: await r.json() };

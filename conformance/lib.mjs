@@ -64,9 +64,19 @@ export async function sendFirst(page, text) {
   return new URL(page.url()).pathname.split("/")[2];
 }
 
+/** Opens the home page and waits until it has what /api/me says about the visitor (chats, account); returns the page's own response. */
+export async function openHome(page, query = "") {
+  const response = await page.goto(`${HOST}/${query}`);
+  await page.locator("chat-thread[data-me]").waitFor({ state: "attached" });
+  return response;
+}
+
+/** The CSRF token /api/me gives the page's visitor, asked from inside the page (its cookies). */
+export const csrfOf = (page) => page.evaluate(async () => (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf);
+
 /** Opens the home page (with a query, if given) and starts a chat the way a person does. */
 export async function startChat(page, text, query = "") {
-  await page.goto(`${HOST}/${query}`);
+  await openHome(page, query);
   return sendFirst(page, text);
 }
 

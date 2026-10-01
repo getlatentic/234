@@ -71,7 +71,7 @@ async function tokenOf({ page, chat }, ref) {
 /** A card's tool call sent to the host's relay by this visitor's page, with the visitor's own CSRF token. */
 function relay({ page }, chat, body, headers = {}) {
   return page.evaluate(async ({ chat, body, headers }) => {
-    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const csrf = (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf;
     const reply = await fetch(`/c/${chat}/call`, {
       method: "POST",
       headers: { "content-type": "application/json", "X-CSRFToken": csrf, ...headers },

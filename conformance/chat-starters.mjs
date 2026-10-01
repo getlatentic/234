@@ -8,7 +8,7 @@
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-starters.mjs
 import { mkdirSync } from "node:fs";
-import { HOST, browser, cardIn, freshLedger, seen, settled, suite, watchErrors } from "./lib.mjs";
+import { browser, cardIn, freshLedger, HOST, openHome, seen, settled, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Starters that need the person");
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
@@ -24,7 +24,7 @@ const visit = async (options = {}) => {
   watchErrors(page, errors);
   const posts = [];
   page.on("request", (request) => request.method() === "POST" && /\/(start|send)$/.test(request.url()) && posts.push(request.postDataJSON()));
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   return { context, page, posts };
 };
 const field = (page) => page.evaluate(() => {

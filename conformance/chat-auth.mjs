@@ -12,7 +12,7 @@ import { createSign, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { contrastReport } from "./card-checks.mjs";
-import { HOST, cardIn, freshLedger, suite, tokenColor, watchErrors } from "./lib.mjs";
+import { cardIn, freshLedger, HOST, openHome, suite, tokenColor, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Sign in with Google");
 const base = Number(process.env.PORT_BASE ?? 8900);
@@ -36,7 +36,7 @@ async function device(options = {}, watch = true) {
   const page = await context.newPage();
   if (watch) watchErrors(page, errors);
   page.on("console", (m) => m.type() === "warning" && m.text().startsWith("sign-in:") && warnings.push(m.text()));
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   return { context, page };
 }
 
@@ -98,7 +98,7 @@ const post = async (context, page, path, body) => {
   await pace();
   return page.evaluate(
     async ({ path, body }) => {
-      const token = document.querySelector('meta[name="csrf-token"]').content;
+      const token = (await (await fetch("/api/me", { credentials: "same-origin" })).json()).csrf;
       const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json", "X-CSRFToken": token }, body: JSON.stringify(body) });
       return { status: r.status, body: await r.json().catch(() => ({})) };
     },
@@ -114,7 +114,7 @@ console.log("nothing about Firebase loads until the button is pressed");
   const requested = [];
   page.on("request", (r) => requested.push(r.url()));
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await page.waitForLoadState("networkidle");
   const foreign = requested.filter((url) => !url.startsWith(HOST));
   check(foreign.length === 0, `the home makes no request beyond its own origin (${foreign.length})`);
@@ -203,7 +203,7 @@ let anonymousChat;
 console.log("the session survives a reload");
 {
   const { page, context } = anonymous;
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await openChats(page);
   check((await signedIn(page).innerText()) === ada, "after a reload the drawer still shows the account");
   const rotated = (await cookieOf(context, "session")).value;
@@ -233,7 +233,7 @@ const other = await device();
   check(second && ids.includes(anonymousChat) && ids.includes(fromOther), "it sees the first device's chat and its own anonymous chat, adopted: the merge loses nothing");
   await page.goto(`${HOST}/c/${anonymousChat}/`);
   check((await page.locator("assistant-text").count()) > 0, "and opens the first device's chat");
-  await anonymous.page.goto(`${HOST}/`);
+  await openHome(anonymous.page);
   await openChats(anonymous.page);
   check((await chatIds(anonymous.page)).includes(fromOther), "the first device sees the chat the second made");
 }

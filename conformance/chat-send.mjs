@@ -5,7 +5,7 @@
 // fails (500) leaves the text in the field, the button back to Send, and one plain line saying why.
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-send.mjs
-import { HOST, browser, pause, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
+import { browser, HOST, openHome, pause, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Send");
 const chromium = await browser();
@@ -57,7 +57,7 @@ page.on("request", (request) => {
   if (/\/cancel$/.test(request.url())) cancels.push(request.url());
 });
 const hold = await holdTurnStart(page);
-await page.goto(`${HOST}/`);
+await openHome(page);
 await sendFirst(page, "echo: first");
 await settled(page);
 await page.locator("assistant-text").last().waitFor();

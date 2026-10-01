@@ -4,7 +4,7 @@
 // stream survives a dropped connection on either transport.
 //
 // needs the stack. usage: node conformance/chat-durable.mjs
-import { HOST, browser, pause, say, seen, startChat, suite, watchErrors } from "./lib.mjs";
+import { browser, HOST, openHome, pause, say, seen, startChat, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Chat durability");
 const chromium = await browser();
@@ -70,7 +70,7 @@ check(await reply(page, 50), "the second chat finishes its own reply");
 const mine = await other.locator("[data-message]").allInnerTexts();
 check(mine.at(-1).replace(/\s+/g, " ").trim() === words(20), "while the first chat, running at the same time, has only its own");
 check(!(await page.locator("chat-thread").innerText()).includes("word19 END"), "nothing from the first chat leaked into the second");
-await page.goto(`${HOST}/`);
+await openHome(page);
 await page.getByRole("button", { name: "Chats" }).click();
 check((await page.locator("chat-sheet li").count()) === 2, "both chats are in the list");
 await page.locator('chat-sheet [data-slot="open"]').nth(1).click();

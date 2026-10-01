@@ -5,7 +5,7 @@
 // opens the chat on another device, and delete removes it.
 //
 // needs the stack. usage: node conformance/chat-cards.mjs
-import { HOST, browser, cardIn, freshLedger, pause, say, seen, signedWebhook, startChat, suite, watchErrors } from "./lib.mjs";
+import { browser, cardIn, freshLedger, HOST, openHome, pause, say, seen, signedWebhook, startChat, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Chat cards and sharing");
 await freshLedger();
@@ -70,12 +70,12 @@ check(away.url() === `${HOST}/c/${chat}/`, "the link opens the chat on the other
 check(await seen(away.getByText("Pay ₦2,500 to Demo Kitchen for lunch").first().waitFor({ timeout: 8000 })) && (await away.locator("card-frame").count()) === 1, "with its whole conversation, the card included");
 await say(away, "thanks");
 check(await seen(one.getByText("thanks", { exact: true }).waitFor({ timeout: 8000 })), "and what is said there appears in the first device's tab at once");
-await away.goto(`${HOST}/`);
+await openHome(away);
 check((await away.locator("chat-sheet li").count()) === 1, "the chat is in that device's list");
 
 console.log("\ndelete");
 one.on("dialog", (dialog) => dialog.accept());
-await one.goto(`${HOST}/`);
+await openHome(one);
 await one.getByRole("button", { name: "Chats" }).click();
 await one.getByRole("button", { name: "Delete chat" }).click();
 await one.waitForFunction(() => document.querySelectorAll("chat-sheet li").length === 0);

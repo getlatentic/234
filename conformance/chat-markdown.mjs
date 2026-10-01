@@ -5,7 +5,7 @@
 //
 // needs the stack (tools/up.sh). usage: node conformance/chat-markdown.mjs
 import { readFileSync, mkdirSync } from "node:fs";
-import { HOST, browser, sendFirst, suite, watchErrors } from "./lib.mjs";
+import { browser, HOST, openHome, sendFirst, suite, watchErrors } from "./lib.mjs";
 import { HOSTILE, LONG_WORD, SAMPLE, findings } from "./markdown-fixtures.mjs";
 
 const { check, finish } = suite("Markdown in the chat");
@@ -49,7 +49,7 @@ for (const scheme of ["light", "dark"]) {
   const context = await phone(scheme);
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await page.evaluate(() => {
     window.__frames = [];
     new MutationObserver(() => {
@@ -90,13 +90,13 @@ for (const scheme of ["light", "dark"]) {
   check(!/<strong|<em|<table/.test(mine) && mine.includes("**the summary**"), "the person's own message stays plain text");
 
   console.log(`\n${scheme}: hostile replies through the model`);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, echo(`<script>window.__pwned=1</script> <img src=x onerror=window.__pwned=1> [a](javascript:window.__pwned=1) [b](https://example.com/ok) ![i](https://evil.example/t.png)`));
   await page.waitForFunction(() => document.querySelector("assistant-text a") !== null, null, { timeout: 20000 });
   await idle(page);
   check(await page.evaluate(({ checker }) => new Function(`return ${checker}`)()(document.querySelector("assistant-text")).length === 0, { checker: findings.toString() }), "no element, attribute, link or script from it");
   check((await lastReply(page).innerText()).includes("<script>window.__pwned=1</script>"), "the text is shown as text");
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, echo("| a | b |\n|---|---|\n| <img src=x onerror=window.__pwned=1> | <b>x</b> |\n| [x](javascript:window.__pwned=1) | ok |"));
   await page.waitForFunction(() => document.querySelector("assistant-text tbody tr:last-child td:last-child")?.textContent.includes("ok"), null, { timeout: 20000 });
   await idle(page);
@@ -109,7 +109,7 @@ console.log("\nevery hostile text, in the real page under its policy");
   const context = await phone("light");
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   const bad = await matrix(page, [...HOSTILE, LONG_WORD, "[ok](https://example.com/a?b=1&c=2) and [mail](mailto:a@example.com)"]);
   check(bad.length === 0, `${HOSTILE.length} hostile texts leave nothing behind ${JSON.stringify(bad).slice(0, 300)}`);
   const good = await matrix(page, ["[ok](https://example.com/a?b=1&c=2)"]);
@@ -137,7 +137,7 @@ for (const [name, change] of mutations) {
   const context = await phone("light");
   await context.route("**/static/chat/markdown.js", (route) => route.fulfill({ contentType: "text/javascript", body: changed }));
   const page = await context.newPage();
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   const bad = await matrix(page, [...HOSTILE, "[ok](https://example.com/a)"]);
   check(bad.length > 0, `with ${name}, ${bad.length} of the texts are caught`);
   await context.close();
@@ -147,7 +147,7 @@ console.log("\none render per animation frame");
 {
   const context = await phone("light");
   const page = await context.newPage();
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   const result = await page.evaluate(async () => {
     const el = document.createElement("assistant-text");
     document.body.append(el);
@@ -171,7 +171,7 @@ for (const scheme of ["light", "dark"]) {
   const context = await phone(scheme, 320, 568);
   const page = await context.newPage();
   watchErrors(page, errors);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, echo("| Item | Qty | Unit price | Total | Note |\n|:--|--:|--:|--:|:--|\n| Jollof rice | 2 | 1,200 | 2,400 | with plantain |\n| Beans | 12 | 950 | 11,400 | no pepper |"));
   await page.waitForFunction(() => document.querySelectorAll("assistant-text tbody tr").length === 2, null, { timeout: 25000 });
   await idle(page);
@@ -185,14 +185,14 @@ for (const scheme of ["light", "dark"]) {
   await page.waitForFunction(() => document.querySelectorAll("assistant-text tbody tr").length === 2);
   const faces = await page.evaluate(() => ({ loaded: [...document.fonts].filter((face) => face.status === "loaded").map((face) => face.family), heading: Boolean(document.querySelector("assistant-text h1, assistant-text h2, assistant-text h3")) }));
   check(faces.loaded.length === (faces.heading ? 1 : 0) && faces.loaded.every((family) => family === "Manrope"), `a conversation opened fresh loads a web font only for a heading, and then only Manrope (${JSON.stringify(faces)})`);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, echo("## Your order\n\nIt is on its way."));
   await page.waitForFunction(() => document.querySelector("assistant-text h2") && document.querySelector("assistant-text")?.textContent.includes("on its way"), null, { timeout: 20000 });
   await idle(page);
   await page.evaluate(() => document.fonts.ready);
   const heading = await page.evaluate(() => ({ family: getComputedStyle(document.querySelector("assistant-text h2")).fontFamily, body: getComputedStyle(document.querySelector("assistant-text p")).fontFamily, loaded: [...document.fonts].filter((face) => face.status === "loaded").map((face) => `${face.family} ${face.weight}`) }));
   check(heading.family.startsWith("Manrope") && !heading.body.startsWith("Manrope") && heading.loaded.length === 1 && heading.loaded[0].startsWith("Manrope"), `a heading is set in Manrope, loaded from the Worker's static files, and the text under it in the system stack (${JSON.stringify(heading)})`);
-  await page.goto(`${HOST}/`);
+  await openHome(page);
   await sendFirst(page, echo(`${LONG_WORD} then some words`));
   await page.waitForFunction(() => document.querySelector("assistant-text")?.textContent.includes("some words"), null, { timeout: 20000 });
   await idle(page);
