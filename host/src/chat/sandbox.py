@@ -45,12 +45,14 @@ def canonical(host: str, csp: dict[str, list[str]]) -> str:
     return "\n".join([host, *(f"{name}={','.join(csp[name])}" for name in FIELDS if csp.get(name))])
 
 
-def sign(csp: dict[str, list[str]]) -> str | None:
-    """The host's word that it issued this policy for its own origin, which the sandbox checks before it
-    serves a view under it. None when the host has no key, and then no card is shown. The key is read when
-    needed, so a rotated secret reaches a running Worker."""
+def sign(host: str, csp: dict[str, list[str]]) -> str | None:
+    """The host's word that it issued this policy for `host`, the origin of the page that asks, which the
+    sandbox checks before it serves a view under it. That is the origin the visitor reached (Django has
+    checked it against ALLOWED_HOSTS): the custom domain or the workers.dev address. None when the host has
+    no key, and then no card is shown. The key is read when needed, so a rotated secret reaches a running
+    Worker."""
     key = runtime.get("SANDBOX_SIGNING_KEY")
     if not key:
         return None
-    message = canonical(settings.PUBLIC_BASE_URL, csp).encode()
+    message = canonical(host, csp).encode()
     return hmac.new(key.encode(), message, hashlib.sha256).hexdigest()

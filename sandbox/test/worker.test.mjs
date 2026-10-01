@@ -122,3 +122,22 @@ test("the rest is refused: other paths, other methods, other files", async () =>
   const head = await get(`/?host=${encodeURIComponent(HOST)}`, { method: "HEAD" });
   assert.equal(head.status, 200);
 });
+
+test("with a custom domain the sandbox serves the host's two origins, each framed by itself alone, and the signature binds one", async () => {
+  const custom = "https://234.example.com";
+  const workersDev = "https://chat.acct.workers.dev";
+  const both = { HOST_ORIGINS: `${workersDev},${custom}`, SIGNING_KEY: "test-signing-key" };
+  const ask = (path) => worker.fetch(new Request(`https://sandbox.example${path}`), both);
+  for (const origin of [custom, workersDev]) {
+    const response = await ask(`/?host=${encodeURIComponent(origin)}`);
+    assert.equal(response.status, 200, origin);
+    assert.equal(policyOf(response)["frame-ancestors"], origin);
+  }
+  for (const stranger of ["https://example.com", "https://evil.234.example.com", "http://234.example.com", `${custom}.evil.example`]) {
+    assert.equal((await ask(`/?host=${encodeURIComponent(stranger)}`)).status, 403, stranger);
+  }
+  const forWorkersDev = sign({}, workersDev);
+  assert.equal((await ask(`/view?host=${encodeURIComponent(workersDev)}&csp=%7B%7D&sig=${forWorkersDev}`)).status, 200);
+  assert.equal((await ask(`/view?host=${encodeURIComponent(custom)}&csp=%7B%7D&sig=${forWorkersDev}`)).status, 403);
+  assert.equal((await ask(`/view?host=${encodeURIComponent(custom)}&csp=%7B%7D&sig=${sign({}, custom)}`)).status, 200);
+});

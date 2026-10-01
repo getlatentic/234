@@ -34,7 +34,7 @@ def card(request: HttpRequest, chat_id: str) -> JsonResponse:
         return JsonResponse({"error": str(refused)}, status=400)
     declaration = card_csp.resolve(page.ui, server, sandbox.origin_policy(), sandbox.granted_permissions())
     card_csp.audit(server, uri, declaration, page.ui)
-    signature = sandbox.sign(declaration.csp)
+    signature = sandbox.sign(f"{request.scheme}://{request.get_host()}", declaration.csp)
     if signature is None:
         return JsonResponse({"error": "The card sandbox has no signing key."}, status=503)
     response = JsonResponse(

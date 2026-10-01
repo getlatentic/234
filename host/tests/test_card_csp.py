@@ -185,12 +185,12 @@ def signing_key(monkeypatch):
     monkeypatch.setenv("SANDBOX_SIGNING_KEY", "test-signing-key")
 
 
-def test_the_signature_is_the_one_the_sandbox_checks(monkeypatch, settings):
-    settings.PUBLIC_BASE_URL = SIGNATURE["host"]
+def test_the_signature_is_the_one_the_sandbox_checks(monkeypatch):
     monkeypatch.setenv("SANDBOX_SIGNING_KEY", SIGNATURE["key"])
     assert sandbox.canonical(SIGNATURE["host"], SIGNATURE["csp"]) == SIGNATURE["canonical"]
-    assert sandbox.sign(SIGNATURE["csp"]) == SIGNATURE["signature"]
-    assert sandbox.sign({}) != SIGNATURE["signature"]
+    assert sandbox.sign(SIGNATURE["host"], SIGNATURE["csp"]) == SIGNATURE["signature"]
+    assert sandbox.sign(SIGNATURE["host"], {}) != SIGNATURE["signature"]
+    assert sandbox.sign("https://234.example.com", SIGNATURE["csp"]) != SIGNATURE["signature"]
 
 
 @pytest.mark.django_db
@@ -212,9 +212,22 @@ def test_the_card_route_answers_json_with_what_the_host_grants(visitor, backend,
     assert card["csp"] == PAYSTACK and card["hosts"] == ["js.paystack.co", "checkout.paystack.com"]
     assert card["permissions"] == {} and card["prefersBorder"] is False
     assert card["sandbox"] == "allow-scripts allow-same-origin"
-    assert card["signature"] == sandbox.sign(card["csp"]) and len(card["signature"]) == 64
+    assert (
+        card["signature"] == sandbox.sign("http://testserver", card["csp"]) and len(card["signature"]) == 64
+    )
     assert card["html"].startswith('<meta name="color-scheme" content="light dark">')
     assert page["Cache-Control"] == "private, max-age=300"
+
+
+@pytest.mark.django_db
+def test_the_signature_is_for_the_origin_the_page_was_reached_at(visitor, backend, settings):
+    settings.ALLOWED_HOSTS = ["testserver", "234.example.com"]
+    chat_id = visitor.new_chat()
+    asked = {"server": "s", "uri": "ui://s/card.html"}
+    custom = visitor.client.get(f"/c/{chat_id}/card", asked, HTTP_HOST="234.example.com").json()
+    own = visitor.client.get(f"/c/{chat_id}/card", asked).json()
+    assert custom["signature"] == sandbox.sign("http://234.example.com", {})
+    assert own["signature"] == sandbox.sign("http://testserver", {}) != custom["signature"]
 
 
 @pytest.mark.django_db
