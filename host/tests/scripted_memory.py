@@ -14,7 +14,7 @@ import re
 LABEL = "What this person asked 234 to remember."
 LINE = re.compile(r"^- \[(?P<title>.+?)\]\((?P<id>[0-9a-f]{16})\) — (?P<hook>.*)$", re.M)
 USUAL = re.compile(
-    r"^remember my usual airtime is (?P<network>mtn|airtel|glo|9mobile) (?P<amount>\d+)$", re.I
+    r"^remember (?:that )?my usual airtime is (?P<network>mtn|airtel|glo|9mobile) (?P<amount>\d+)$", re.I
 )
 LIVES = re.compile(r"^remember that i live in (?P<place>.+)$", re.I)
 SAVE = re.compile(r"^save (?P<nick>\w+) (?P<account>\d{10}) (?P<bank>[a-z ]+)$", re.I)

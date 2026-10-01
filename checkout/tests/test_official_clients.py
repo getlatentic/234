@@ -171,7 +171,8 @@ async def test_a_transfer_names_its_bank_and_the_connector_refuses_what_it_canno
         tools = {t.name: t for t in (await client.list_tools()).tools}
         schema = tools["create_transfer_quote"].input_schema
         assert {"bank", "bank_code"} <= set(schema["properties"])
-        assert schema["x-model-required"] == ["bank"] and schema["properties"]["bank_code"]["x-model-hidden"]
+        assert schema["x-model-required"] == ["account_number", "bank"]
+        assert schema["properties"]["bank_code"]["x-model-hidden"]
 
 
 async def test_no_connector_makes_a_quote_for_one_kobo():
