@@ -3,7 +3,7 @@
 //   shots   screenshots the card in light and dark into docs/screens (card-<connector>-<state>-<scheme>.png,
 //           react-<connector>-<state>-<scheme>.png for the unchanged React card)
 //   checks  interaction, accessibility and contrast checks of the Python-side card
-//   live    the card against running Workers: read-back tick, checkout, one-time code, payouts refused, order tracker
+//   live    the card against running Workers: checkout, one-time code, payouts refused, order tracker
 //           (PLAIN/OTP/NOPAY urls as in card-states-capture.mjs; PLAIN needs a small FOOD_STEP_SECONDS)
 //
 // usage: node conformance/card-states.mjs shots|checks|live [--card python|react|both] [--only <regex>] [--schemes light,dark]
@@ -174,26 +174,36 @@ async function checks() {
     }
   }
 
-  console.log("\nread-back: the tick gates Approve");
-  for (const key of ["airtime/approve", "data/approve", "data/long-plan"]) {
+  console.log("\nApprove, Decline and a correction: no tick");
+  for (const key of ["airtime/approve", "data/approve", "data/long-plan", "transfer/approve", "food/approve"]) {
     const { page, context, frame } = await open("python", key, "light", { answer: copy("airtime/checkout") });
     const approve = frame.getByRole("button", { name: "Approve" });
-    check(await approve.isDisabled(), `${key}: Approve is disabled until the read-back is ticked`);
-    const tick = frame.getByRole("checkbox");
-    check((await tick.count()) === 1, `${key}: one checkbox with an accessible name (${await tick.getAttribute("aria-label") ?? (await frame.locator("label").first().innerText()).trim()})`);
-    await page.keyboard.press("Tab");
-    check(await tick.evaluate((el) => el === el.getRootNode().activeElement), `${key}: first Tab lands on the tick, not on Approve`);
-    await page.keyboard.press("Space");
-    check(await approve.isEnabled(), `${key}: ticking enables Approve`);
+    check((await frame.getByRole("checkbox").count()) === 0 && (await approve.isEnabled()), `${key}: no tick, and Approve is enabled`);
     await approve.click();
     await page.waitForTimeout(300);
     const sent = (await calls(page)).find((c) => c.name === "approve_quote");
     check(sent?.args.readback_confirmed === true, `${key}: approve_quote carried readback_confirmed: true`);
     await context.close();
   }
-  for (const key of ["transfer/approve", "food/approve"]) {
-    const { context, frame } = await open("python", key, "light");
-    check(await frame.getByRole("button", { name: "Approve" }).isEnabled(), `${key}: Approve needs no tick`);
+
+  console.log("\ncorrection: declines the card and tells the chat");
+  for (const key of ["airtime/approve", "transfer/approve"]) {
+    const { page, context, frame } = await open("python", key, "light", { answer: copy("airtime/checkout") });
+    const field = frame.getByRole("textbox", { name: "Correction" });
+    check((await field.count()) === 1, `${key}: one field named Correction, already open`);
+    await field.click();
+    await field.fill("make it 2000 naira");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(400);
+    check((await calls(page)).some((c) => c.name === "decline_quote"), `${key}: the card is declined`);
+    check(await page.evaluate(() => window.__log.some((e) => e.kind === "message" && e.detail === "make it 2000 naira")), `${key}: the note reached the chat as a message`);
+    await context.close();
+  }
+  {
+    const { page, context, frame } = await open("python", "airtime/approve", "light");
+    await frame.getByRole("button", { name: "Send correction" }).click();
+    await page.waitForTimeout(300);
+    check(!(await calls(page)).some((c) => c.name === "decline_quote"), "an empty correction does nothing");
     await context.close();
   }
 
@@ -201,7 +211,6 @@ async function checks() {
   for (const key of ["transfer/approve", "airtime/approve"]) {
     const lost = { isError: true, content: [{ type: "text", text: "QUOTE_NOT_FOUND: There is no quote qt-gone." }] };
     const { page, context, frame, errors } = await open("python", key, "light", { answer: lost });
-    if (key.startsWith("airtime")) await frame.getByRole("checkbox").check();
     await frame.getByRole("button", { name: "Approve" }).click();
     await frame.getByText("No longer available").waitFor({ timeout: 5000 });
     const text = await frame.locator("body").innerText();
@@ -214,7 +223,7 @@ async function checks() {
   console.log("\nkeyboard");
   for (const [key, expected] of [
     ["transfer/approve", ["Approve", "Decline"]],
-    ["airtime/approve", [/^Correct/, "Decline"]],
+    ["airtime/approve", ["Approve", "Decline", "Correction"]],
     ["airtime/checkout", ["Open checkout", "I closed it"]],
     ["transfer/otp", ["One-time code", "Confirm"]],
   ]) {
@@ -290,12 +299,11 @@ const paySim = (base, page) =>
   page.evaluate(() => window.__log.find((e) => e.kind === "openlink")?.url).then((url) => fetch(`${base}${new URL(url).pathname}/pay`, { method: "POST" }));
 
 async function live() {
-  console.log("airtime: tick, Approve, checkout, delivered");
+  console.log("airtime: Approve, checkout, delivered");
   {
     const { page, context, errors, frame } = await openLive(WORKERS.plain, "airtime", "create_airtime_quote", { network: "mtn", phone: "08011111111", amount_kobo: 50_000, amount_as_user_said: "N500" });
-    await frame.getByRole("checkbox").check();
     await frame.getByRole("button", { name: "Approve" }).click();
-    check(await shows(frame, "Open checkout"), "the server accepted the ticked read-back and moved to checkout");
+    check(await shows(frame, "Open checkout"), "the server accepted the approval and moved to checkout");
     check(await page.evaluate(() => window.__log.some((e) => e.kind === "openlink")), "the card asked the host to open the checkout");
     await paySim(WORKERS.plain, page);
     check(await shows(frame, "Airtime delivered"), "polling ended on the delivered receipt");
@@ -305,7 +313,6 @@ async function live() {
   console.log("airtime: refund due");
   {
     const { page, context, frame } = await openLive(WORKERS.plain, "airtime", "create_airtime_quote", { network: "mtn", phone: "100000000000", amount_kobo: 50_000, amount_as_user_said: "N500" });
-    await frame.getByRole("checkbox").check();
     await frame.getByRole("button", { name: "Approve" }).click();
     await shows(frame, "Open checkout");
     await paySim(WORKERS.plain, page);

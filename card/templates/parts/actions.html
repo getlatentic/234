@@ -1,11 +1,12 @@
 <template id="t-approval">
   <div class="grid gap-2">
-    <label data-slot="readback" class="mb-2 hidden cursor-pointer items-center gap-3 rounded-control border border-line-strong px-4 py-3 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary">
-      <input type="checkbox" data-slot="readback-tick" class="size-5 shrink-0 cursor-pointer accent-ink">
-      <span>Correct</span>
-    </label>
     <button type="button" data-action="approve" class="btn-primary">Approve</button>
     <button type="button" data-action="decline" class="btn-quiet">Decline</button>
+    <div class="mt-1 flex items-center gap-2">
+      <label for="correction" class="sr-only">Correction</label>
+      <input id="correction" data-slot="correction" placeholder="Correction" maxlength="300" autocomplete="off" enterkeyhint="send" class="min-w-0 flex-1 rounded-control border border-line-strong bg-transparent px-3 py-3 outline-offset-2 placeholder:text-ink-3 focus-ring">
+      <button type="button" data-action="correct" aria-label="Send correction" class="btn-quiet shrink-0">Send</button>
+    </div>
   </div>
 </template>
 <template id="t-checkout">

@@ -19,12 +19,11 @@ async function openCard(context, message) {
   watchErrors(page, errors);
   const chat = await startChat(page, message);
   const card = cardIn(page);
-  await card.getByRole("checkbox").waitFor({ timeout: 20000 });
+  await card.getByRole("button", { name: "Approve" }).waitFor({ timeout: 20000 });
   return { page, card, chat };
 }
 
 async function approveAndPay(context, { page, card }, button = "Pay with a test card") {
-  await card.getByRole("checkbox").check();
   const popup = context.waitForEvent("page", { timeout: 15000 });
   await card.getByRole("button", { name: /Approve/ }).click();
   const checkout = await popup;

@@ -94,6 +94,7 @@ const McpApp = (() => {
     openLink: (url) => request("ui/open-link", { url }),
     requestDisplayMode: (mode) => request("ui/request-display-mode", { mode }),
     host: () => host,
+    message: (text) => request("ui/message", { role: "user", content: [{ type: "text", text }] }),
     updateModelContext: (text) => request("ui/update-model-context", { content: [{ type: "text", text }] }),
   };
 })();

@@ -14,7 +14,7 @@ window.__mount = async ({ html, result, answer, scheme, notice, hostContext = {}
   const bridge = new AppBridge(
     null,
     { name: "card-states-host", version: "0.1.0" },
-    { openLinks: {}, serverTools: {}, updateModelContext: { text: {} } },
+    { openLinks: {}, serverTools: {}, updateModelContext: { text: {} }, message: { text: {} } },
     { hostContext: { theme: scheme, ...hostContext } },
   );
   // A host that offers the display modes it lists: the page's own CSS makes the frame fill the window.
@@ -34,7 +34,10 @@ window.__mount = async ({ html, result, answer, scheme, notice, hostContext = {}
     log.push({ kind: "openlink", url: params.url });
     return {};
   };
-  bridge.onmessage = async () => ({});
+  bridge.onmessage = async (params) => {
+    log.push({ kind: "message", detail: params.content?.[0]?.text ?? "" });
+    return {};
+  };
   bridge.onupdatemodelcontext = async (params) => {
     log.push({ kind: "modelcontext", text: params.content?.[0]?.text ?? "" });
     return {};

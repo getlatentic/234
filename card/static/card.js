@@ -109,11 +109,6 @@
     switch (q.phase) {
       case "awaiting_approval": {
         const node = fromTemplate("t-approval");
-        if (q.details.kind === "airtime" || q.details.kind === "data") {
-          const tickRow = slot(node, "readback");
-          tickRow.classList.replace("hidden", "flex");
-          slot(node, "readback-tick").setAttribute("aria-label", `Correct: ${q.details.readBack}`);
-        }
         return node;
       }
       case "awaiting_checkout": return fromTemplate("t-checkout");
@@ -175,12 +170,7 @@
   }
 
   function syncBusy() {
-    const readback = root.querySelector('[data-slot="readback-tick"]');
-    const needsTick = Boolean(readback) && !readback.closest(".hidden");
-    root.querySelectorAll("button").forEach((button) => {
-      const blocked = state.busy || (button.dataset.action === "approve" && needsTick && !readback.checked);
-      button.disabled = blocked;
-    });
+    root.querySelectorAll("button").forEach((button) => { button.disabled = state.busy; });
   }
 
   const countdown = (ms) => {
@@ -286,15 +276,15 @@
 
   const actionsByName = {
     approve: async () => {
-      const tick = root.querySelector('[data-slot="readback-tick"]');
       const outcome = await run("approve_quote", {
         approval_token: state.token ?? "",
         displayed_amount_kobo: state.quote.amount.kobo,
-        readback_confirmed: tick ? tick.checked : false,
+        readback_confirmed: true,
       });
       if (outcome.quote?.checkoutUrl) openCheckout();
     },
     decline: () => run("decline_quote", { approval_token: state.token ?? "" }),
+    correct: () => sendCorrection(),
     "open-checkout": () => openCheckout(),
     "closed-checkout": () => run("verify_quote", { checkout_closed: true }),
     otp: () => submitOtp(),
@@ -310,8 +300,17 @@
     const code = root.querySelector('[data-slot="otp"]').value.trim();
     if (code.length >= 4) run("submit_otp", { otp: code });
   }
+  async function sendCorrection() {
+    const field = root.querySelector('[data-slot="correction"]');
+    const text = field.value.trim();
+    if (!text) return;
+    await run("decline_quote", { approval_token: state.token ?? "" });
+    McpApp.message(text).catch(() => undefined);
+  }
   root.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && event.target.dataset.slot === "otp") submitOtp();
+    if (event.key !== "Enter") return;
+    if (event.target.dataset.slot === "otp") submitOtp();
+    if (event.target.dataset.slot === "correction") sendCorrection();
   });
 
   let lastPoll = 0;
