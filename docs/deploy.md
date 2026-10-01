@@ -175,6 +175,8 @@ to a fresh chat, so once a model is set a deploy makes one model call. `CHECK_FU
 
 It is safe to run again: secrets that exist are kept and migrations already applied are skipped.
 
+**The ledger migration `0005_memory.sql`** (the tables of what 234 remembers, with an FTS5 index and its triggers, [memory.md](memory.md)) is applied by the same step. It creates tables only and changes no row of the ledger. The memory settings (`MEMORY_INDEX_TOKENS`, `MEMORY_MAX_ENTRIES`, `MEMORY_MAX_BODY_BYTES`, `MEMORY_RETENTION_DAYS`, `MEMORY_PROPOSAL_TTL_SECONDS`, `MEMORY_MAX_PENDING`) have defaults and are not set by the deploy. It has not been run on the real D1: FTS5 and its triggers ran on the local D1 engine only. The host offers memory when `memory` is in `CONNECTORS` (the default), and only to a signed-in account.
+
 **The ledger migration `0004_owner.sql`** (each quote gets an owner) is applied by this same command, in the
 "ledger migrations" step, before the connectors are uploaded: `wrangler d1 migrations apply DB --remote`. It is
 safe with data present: it adds a column with a default (`ALTER TABLE ... ADD COLUMN`, no table rebuild), an

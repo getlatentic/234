@@ -18,7 +18,7 @@ It is the model's choice, not a rare accident: with the prompt as it was (`a39da
 - never guess, invent, leave empty or use a placeholder for a number, account, amount, merchant, item or area;
 - nothing about idempotency keys: the model is not offered one (see "Idempotency keys" below).
 
-There is no "saved recipient" in the product (no tool stores one), so the prompt does not mention it.
+A person who is not signed in has no "saved recipient" (no tool stores one for them), so their prompt does not mention one. A signed-in person's prompt gains one paragraph about their saved notes and the transfer tool takes a saved recipient by id: [memory.md](memory.md).
 
 What the iterations taught (each was a probe run, not a guess):
 

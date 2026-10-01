@@ -17,8 +17,10 @@ writes an append-only event log in D1 and pushes it to open WebSockets; the page
 recovery are all folds of that log. The model calls MCP connectors (Paystack-style payments, transfers, airtime and
 data through VTpass, a food merchant) that return MCP Apps cards, and each card runs in a sandbox origin of its own,
 framed by a separate Worker. The connectors keep a ledger in D1 with per-visitor limits and once-only approvals.
-Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md), [compaction](docs/compaction.md),
-[auth](docs/auth.md), [mcp-apps-compliance](docs/mcp-apps-compliance.md), [model-behaviour](docs/model-behaviour.md),
+A signed-in person can ask it to remember a recipient, a preference or a fact: it proposes, you press Save on a card,
+and the notes are yours to see, edit, export and delete. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
+[compaction](docs/compaction.md), [auth](docs/auth.md), [memory](docs/memory.md),
+[mcp-apps-compliance](docs/mcp-apps-compliance.md), [model-behaviour](docs/model-behaviour.md),
 [chat-ui](docs/chat-ui.md) and [brand](docs/brand.md).
 
 ## Status
@@ -80,8 +82,8 @@ Nothing secret is in git. Names only:
 | Path | What is in it |
 |---|---|
 | `host/` | The Django chat host, the turn runner and the Durable Object (`src/turns/`), accounts, A2A, the page |
-| `checkout/` | The four MCP connectors, the D1 ledger, the simulators, the mutation-check table (`tools/mutations/`) |
-| `card/` | The source of the approval and menu cards, built into single HTML files |
+| `checkout/` | The MCP connectors, the D1 ledger, the simulators, the mutation-check table (`tools/mutations/`) |
+| `card/` | The source of the approval, menu and memory cards, built into single HTML files |
 | `sandbox/` | The card sandbox Worker (JavaScript, no dependencies) |
 | `design/` | The tokens that every colour comes from, the brand SVGs and their build |
 | `conformance/` | Browser, protocol and Worker suites run against a local stack |
