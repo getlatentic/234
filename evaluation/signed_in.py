@@ -7,6 +7,7 @@ nothing here touches a real Google account."""
 import asyncio
 import json
 import secrets
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -21,6 +22,9 @@ from turns.ledger_owner import ledger_owner
 LOCAL_ACCOUNT_KEY = "dummy-local-account-key"
 EMULATOR_KEY = "fake-api-key-for-the-emulator"
 PROTOCOL = "2025-11-25"
+MIN_LEASE_SECONDS = 8
+"""A browser is held at least this long for a draw: the host answers an account at most twelve messages a
+minute, and draws that end in two seconds would send more."""
 
 
 class SetupFailed(Exception):
@@ -126,7 +130,9 @@ class Accounts:
     @asynccontextmanager
     async def lease(self) -> AsyncIterator[tuple[Visitor, str]]:
         taken = await self._free.get()
+        leased = time.monotonic()
         try:
             yield taken
         finally:
+            await asyncio.sleep(max(0.0, MIN_LEASE_SECONDS - (time.monotonic() - leased)))
             self._free.put_nowait(taken)

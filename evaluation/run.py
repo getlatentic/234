@@ -35,6 +35,7 @@ from turns.prompt import system_prompt
 from turns.settings import Settings
 
 from .cases import Case, load_cases
+from .redo import plan
 from .score import score_case
 from .signed_in import Accounts, SetupFailed, live_notes, set_up_notes
 from .transcript import turns_of
@@ -206,11 +207,13 @@ async def run(args: argparse.Namespace) -> None:
     base = int(os.environ.get("PORT_BASE", "8900"))
     urls = {"checkout": f"http://localhost:{base}", "host": f"http://localhost:{base + 1}"}
     cases = pick(load_cases(), args)
+    draws, kept = plan(cases, args)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.with_suffix(".meta.json").write_text(
-        json.dumps(metadata(args, cases), indent=2, ensure_ascii=False) + "\n"
+    meta = metadata(args, cases) | (
+        {"redo_of": Path(args.redo).name, "redone": [f"{c.id}#{n}" for c, n in draws]} if args.redo else {}
     )
+    out.with_suffix(".meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
     async with httpx.AsyncClient() as http:
         await http.post(f"{urls['checkout']}/test/reset")
         daily = (await http.get(f"{urls['checkout']}/test/summary")).json()["dailyLimitKobo"]
@@ -239,7 +242,8 @@ async def run(args: argparse.Namespace) -> None:
 
     try:
         with out.open("w") as sink:
-            await asyncio.gather(*[one(c, n, sink) for n in range(args.draws) for c in cases])
+            sink.writelines(json.dumps(d, ensure_ascii=False) + "\n" for d in kept)
+            await asyncio.gather(*[one(c, n, sink) for c, n in draws])
     finally:
         if accounts is not None:
             await accounts.stop()
@@ -254,6 +258,12 @@ def main() -> None:
     parser.add_argument("--only", default="", help="comma-separated case ids or categories")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", required=True)
+    parser.add_argument(
+        "--redo",
+        default="",
+        help="an earlier results file: keep every draw that answered and draw again only those lost to "
+        "infrastructure (an error, or a turn that did not end), never a wrong answer",
+    )
     args = parser.parse_args()
     if not args.out.endswith(".jsonl"):
         sys.exit("--out is a .jsonl file")

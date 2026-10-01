@@ -141,6 +141,9 @@ def report(draws: list[dict[str, Any]], cases: dict[str, Case], show: list[str])
     out = [f"{len(draws)} draws of {every[1]} cases", ""]
     out += [*table("category", by(draws, lambda d: d["category"]), total), ""]
     out += [*table("language", by(draws, lambda d: d["lang"]), total), ""]
+    if any(d["category"] == "memory" for d in draws):
+        asked = by(draws, lambda d: cases[d["case"]].turns[0].expect[0]["kind"])
+        out += [*table("what was asked", asked, total), ""]
     out += [f"cases that passed every draw: {every[0]}/{every[1]}", ""]
     out += [*dangerous_table(draws), ""]
     out += [f"infrastructure failures (no answer, error notice, setup): {broken}", *rounds_summary(draws)]
