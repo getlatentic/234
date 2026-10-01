@@ -1,7 +1,4 @@
 <chat-memory class="block" data-url="{% url 'chat:memory' %}" data-edit-url="{% url 'chat:memory-edit' '0000000000000000' %}" data-forget-url="{% url 'chat:memory-forget' '0000000000000000' %}" data-undo-url="{% url 'chat:memory-undo' %}" data-delete-all-url="{% url 'chat:memory-delete-all' %}">
-  <button type="button" data-action="open-memory" class="focus-ring flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-sunken">
-    <svg viewBox="0 0 20 20" class="size-5 text-ink-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.500 3h9a1 1 0 0 1 1 1v13l-5.500-3.500L4.500 17V4a1 1 0 0 1 1-1z"/></svg>What 234 remembers
-  </button>
   <dialog aria-labelledby="memory-title" class="m-auto max-h-[calc(100dvh-2rem)] w-[min(calc(100%-2rem),28rem)] overflow-hidden rounded-card border border-line bg-raised p-0 text-ink shadow-soft backdrop:bg-scrim">
     <div class="flex max-h-[calc(100dvh-2rem)] flex-col">
       <div class="flex items-center justify-between gap-2 border-b border-line py-1 pl-4 pr-1">

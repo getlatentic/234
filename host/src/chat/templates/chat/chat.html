@@ -66,6 +66,7 @@
   </div>
 
   {% include "chat/_sheet.html" %}
+  {% if account %}{% include "chat/_memory.html" %}{% endif %}
 
   <template data-kind="user">{% include "chat/_item.html#user" %}</template>
   <template data-kind="assistant">{% include "chat/_item.html#assistant" %}</template>

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// <chat-memory> is "What 234 remembers" in the chats drawer of a signed-in person: their notes by kind, a title or
-// a line changed in place, a note deleted with an Undo, a copy to keep, and everything deleted. The server holds
-// the notes; this element shows them and asks for each change.
+// <chat-memory> is the sheet "What 234 remembers" of a signed-in person, opened from a button in the chats drawer:
+// their notes by kind, a title or a line changed in place, a note deleted with an Undo, a copy to keep, and
+// everything deleted. The server holds the notes; this element shows them and asks for each change. It sits beside
+// the drawer, not inside it, so the drawer's own dialog stays the only one in it.
 import { postJson } from "./http.js";
 import { instance } from "./render.js";
 
@@ -22,11 +23,23 @@ customElements.define(
       this.status = this.querySelector('[data-slot="status"]');
       this.groups = this.querySelector('[data-slot="groups"]');
       this.empty = this.querySelector('[data-slot="empty"]');
-      this.opener = this.querySelector('[data-action="open-memory"]');
       this.addEventListener("click", (event) => this.#clicked(event));
       this.addEventListener("submit", (event) => this.#saved(event));
-      this.dialog.addEventListener("close", () => this.opener.focus());
+      this.dialog.addEventListener("close", () => this.#opener()?.focus());
+      document.addEventListener("click", this.#opens);
     }
+
+    disconnectedCallback() {
+      document.removeEventListener("click", this.#opens);
+    }
+
+    #opener() {
+      return document.querySelector('[data-action="open-memory"]');
+    }
+
+    #opens = (event) => {
+      if (event.target.closest('[data-action="open-memory"]')) this.open();
+    };
 
     async open() {
       this.#say("");
@@ -84,7 +97,6 @@ customElements.define(
       const row = event.target.closest('[data-slot="row"]');
       if (event.target === this.dialog || action === "close-memory") return this.dialog.close();
       const run = {
-        "open-memory": () => this.open(),
         edit: () => this.#edit(row),
         cancel: () => this.#load(),
         forget: () => this.#forget(row),

@@ -89,7 +89,7 @@ Groups come in that fixed order, newest use first within a group (`last_used` is
 | `memory_index`, no notes (the HTTP call and the Worker alone) | 5.1 / 7.7 / 41.2 |
 | `recall` by words, 200 notes | 5.8 / 8.1 / 13.2 |
 
-(two more runs gave 7.7 / 10.3 for the index at 200 notes). So the query and the rendering cost about 2.5 ms over the call itself.
+(two other runs gave 7.3 / 8.6 and 7.7 / 10.3 for the index at 200 notes). So the query and the rendering cost about 2.5 ms over the call itself.
 
 ### In the prompt
 
