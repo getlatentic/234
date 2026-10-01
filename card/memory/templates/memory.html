@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory</title>
+<style>{{ css|safe }}</style>
+</head>
+<body class="m-0 bg-transparent p-2 font-sans text-[0.9375rem] leading-snug text-ink">
+<main id="root" class="mx-auto max-w-sm"></main>
+<template id="t-ask">
+  <article class="grid gap-3 rounded-card border border-line bg-raised p-4">
+    <div class="min-w-0">
+      <p data-slot="caption" class="m-0 text-sm text-ink-3"></p>
+      <p data-slot="what" class="m-0 text-base font-medium wrap-anywhere"></p>
+      <p data-slot="detail" class="m-0 text-sm text-ink-3 wrap-anywhere" hidden></p>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" data-action="save" class="btn-primary">Save</button>
+      <button type="button" data-action="no" class="btn-secondary">No</button>
+    </div>
+    <p data-slot="notice" role="alert" class="m-0 text-sm font-medium text-bad" hidden></p>
+  </article>
+</template>
+<template id="t-done">
+  <article class="flex min-h-11 items-center justify-between gap-3 rounded-card border border-line bg-raised px-4 py-2">
+    <p role="status" class="m-0 flex min-w-0 items-center gap-2">
+      <svg data-slot="ok" class="size-5 shrink-0 text-ok" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="10" cy="10" r="8"/><path d="M6.5 10.5l2.5 2.5 4.5-5.5"/></svg>
+      <svg data-slot="off" class="size-5 shrink-0 text-ink-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="10" cy="10" r="8"/><path d="M6.5 10h7"/></svg>
+      <span data-slot="status" class="min-w-0 wrap-anywhere"></span>
+    </p>
+    <button type="button" data-action="undo" class="btn-quiet shrink-0" hidden>Undo</button>
+  </article>
+</template>
+<template id="t-notice">
+  <p role="alert" class="m-0 rounded-card bg-bad-soft p-4 text-sm font-medium text-bad"></p>
+</template>
+<script>{{ mcp_app_js|safe }}</script>
+<script>{{ memory_js|safe }}</script>
+</body>
+</html>

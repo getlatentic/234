@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory</title>
+<style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties{@supports (((-webkit-hyphens:none)) and (not (margin-trim:inline))) or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-border-style:solid;--tw-leading:initial;--tw-font-weight:initial}}}@layer theme{:root,:host{--font-mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;--spacing:.25rem;--container-sm:24rem;--text-sm:.875rem;--text-sm--line-height:calc(1.25 / .875);--text-base:1rem;--text-base--line-height:calc(1.5 / 1);--font-weight-medium:500;--font-weight-semibold:600;--leading-snug:1.375;--default-font-family:var(--stack-sans);--default-mono-font-family:var(--font-mono)}}@layer base{*,:after,:before,::backdrop{box-sizing:border-box;border:0 solid;margin:0;padding:0}::file-selector-button{box-sizing:border-box;border:0 solid;margin:0;padding:0}html,:host{-webkit-text-size-adjust:100%;tab-size:4;line-height:1.5;font-family:var(--default-font-family,-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");font-feature-settings:var(--default-font-feature-settings,normal);font-variation-settings:var(--default-font-variation-settings,normal);-webkit-tap-highlight-color:transparent}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;-webkit-text-decoration:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,samp,pre{font-family:var(--default-mono-font-family,ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);font-feature-settings:var(--default-mono-font-feature-settings,normal);font-variation-settings:var(--default-mono-font-variation-settings,normal);font-size:1em}small{font-size:80%}sub,sup{vertical-align:baseline;font-size:75%;line-height:0;position:relative}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}:-moz-focusring:where(:not(iframe)){outline:auto}progress{vertical-align:baseline}summary{display:list-item}ol,ul,menu{list-style:none}img,svg,video,canvas,audio,iframe,embed,object{vertical-align:middle;display:block}img,video{max-width:100%;height:auto}button,input,select,optgroup,textarea{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}::file-selector-button{font:inherit;font-feature-settings:inherit;font-variation-settings:inherit;letter-spacing:inherit;color:inherit;opacity:1;background-color:#0000;border-radius:0}:where(select:is([multiple],[size])) optgroup{font-weight:bolder}:where(select:is([multiple],[size])) optgroup option{padding-inline-start:20px}::file-selector-button{margin-inline-end:4px}::placeholder{opacity:1}@supports (not ((-webkit-appearance:-apple-pay-button))) or (contain-intrinsic-size:1px){::placeholder{color:currentColor}@supports (color:color-mix(in lab, red, red)){::placeholder{color:color-mix(in oklab, currentcolor 50%, transparent)}}}textarea{resize:vertical}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-date-and-time-value{min-height:1lh;text-align:inherit}::-webkit-datetime-edit{display:inline-flex}::-webkit-datetime-edit-fields-wrapper{padding:0}::-webkit-datetime-edit{padding-block:0}::-webkit-datetime-edit-year-field{padding-block:0}::-webkit-datetime-edit-month-field{padding-block:0}::-webkit-datetime-edit-day-field{padding-block:0}::-webkit-datetime-edit-hour-field{padding-block:0}::-webkit-datetime-edit-minute-field{padding-block:0}::-webkit-datetime-edit-second-field{padding-block:0}::-webkit-datetime-edit-millisecond-field{padding-block:0}::-webkit-datetime-edit-meridiem-field{padding-block:0}::-webkit-calendar-picker-indicator{line-height:1}:-moz-ui-invalid{box-shadow:none}button,input:where([type=button],[type=reset],[type=submit]){appearance:button}::file-selector-button{appearance:button}::-webkit-inner-spin-button{height:auto}::-webkit-outer-spin-button{height:auto}[hidden]:where(:not([hidden=until-found])){display:none!important}}@layer components{.btn-primary{min-height:calc(var(--spacing) * 11);cursor:pointer;border-radius:var(--r-control);background-color:var(--primary);width:100%;padding-inline:calc(var(--spacing) * 4);padding-block:calc(var(--spacing) * 3);font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height));--tw-font-weight:var(--font-weight-semibold);font-weight:var(--font-weight-semibold);color:var(--on-primary)}.btn-primary:focus-visible{outline:2px solid var(--primary);outline-offset:2px}@media (hover:hover){.btn-primary:hover{background-color:var(--primary-hover)}}.btn-primary:active{background-color:var(--primary-pressed)}.btn-primary:disabled{cursor:not-allowed;background-color:var(--sunken);color:var(--ink-3)}@media (hover:hover){.btn-primary:disabled:hover{background-color:var(--sunken)}}.btn-secondary{min-height:calc(var(--spacing) * 11);cursor:pointer;border-radius:var(--r-control);border-style:var(--tw-border-style);border-width:1px;border-color:var(--line-strong);width:100%;padding-inline:calc(var(--spacing) * 4);padding-block:calc(var(--spacing) * 2.5);font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height));color:var(--ink);background-color:#0000}.btn-secondary:focus-visible{outline:2px solid var(--primary);outline-offset:2px}@media (hover:hover){.btn-secondary:hover{background-color:var(--mint)}}.btn-secondary:disabled{cursor:not-allowed;opacity:.5}.btn-quiet{min-height:calc(var(--spacing) * 11);cursor:pointer;border-radius:var(--r-control);padding-inline:calc(var(--spacing) * 3);font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height));color:var(--ink-2);background-color:#0000}.btn-quiet:focus-visible{outline:2px solid var(--primary);outline-offset:2px}@media (hover:hover){.btn-quiet:hover{color:var(--ink)}}.btn-quiet:disabled{cursor:not-allowed;opacity:.5}.field{border-radius:var(--r-control);border-style:var(--tw-border-style);border-width:1px;border-color:var(--line-strong);padding-inline:calc(var(--spacing) * 3);font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height));color:var(--ink);background-color:#0000}.field:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.field::placeholder{color:var(--ink-3)}}@layer utilities{.m-0{margin:0}.mx-auto{margin-inline:auto}.flex{display:flex}.grid{display:grid}.hidden{display:none}.size-5{width:calc(var(--spacing) * 5);height:calc(var(--spacing) * 5)}.min-h-11{min-height:calc(var(--spacing) * 11)}.max-w-sm{max-width:var(--container-sm)}.min-w-0{min-width:0}.shrink-0{flex-shrink:0}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-2{gap:calc(var(--spacing) * 2)}.gap-3{gap:calc(var(--spacing) * 3)}.rounded-card{border-radius:var(--r-card)}.border{border-style:var(--tw-border-style);border-width:1px}.border-line{border-color:var(--line)}.bg-bad-soft{background-color:var(--bad-soft)}.bg-raised{background-color:var(--raised)}.bg-transparent{background-color:#0000}.p-2{padding:calc(var(--spacing) * 2)}.p-4{padding:calc(var(--spacing) * 4)}.px-4{padding-inline:calc(var(--spacing) * 4)}.py-2{padding-block:calc(var(--spacing) * 2)}.font-sans{font-family:var(--stack-sans)}.text-base{font-size:var(--text-base);line-height:var(--tw-leading,var(--text-base--line-height))}.text-sm{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.text-\[0\.9375rem\]{font-size:.9375rem}.leading-snug{--tw-leading:var(--leading-snug);line-height:var(--leading-snug)}.font-medium{--tw-font-weight:var(--font-weight-medium);font-weight:var(--font-weight-medium)}.wrap-anywhere{overflow-wrap:anywhere}.text-bad{color:var(--bad)}.text-ink{color:var(--ink)}.text-ink-3{color:var(--ink-3)}.text-ok{color:var(--ok)}}:root{color-scheme:light dark;--ground:#faf8f2;--raised:#fefdfa;--sunken:#f0ede4;--mint:#e0f7ea;--line:#dedad1;--line-strong:#8e897c;--ink:#221f18;--ink-2:#535046;--ink-3:#66635a;--primary:#03492f;--primary-hover:#023924;--primary-pressed:#022b1a;--on-primary:#fdfcf7;--accent:#00ad53;--mark:#03492f;--mark-mint:#ddf3e6;--ok:#005f5f;--ok-soft:#ddf6f6;--warn:#7b4c00;--warn-soft:#fdefcb;--bad:#b31415;--bad-soft:#fee9e8;--scrim:#0e191373;--shadow:#091a1114;--tile-main:#cff6e0;--tile-main-ink:#0c4f33;--tile-soup:#fee6d4;--tile-soup-ink:#753b07;--tile-side:#e9f1c3;--tile-side-ink:#424e08;--tile-drink:#d3f1fd;--tile-drink-ink:#04526d;--google-surface:#fff;--google-edge:#747775;--google-ink:#1f1f1f;--r-control:.75rem;--r-card:1rem;--r-sheet:1.25rem;--stack-sans:system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;--stack-display:Manrope, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif}@media (prefers-color-scheme:dark){:root{--ground:#08120c;--raised:#0e1d15;--sunken:#17291f;--mint:#143525;--line:#283a30;--line-strong:#668272;--ink:#e6f3e8;--ink-2:#afc4b5;--ink-3:#97aa9c;--primary:#38d080;--primary-hover:#5adf92;--primary-pressed:#2bbb71;--on-primary:#001a0c;--accent:#01d879;--mark:#fefdfe;--mark-mint:#cbfae3;--ok:#57d4d4;--ok-soft:#012d2d;--warn:#e8be62;--warn-soft:#322405;--bad:#ff9689;--bad-soft:#3b1c1b;--scrim:#00030199;--shadow:#00000059;--tile-main:#073421;--tile-main-ink:#95e6bb;--tile-soup:#3d250f;--tile-soup-ink:#fdc495;--tile-side:#2b2e0e;--tile-side-ink:#cbd689;--tile-drink:#122f3a;--tile-drink-ink:#93d9f5;--google-surface:#131314;--google-edge:#8e918f;--google-ink:#e3e3e3}}:root.light{color-scheme:light;--ground:#faf8f2;--raised:#fefdfa;--sunken:#f0ede4;--mint:#e0f7ea;--line:#dedad1;--line-strong:#8e897c;--ink:#221f18;--ink-2:#535046;--ink-3:#66635a;--primary:#03492f;--primary-hover:#023924;--primary-pressed:#022b1a;--on-primary:#fdfcf7;--accent:#00ad53;--mark:#03492f;--mark-mint:#ddf3e6;--ok:#005f5f;--ok-soft:#ddf6f6;--warn:#7b4c00;--warn-soft:#fdefcb;--bad:#b31415;--bad-soft:#fee9e8;--scrim:#0e191373;--shadow:#091a1114;--tile-main:#cff6e0;--tile-main-ink:#0c4f33;--tile-soup:#fee6d4;--tile-soup-ink:#753b07;--tile-side:#e9f1c3;--tile-side-ink:#424e08;--tile-drink:#d3f1fd;--tile-drink-ink:#04526d;--google-surface:#fff;--google-edge:#747775;--google-ink:#1f1f1f}:root.dark{color-scheme:dark;--ground:#08120c;--raised:#0e1d15;--sunken:#17291f;--mint:#143525;--line:#283a30;--line-strong:#668272;--ink:#e6f3e8;--ink-2:#afc4b5;--ink-3:#97aa9c;--primary:#38d080;--primary-hover:#5adf92;--primary-pressed:#2bbb71;--on-primary:#001a0c;--accent:#01d879;--mark:#fefdfe;--mark-mint:#cbfae3;--ok:#57d4d4;--ok-soft:#012d2d;--warn:#e8be62;--warn-soft:#322405;--bad:#ff9689;--bad-soft:#3b1c1b;--scrim:#00030199;--shadow:#00000059;--tile-main:#073421;--tile-main-ink:#95e6bb;--tile-soup:#3d250f;--tile-soup-ink:#fdc495;--tile-side:#2b2e0e;--tile-side-ink:#cbd689;--tile-drink:#122f3a;--tile-drink-ink:#93d9f5;--google-surface:#131314;--google-edge:#8e918f;--google-ink:#e3e3e3}@property --tw-border-style{syntax:"*";inherits:false;initial-value:solid}@property --tw-leading{syntax:"*";inherits:false}@property --tw-font-weight{syntax:"*";inherits:false}
+</style>
+</head>
+<body class="m-0 bg-transparent p-2 font-sans text-[0.9375rem] leading-snug text-ink">
+<main id="root" class="mx-auto max-w-sm"></main>
+<template id="t-ask">
+  <article class="grid gap-3 rounded-card border border-line bg-raised p-4">
+    <div class="min-w-0">
+      <p data-slot="caption" class="m-0 text-sm text-ink-3"></p>
+      <p data-slot="what" class="m-0 text-base font-medium wrap-anywhere"></p>
+      <p data-slot="detail" class="m-0 text-sm text-ink-3 wrap-anywhere" hidden></p>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" data-action="save" class="btn-primary">Save</button>
+      <button type="button" data-action="no" class="btn-secondary">No</button>
+    </div>
+    <p data-slot="notice" role="alert" class="m-0 text-sm font-medium text-bad" hidden></p>
+  </article>
+</template>
+<template id="t-done">
+  <article class="flex min-h-11 items-center justify-between gap-3 rounded-card border border-line bg-raised px-4 py-2">
+    <p role="status" class="m-0 flex min-w-0 items-center gap-2">
+      <svg data-slot="ok" class="size-5 shrink-0 text-ok" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="10" cy="10" r="8"/><path d="M6.5 10.5l2.5 2.5 4.5-5.5"/></svg>
+      <svg data-slot="off" class="size-5 shrink-0 text-ink-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="10" cy="10" r="8"/><path d="M6.5 10h7"/></svg>
+      <span data-slot="status" class="min-w-0 wrap-anywhere"></span>
+    </p>
+    <button type="button" data-action="undo" class="btn-quiet shrink-0" hidden>Undo</button>
+  </article>
+</template>
+<template id="t-notice">
+  <p role="alert" class="m-0 rounded-card bg-bad-soft p-4 text-sm font-medium text-bad"></p>
+</template>
+<script>// SPDX-License-Identifier: AGPL-3.0-or-later
+// A minimal MCP Apps view: JSON-RPC 2.0 over window.postMessage to the host that framed us.
+// Wire format: ext-apps specification 2026-01-26 (ui/initialize, ui/notifications/*, tools/call).
+const McpApp = (() => {
+  const PROTOCOL_VERSION = "2026-01-26";
+  const pending = new Map();
+  const handlers = new Map();
+  let nextId = 1;
+  let host = { capabilities: {}, context: {} };
+
+  // The host's origin is not known to a sandboxed view, so "*" is the only target; the source
+  // check on the way in is what identifies the host.
+  const post = (message) => window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+
+  const request = (method, params) =>
+    new Promise((resolve, reject) => {
+      const id = nextId++;
+      pending.set(id, { resolve, reject });
+      post({ id, method, params });
+    });
+
+  const notify = (method, params) => post({ method, params });
+
+  const on = (method, handler) => handlers.set(method, handler);
+
+  function answer(id, work) {
+    Promise.resolve()
+      .then(work)
+      .then(
+        (result) => post({ id, result: result ?? {} }),
+        (error) => post({ id, error: { code: -32603, message: String(error?.message ?? error) } }),
+      );
+  }
+
+  function receive(message) {
+    if (message.method === "ui/notifications/host-context-changed") host.context = { ...host.context, ...message.params };
+    if (typeof message.method === "string") {
+      const handler = handlers.get(message.method);
+      if (message.id === undefined) return handler?.(message.params);
+      if (!handler) return post({ id: message.id, error: { code: -32601, message: `Method not found: ${message.method}` } });
+      return answer(message.id, () => handler(message.params));
+    }
+    const waiting = pending.get(message.id);
+    if (!waiting) return;
+    pending.delete(message.id);
+    if (message.error) waiting.reject(new Error(message.error.message));
+    else waiting.resolve(message.result);
+  }
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (event.source !== window.parent || !message || message.jsonrpc !== "2.0") return;
+    receive(message);
+  });
+
+  // Tells the host how tall the document is, whenever that changes.
+  function reportSize() {
+    let queued = false;
+    let last = "";
+    const measure = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        const root = document.documentElement;
+        const previous = root.style.height;
+        root.style.height = "max-content";
+        const height = Math.ceil(root.getBoundingClientRect().height);
+        root.style.height = previous;
+        const width = Math.ceil(window.innerWidth);
+        if (`${width}x${height}` === last) return;
+        last = `${width}x${height}`;
+        notify("ui/notifications/size-changed", { width, height });
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(document.documentElement);
+    observer.observe(document.body);
+  }
+
+  async function connect(appInfo, appCapabilities = {}) {
+    const hello = await request("ui/initialize", { appInfo, appCapabilities, protocolVersion: PROTOCOL_VERSION });
+    host = { capabilities: hello.hostCapabilities ?? {}, context: hello.hostContext ?? {} };
+    notify("ui/notifications/initialized");
+    reportSize();
+    return hello;
+  }
+
+  return {
+    connect,
+    on,
+    callTool: (name, args) => request("tools/call", { name, arguments: args }),
+    openLink: (url) => request("ui/open-link", { url }),
+    requestDisplayMode: (mode) => request("ui/request-display-mode", { mode }),
+    host: () => host,
+    updateModelContext: (text) => request("ui/update-model-context", { content: [{ type: "text", text }] }),
+  };
+})();
+</script>
+<script>(()=>{var i=document.getElementById("root"),o={id:null,token:null,view:null,busy:!1,notice:""},l=t=>document.getElementById(t).content.firstElementChild.cloneNode(!0),f=(t,e)=>t.querySelector(`[data-slot="${e}"]`),s=(t,e)=>{t.hidden=!e},y=t=>(t??"").replace(/^[A-Z][A-Z_]+:\s*/,""),g=t=>t.content?.find(e=>e.type==="text")?.text,x={recipient:"Save recipient",preference:"Remember",fact:"Remember"},w={saved:{text:t=>`Saved: ${t.title}`,glyph:"ok"},discarded:{text:()=>"Not saved",glyph:"off"},expired:{text:()=>"Expired",glyph:"off"},refused:{text:t=>t.note||"Not saved",glyph:"off"},forgotten:{text:t=>`Forgot: ${t.title}`,glyph:"off",undo:!0},restored:{text:t=>`Restored: ${t.title}`,glyph:"ok"}};function k(t){let e=l("t-ask");return c(e,"caption",t.op==="update"?"Change":x[t.kind]),c(e,"what",t.what),c(e,"detail",t.detail),c(e,"notice",o.notice),e}function v(t){let e=w[t.state],n=l("t-done");return c(n,"status",e.text(t)),s(f(n,e.glyph),!0),s(n.querySelector('[data-action="undo"]'),!!e.undo),n}function c(t,e,n){let p=f(t,e);p.textContent=n??"",s(p,!!n)}function m(){let t=o.view;i.replaceChildren(t.state==="pending"?k(t):v(t)),d()}function d(){i.querySelectorAll("button").forEach(t=>{t.disabled=o.busy})}function r(t){if(o.notice=y(t)||"The request was refused.",o.view)return m();let e=l("t-notice");e.textContent=o.notice,i.replaceChildren(e)}function h(t){if(t.isError)return r(g(t));let e=t.structuredContent?.memory;if(!e)return r("The server sent a reply this card cannot show.");t._meta?.confirmToken&&(o.token=t._meta.confirmToken),o.id=t.structuredContent.proposal_id,o.view=e,o.notice="",m()}async function a(t){o.busy=!0,d();try{h(await McpApp.callTool(t,{proposal_id:o.id,confirm_token:o.token??""}))}catch{r("The connection to the server was lost. Try again.")}finally{o.busy=!1,o.view&&d()}}var C={save:()=>a("confirm_memory"),no:()=>a("discard_memory"),undo:()=>a("undo_memory")};i.addEventListener("click",t=>{let e=t.target.closest("button[data-action]")?.dataset.action;e&&o.view&&C[e]?.()});McpApp.on("ui/notifications/tool-result",h);McpApp.on("ui/notifications/tool-input",()=>{});McpApp.on("ui/notifications/tool-cancelled",()=>r("The request was cancelled."));McpApp.on("ui/resource-teardown",()=>({}));var u=t=>{if(t?.theme)for(let e of["dark","light"])document.documentElement.classList.toggle(e,t.theme===e)};McpApp.on("ui/notifications/host-context-changed",u);u({theme:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"});McpApp.connect({name:"memory",title:"Memory",version:"0.1.0"}).then(t=>u(t.hostContext),t=>{i.textContent=`Could not connect to the chat: ${t.message}`});})();
+</script>
+</body>
+</html>
