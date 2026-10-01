@@ -4,7 +4,7 @@ A chat assistant that buys airtime and mobile data, sends money and orders food 
 it; it prepares a payment as an approval card; nothing is paid until you press Approve on the card. The model never
 holds the approval.
 
-Live demo (simulated providers, no real money): https://ask234.wintern.workers.dev
+Live demo (simulated providers, no real money): https://234.getlatentic.com
 
 | | | |
 |---|---|---|
