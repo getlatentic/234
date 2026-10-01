@@ -38,6 +38,12 @@ MUTATIONS: list[Mutation] = [
         '"SELECT * FROM memory_entry WHERE owner = ? AND deleted_at IS NULL "',
     ),
     owner_query(
+        "the notes used most recently",
+        "store.py",
+        '"SELECT * FROM memory_entry WHERE deleted_at IS NULL AND owner = ? "',
+        "AND owner = ?",
+    ),
+    owner_query(
         "the count of an owner's notes",
         "store.py",
         '"SELECT COUNT(*) AS n FROM memory_entry WHERE owner = ? AND deleted_at IS NULL", owner',

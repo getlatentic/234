@@ -47,8 +47,10 @@ class Reading:
         return {"index": text, "entries": len(rows), "tokens": tokens_of(text)}
 
     async def recall(self, owner: str, entry_id: str | None, query: str | None) -> tuple[str, list[Entry]]:
-        if (entry_id is None) == (query is None):
-            raise DomainError("MEMORY_INVALID", "recall takes an id or a query, not both and not neither.")
+        if entry_id is not None and query is not None:
+            raise DomainError("MEMORY_INVALID", "recall takes an id or a query, not both.")
+        if entry_id is None and query is None:
+            return quoted_notes(found := await self._ctx.store.recent(owner)), found
         if entry_id is not None:
             entry = await self._ctx.store.require(owner, entry_id)
             await self._ctx.store.touch(owner, entry.id)

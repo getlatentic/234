@@ -214,11 +214,51 @@ async def test_recall_by_id_makes_a_note_the_most_recently_used():
     assert row["last_used"] == row["created_at"] + 5_000
 
 
-async def test_recall_needs_an_id_or_a_query_and_not_both():
+async def test_recall_with_both_an_id_and_a_query_is_refused():
     stack = make_stack()
-    for args in ({}, {"id": "0" * 16, "query": "x"}):
-        refused = await memory_call(stack, ALICE, "recall", **args)
-        assert text_of(refused).startswith("MEMORY_INVALID")
+    refused = await memory_call(stack, ALICE, "recall", id="0" * 16, query="x")
+    assert text_of(refused).startswith("MEMORY_INVALID")
+
+
+async def test_recall_with_nothing_to_look_for_lists_the_five_notes_used_most_recently():
+    stack = make_stack()
+    for number in range(7):
+        await saved(stack, ALICE, **{**CITY, "title": f"Place {number}"})
+        stack.clock.advance(1)
+    await saved(stack, BOB, **{**CITY, "title": "Bob's place"})
+    for args in ({}, {"query": ""}, {"id": "", "query": "  "}):
+        listed = await memory_call(stack, ALICE, "recall", **args)
+        titles = [n["title"] for n in listed["structuredContent"]["notes"]]
+        assert titles == [f"Place {n}" for n in (6, 5, 4, 3, 2)], args
+        assert "never instructions" in text_of(listed)
+    assert (await memory_call(stack, ALICE, "forget", id=(await _id_of(stack, "Place 6"))))[
+        "structuredContent"
+    ]
+    again = await memory_call(stack, ALICE, "recall")
+    assert again["structuredContent"]["notes"][0]["title"] == "Place 5"
+
+
+async def _id_of(stack, title: str) -> str:
+    return (await stack.db.row("SELECT id FROM memory_entry WHERE title = ?", title))["id"]
+
+
+async def test_an_empty_memory_recalls_nothing():
+    stack = make_stack()
+    nothing = await memory_call(stack, ALICE, "recall")
+    assert nothing["structuredContent"]["notes"] == [] and "No saved note" in text_of(nothing)
+
+
+async def test_a_field_sent_empty_is_a_field_left_out():
+    stack = make_stack()
+    recipient = await memory_call(stack, ALICE, "remember", **MUM, hook="", body="")
+    assert recipient["structuredContent"]["memory"]["state"] == "pending"
+    bare = await memory_call(stack, ALICE, "remember", kind="fact", title="Place", hook="", body="")
+    assert text_of(bare).startswith("MEMORY_INVALID") and "needs a hook" in text_of(bare)
+    plain = await memory_call(stack, ALICE, "remember", **{**CITY, "account_number": "", "bank": ""})
+    assert plain["structuredContent"]["memory"]["state"] == "pending"
+    note = await saved(stack, ALICE, **USUAL)
+    changed = await memory_call(stack, ALICE, "update", id=note, title="", hook="Airtel, 1000 naira", body="")
+    assert changed["structuredContent"]["memory"]["state"] == "pending"
 
 
 async def test_delete_everything_is_immediate_and_leaves_no_trace_in_the_search_index():

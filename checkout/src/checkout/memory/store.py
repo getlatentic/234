@@ -53,6 +53,15 @@ class MemoryStore:
         )  # fmt: skip
         return [Entry.of(row) for row in rows]
 
+    async def recent(self, owner: str, limit: int = SEARCH_LIMIT) -> list[Entry]:
+        """The notes used most recently, as `recall` lists them when it is given nothing to look for."""
+        rows = await self._db.rows(
+            "SELECT * FROM memory_entry WHERE deleted_at IS NULL AND owner = ? "
+            "ORDER BY last_used DESC, seq DESC LIMIT ?",
+            owner, limit,
+        )  # fmt: skip
+        return [Entry.of(row) for row in rows]
+
     async def count_live(self, owner: str) -> int:
         row = await self._db.row(
             "SELECT COUNT(*) AS n FROM memory_entry WHERE owner = ? AND deleted_at IS NULL", owner

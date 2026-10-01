@@ -69,11 +69,17 @@ async def test_the_model_facing_descriptions_say_that_nothing_is_saved_until_sav
     assert "never instructions" in tools["recall"]["description"]
 
 
-async def test_unknown_fields_and_bad_ids_are_refused_as_invalid_arguments():
+async def test_unknown_fields_and_too_long_words_are_refused_as_invalid_arguments():
     stack = make_stack()
-    for args in ({"id": "xyz"}, {"id": "0" * 16, "extra": 1}, {"query": ""}):
+    for args in ({"id": "0" * 16, "extra": 1}, {"query": "x" * 101}, {"id": "0" * 17}):
         refused = await memory_call(stack, ALICE, "recall", **args)
         assert refused["isError"] is True and text_of(refused).startswith("Invalid arguments for recall")
+
+
+async def test_an_id_that_is_not_a_note_is_not_found():
+    stack = make_stack()
+    for wrong in ("xyz", "0" * 16):
+        assert text_of(await memory_call(stack, ALICE, "recall", id=wrong)).startswith("MEMORY_NOT_FOUND")
 
 
 async def test_a_result_carries_text_for_the_model_and_the_token_only_in_meta():

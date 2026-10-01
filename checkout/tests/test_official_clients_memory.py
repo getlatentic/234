@@ -120,6 +120,8 @@ async def test_a_note_is_found_by_its_words_and_read_by_its_id_as_quoted_data():
         read = await client.call_tool("recall", {"id": note})
         assert read.structured_content["notes"][0]["body"] == "Buys MTN airtime."
         assert (await client.call_tool("recall", {"query": "zzzz"})).structured_content["notes"] == []
+        recent = await client.call_tool("recall", {"query": ""})
+        assert [n["id"] for n in recent.structured_content["notes"]] == [note]
 
 
 async def test_a_forgotten_note_is_gone_from_search_and_undo_brings_it_back():
