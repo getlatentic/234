@@ -14,11 +14,24 @@ NAME = "send-money"
 
 
 class CreateTransferQuote(Strict):
-    model_config = ConfigDict(json_schema_extra={"x-model-required": ["bank"]})
+    model_config = ConfigDict(json_schema_extra={"x-model-required": ["account_number", "bank"]})
 
     account_number: Annotated[
-        str, Field(min_length=10, max_length=14, description="The recipient's 10 digit account number.")
-    ]
+        str | None,
+        Field(
+            min_length=10,
+            max_length=14,
+            description="The recipient's 10 digit account number. Not for a saved recipient.",
+        ),
+    ] = None
+    recipient_memory_id: Annotated[
+        str | None,
+        Field(
+            pattern=r"^[0-9a-f]{16}$",
+            description="A saved recipient's id, from the memory index. The server loads the account and the "
+            "bank itself, so pass it alone: never an account number or a bank for a saved recipient.",
+        ),
+    ] = None
     bank: Annotated[
         str | None,
         Field(

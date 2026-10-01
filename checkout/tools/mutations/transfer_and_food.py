@@ -55,7 +55,7 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         "the recipient's name comes from the bank lookup",
         f"{SRC}/flows/transfer.py",
-        "name = await self.ctx.paystack.resolve_account(AccountLookup(account, chosen.code))",
+        "name = await account_holder(self.ctx.paystack, account, chosen.code)",
         "name = note",
         TRANSFER,
     ),

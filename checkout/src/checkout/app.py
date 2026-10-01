@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Wiring: the four connectors, built from configuration a Worker (or a test) provides.
+"""Wiring: the four payment connectors and memory, built from configuration a Worker (or a test) provides.
 
 Every connector shares one ledger, so each owner has one daily limit across all of them. Each connector has
 its own Paystack mode, and the airtime connector has a VTpass mode; both run the real client, over the real
@@ -14,12 +14,16 @@ from .audit import Audit, print_sink
 from .clock import Clock, SystemClock
 from .config import CONNECTORS, Settings
 from .connectors import airtime, food_order, pay, send_money
+from .connectors import memory as memory_connector
 from .connectors.kit import CardReader
 from .db import Db
 from .errors import ConfigError
 from .flows.context import Context
 from .ledger import Ledger, Limits
 from .mcp.registry import Connector
+from .memory.context import MemoryContext
+from .memory.proposals import Proposals
+from .memory.store import MemoryStore
 from .modes import Modes
 from .owner import DEFAULT_OWNER
 from .paystack.api import PaystackApi
@@ -35,6 +39,7 @@ from .webhook import NoNotifier, PaymentNotifier, SignedWebhook
 
 CARD_DIR = Path(__file__).parent / "card"
 MENU_FILE = "menu.html"
+MEMORY_CARD_FILE = "memory.html"
 SIMULATED_KEY = "sk_test_simulated"
 SIMULATED_VTPASS = VtpassCredentials("simulated", "simulated", "simulated")
 FOOD_MERCHANT = "Simulated merchant: not Chowdeck"
@@ -109,6 +114,7 @@ def build_contexts(
         settings.approval_secret,
         None if settings.require_owner else DEFAULT_OWNER,
     )
+    store = MemoryStore(db, clock, settings.memory)
     contexts: dict[str, Context] = {}
     for connector in CONNECTORS:
         paystack, paystack_mode = _paystack_for(settings, db, connector, transport)
@@ -138,6 +144,7 @@ def build_contexts(
             food_step_seconds=settings.simulator.food_step_seconds,
             inline_checkout=paystack_mode == "test" and settings.inline_paystack,
             card_csp_extra=settings.card_csp_extra,
+            memory=store,
         )
         audit.log(
             "startup",
@@ -150,7 +157,19 @@ def build_contexts(
     return ledger, contexts
 
 
-def build_connectors(settings: Settings, contexts: Mapping[str, Context]) -> dict[str, Connector]:
+def memory_context(
+    settings: Settings, contexts: Mapping[str, Context], db: Db, clock: Clock, audit: Audit
+) -> MemoryContext:
+    """Memory looks accounts up through the send-money connector's Paystack, as a transfer quote does."""
+    send = contexts["send-money"]
+    assert send.memory is not None
+    proposals = Proposals(db, clock, settings.memory, settings.approval_secret)
+    return MemoryContext(send.memory, proposals, send.paystack, audit, clock)
+
+
+def build_connectors(
+    settings: Settings, contexts: Mapping[str, Context], memory: MemoryContext
+) -> dict[str, Connector]:
     card = card_reader(settings.card_file)
     alternatives = {name: card_reader(file) for name, file in settings.alt_cards}
     built = (
@@ -158,6 +177,7 @@ def build_connectors(settings: Settings, contexts: Mapping[str, Context]) -> dic
         send_money.build_connector(contexts["send-money"], card),
         airtime.build_connector(contexts["airtime"], card),
         food_order.build_connector(contexts["food-order"], card, card_reader(MENU_FILE)),
+        memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
     )
     return {connector.name: connector for connector in built}
 
@@ -191,6 +211,6 @@ def build_app(
         ledger,
         PaystackSimStore(db),
         contexts,
-        build_connectors(settings, contexts),
+        build_connectors(settings, contexts, memory_context(settings, contexts, db, clock, audit)),
         _notifier_for(settings, audit, webhook_transport),
     )

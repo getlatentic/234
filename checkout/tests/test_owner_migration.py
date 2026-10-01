@@ -99,8 +99,8 @@ async def test_the_daily_sum_has_its_index(migrated):
     assert "quotes_owner_approved_at" in " ".join(str(r["detail"]) for r in plan)
 
 
-def test_the_migration_is_last_and_adds_a_column_without_rebuilding_the_table():
-    text = (all_migrations()[-1]).read_text()
-    assert all_migrations()[-1].name == OWNER_MIGRATION
+def test_the_migration_adds_a_column_without_rebuilding_the_table():
+    migration = next(m for m in all_migrations() if m.name == OWNER_MIGRATION)
+    text = migration.read_text()
     assert "ALTER TABLE quotes ADD COLUMN owner TEXT NOT NULL DEFAULT 'legacy'" in text
     assert "DROP TABLE" not in text

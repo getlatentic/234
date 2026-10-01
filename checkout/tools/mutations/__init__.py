@@ -15,6 +15,7 @@ from tools.mutations import (
     host_rules,
     input_rules,
     ledger_rules,
+    memory_rules,
     menu_rules,
     model_choice_rules,
     owner_rules,
@@ -44,4 +45,5 @@ MUTATIONS: list[Mutation] = [
     *token_rules.MUTATIONS,
     *account_rules.MUTATIONS,
     *compaction_rules.MUTATIONS,
+    *memory_rules.MUTATIONS,
 ]

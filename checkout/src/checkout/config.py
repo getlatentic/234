@@ -12,10 +12,12 @@ from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from .errors import ConfigError
+from .memory.settings import MemorySettings
 from .paystack.api import PAYSTACK_API_URL
 from .vtpass.client import VtpassCredentials
 
 CONNECTORS = ("paystack-pay", "send-money", "airtime", "food-order")
+MEMORY_CONNECTOR = "memory"
 CONNECTOR_MODE_VARIABLES = {
     "paystack-pay": "PAYSTACK_PAY_MODE",
     "send-money": "SEND_MONEY_MODE",
@@ -103,6 +105,7 @@ class Settings:
     payment_webhook: PaymentWebhookSettings | None = None
     host_public_url: str | None = None
     """The chat host's public origin, so the simulated checkout page can link back to the chat."""
+    memory: MemorySettings = field(default_factory=MemorySettings)
 
     @classmethod
     def from_env(cls, read: Read) -> Settings:
@@ -140,6 +143,7 @@ class Settings:
             require_owner=env.flag("REQUIRE_OWNER"),
             payment_webhook=_payment_webhook_from(env),
             host_public_url=_origin_from(env, "HOST_PUBLIC_URL"),
+            memory=MemorySettings.from_env(read),
         )
 
 

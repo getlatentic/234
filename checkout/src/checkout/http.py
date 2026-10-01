@@ -4,10 +4,11 @@ one MCP endpoint per connector, the simulated Paystack checkout page, and test r
 
 import hmac
 from collections.abc import Mapping
-from contextlib import nullcontext
+from contextlib import ExitStack
 from typing import Any
 
 from .app import App
+from .config import MEMORY_CONNECTOR
 from .mcp import modern
 from .mcp.protocol import (
     INVALID_REQUEST,
@@ -17,7 +18,7 @@ from .mcp.protocol import (
     error_body,
     parse_body,
 )
-from .owner import OWNER_HEADER, acting_for, is_owner_key
+from .owner import MEMORY_OWNER_HEADER, OWNER_HEADER, acting_for, is_owner_key, remembering_for
 from .responses import HttpResponse, json_response
 from .sim_checkout import handle_checkout
 from .testing_routes import handle_test
@@ -46,6 +47,22 @@ def _owner_of(app: App, headers: dict[str, str], message: Any) -> str | None:
     calls_a_tool = isinstance(message, Mapping) and message.get("method") == "tools/call"
     if given is None and calls_a_tool and app.settings.require_owner:
         raise McpError(INVALID_REQUEST, "A tool call must say whose it is.")
+    return given
+
+
+def _checked_key(given: str | None, name: str) -> str | None:
+    if given is None or is_owner_key(given):
+        return given
+    raise McpError(INVALID_REQUEST, f"The {name} header is not an owner key.")
+
+
+def _memory_owner_of(headers: dict[str, str], message: Any, connector: str) -> str | None:
+    """The owner of the notes, from the memory header and from nowhere else. A malformed one is refused, and
+    so is a call to the memory connector that has none: memory is for signed-in accounts."""
+    given = _checked_key(headers.get(MEMORY_OWNER_HEADER), "memory owner")
+    calls_a_tool = isinstance(message, Mapping) and message.get("method") == "tools/call"
+    if given is None and calls_a_tool and connector == MEMORY_CONNECTOR:
+        raise McpError(INVALID_REQUEST, "Memory is for signed-in accounts.")
     return given
 
 
@@ -96,9 +113,14 @@ async def handle_mcp(
         return refusal
     try:
         owner = _owner_of(app, headers, message)
+        memory_owner = _memory_owner_of(headers, message, connector_name)
     except McpError as error:
         return json_response(error_body(_message_id(message), error.code, error.message), 400)
-    with nullcontext() if owner is None else acting_for(owner):
+    with ExitStack() as acting:
+        if owner is not None:
+            acting.enter_context(acting_for(owner))
+        if memory_owner is not None:
+            acting.enter_context(remembering_for(memory_owner))
         response = await answer(connector, message, stateless)
     return HttpResponse(202) if response is None else json_response(response)
 

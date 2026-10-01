@@ -15,19 +15,20 @@ from ..ids import transfer_reference
 from ..ledger import NewQuote, Quote, request_hash
 from ..money import Kobo, format_naira
 from ..paystack.api import (
-    AccountLookup,
     PaystackError,
     RecipientRequest,
     TransferOutcome,
     TransferRequest,
     is_payouts_unavailable,
 )
-from .bank_choice import choose_bank
+from .bank_choice import ChosenBank, choose_bank
 from .base import CardFlow
 from .checkout_leg import STEP_STALE_MS
 from .context import QuoteIssued
-from .inputs import assert_idempotency_key, clean_text, confirm_stated_amount
+from .holder import account_holder
+from .inputs import assert_idempotency_key, clean_account, clean_text, confirm_stated_amount
 from .provider_error import as_domain_error
+from .saved_recipient import assert_same_holder, saved_recipient
 
 PAYOUTS_UNAVAILABLE_MESSAGE = (
     "Paystack test transfers are not enabled on this account (Starter Business). Nothing was sent or "
@@ -35,15 +36,7 @@ PAYOUTS_UNAVAILABLE_MESSAGE = (
     "then say so."
 )
 
-_ACCOUNT_NUMBER = re.compile(r"\d{10}")
 _OTP = re.compile(r"\d{4,10}")
-
-
-def _clean_account(account_number: str) -> str:
-    account = re.sub(r"[\s-]", "", account_number)
-    if not _ACCOUNT_NUMBER.fullmatch(account):
-        raise DomainError("INVALID_INPUT", "account_number must be a 10 digit Nigerian bank account number.")
-    return account
 
 
 class TransferFlow(CardFlow):
@@ -52,18 +45,20 @@ class TransferFlow(CardFlow):
     async def create_quote(
         self,
         *,
-        account_number: str,
         amount_kobo: Kobo,
         amount_as_user_said: str,
         narration: str | None,
         idempotency_key: str,
+        account_number: str | None = None,
         bank: str | None = None,
         bank_code: str | None = None,
+        recipient_memory_id: str | None = None,
     ) -> QuoteIssued:
         async def work():
             assert_idempotency_key(idempotency_key)
-            account = _clean_account(account_number)
-            chosen = choose_bank(bank, bank_code)
+            saved = await saved_recipient(self.ctx, recipient_memory_id, account_number, bank, bank_code)
+            account = saved.account_number if saved else clean_account(account_number or "")
+            chosen = ChosenBank(saved.bank_code, saved.bank_name) if saved else choose_bank(bank, bank_code)
             note = clean_text(narration or "Transfer", "narration", 100)
             confirm_stated_amount(amount_kobo, amount_as_user_said)
             digest = request_hash(amount_kobo=amount_kobo, account=account, bank=chosen.code, narration=note)
@@ -72,14 +67,16 @@ class TransferFlow(CardFlow):
             if replayed:
                 return replayed, True
             await ledger.assert_quotable(amount_kobo)
+            name = await account_holder(self.ctx.paystack, account, chosen.code)
+            if saved:
+                assert_same_holder(self.ctx, saved, name)
             try:
-                name = await self.ctx.paystack.resolve_account(AccountLookup(account, chosen.code))
                 recipient = await self.ctx.paystack.create_recipient(
                     RecipientRequest(name, account, chosen.code)
                 )
             except PaystackError as error:
                 raise as_domain_error(error, "look up that account") from error
-            return await ledger.create(
+            made = await ledger.create(
                 NewQuote(
                     connector=self.connector,
                     kind="transfer",
@@ -99,6 +96,9 @@ class TransferFlow(CardFlow):
                     request_hash=digest,
                 )
             )
+            if saved and self.ctx.memory:
+                await self.ctx.memory.touch(self.ctx.ledger.owner(), saved.id)
+            return made
 
         return await self.make_quote(work)
 

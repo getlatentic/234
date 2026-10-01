@@ -109,4 +109,5 @@ class TestTheBankByName:
         assert {"bank", "bank_code"} <= set(schema["properties"])
         assert "bank_code" not in schema["required"] and "bank" not in schema["required"]
         assert schema["properties"]["bank_code"]["x-model-hidden"] is True
-        assert schema["x-model-required"] == ["bank"]
+        assert schema["x-model-required"] == ["account_number", "bank"]
+        assert "recipient_memory_id" in schema["properties"] and "account_number" not in schema["required"]

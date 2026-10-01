@@ -56,8 +56,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         "the account is looked up at the bank the connector resolved",
         f"{SRC}/flows/transfer.py",
-        "AccountLookup(account, chosen.code)",
-        'AccountLookup(account, "057")',
+        "account_holder(self.ctx.paystack, account, chosen.code)",
+        'account_holder(self.ctx.paystack, account, "057")',
         BANK_TOOLS,
     ),
     Mutation(

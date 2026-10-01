@@ -8,6 +8,7 @@ from typing import Any
 from ..audit import Audit
 from ..clock import Clock
 from ..ledger import Ledger
+from ..memory.store import MemoryStore
 from ..modes import Modes
 from ..paystack.api import PaystackApi
 from ..vtpass.api import VtpassApi
@@ -27,6 +28,8 @@ class Context:
     card_csp_extra: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     inline_checkout: bool = False
     """The card may pay in Paystack's popup: real Paystack test mode, and the switch is on."""
+    memory: MemoryStore | None = None
+    """Where a saved recipient is read from, when a transfer names one."""
 
 
 @dataclass(frozen=True)

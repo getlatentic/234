@@ -9,6 +9,7 @@ from ..money import Kobo, format_naira
 
 _REFERENCE = re.compile(r"[A-Za-z0-9._:/# -]{1,64}")
 _IDEMPOTENCY_KEY = re.compile(r"[A-Za-z0-9._:-]{8,64}")
+_ACCOUNT_NUMBER = re.compile(r"\d{10}")
 
 
 def clean_text(value: str, name: str, maximum: int) -> str:
@@ -16,6 +17,13 @@ def clean_text(value: str, name: str, maximum: int) -> str:
     if not text or len(text) > maximum:
         raise DomainError("INVALID_INPUT", f"{name} must be 1 to {maximum} characters.")
     return text
+
+
+def clean_account(account_number: str) -> str:
+    account = re.sub(r"[\s-]", "", account_number)
+    if not _ACCOUNT_NUMBER.fullmatch(account):
+        raise DomainError("INVALID_INPUT", "account_number must be a 10 digit Nigerian bank account number.")
+    return account
 
 
 def clean_reference(value: str | None) -> str | None:
