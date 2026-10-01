@@ -48,6 +48,7 @@
   "vars": {
     // @FIREBASE_VARS@
     "DJANGO_DEBUG": "0",
+    "SIMULATION": "1",
     "DJANGO_ALLOWED_HOSTS": "@HOST_WORKER@.@SUBDOMAIN@.workers.dev",
     "DJANGO_CSRF_TRUSTED_ORIGINS": "https://@HOST_WORKER@.@SUBDOMAIN@.workers.dev",
     "PUBLIC_BASE_URL": "https://@HOST_WORKER@.@SUBDOMAIN@.workers.dev",

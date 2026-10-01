@@ -17,6 +17,7 @@ const errors = [];
 
 const PLACEHOLDER = "Ask 234";
 const LINE = 24;
+const NOTE = 24;
 const pill = (page) => page.locator('[data-slot="pill"]');
 const field = (page) => page.locator("#text");
 const send = (page) => page.locator('[data-slot="send"]');
@@ -62,7 +63,7 @@ for (const scheme of ["light", "dark"]) {
   check(Math.abs(pillBox.left + pillBox.width / 2 - 210) < 1, "and centred across");
   check(await page.evaluate(() => document.activeElement.id === "text"), "the field has focus with no click");
   check((await field(page).getAttribute("placeholder")) === PLACEHOLDER && (await page.getByRole("textbox", { name: PLACEHOLDER }).count()) === 1, `the placeholder and the accessible name are "${PLACEHOLDER}"`);
-  const shown = await visibleText(page);
+  const shown = (await visibleText(page)).filter((t) => t.trim() !== "Test");
   check(shown.length === 1 + (await page.locator("chat-starters button").count()) && /approve/i.test(shown[0]), `the only text is one line and the starters (the wordmark is a drawing), no legal line (${shown.length} pieces)`);
   const controls = await visibleButtons(page);
   check(JSON.stringify(controls.slice(0, 2)) === JSON.stringify(["textarea", "Send"]) && controls.length === 2 + (await page.locator("chat-starters button").count()), `the only controls are the field, Send and the starters, and no chats button without chats (${controls.length})`);
@@ -145,7 +146,7 @@ for (const scheme of ["light", "dark"]) {
   check(dock && Math.abs(dock.top - formTopBefore) < 3, `it starts from where the pill was (${Math.round(dock?.top)}px, was ${Math.round(formTopBefore)}px)`);
   await pause(500);
   const docked = await pill(page).evaluate((el) => el.getBoundingClientRect().toJSON());
-  check(docked.bottom > 800 - 16 && docked.bottom <= 800 - 8, `it ends docked at the bottom edge (pill bottom ${docked.bottom} of 800)`);
+  check(docked.bottom > 800 - 16 - NOTE && docked.bottom <= 800 - 8, `it ends docked at the bottom edge (pill bottom ${docked.bottom} of 800)`);
   check((await page.evaluate(() => document.querySelector("form").getAnimations().length)) === 0, "with no animation left running");
   check(await seen(page.locator("assistant-text", { hasText: "docked" }).waitFor({ timeout: 15000 })), "the transcript has the reply");
   await settled(page);
@@ -156,7 +157,7 @@ for (const scheme of ["light", "dark"]) {
   console.log(`\n${scheme}: a reload opens docked`);
   await page.reload();
   const early = await pill(page).evaluate((el) => el.getBoundingClientRect().bottom);
-  check(early > 800 - 16 && (await page.evaluate(() => document.querySelector("form").getAnimations().length)) === 0, "a reload of a chat shows the docked pill with no animation");
+  check(early > 800 - 16 - NOTE && (await page.evaluate(() => document.querySelector("form").getAnimations().length)) === 0, "a reload of a chat shows the docked pill with no animation");
   check(await page.evaluate(() => document.activeElement.id !== "text"), "and does not take the keyboard");
 
   console.log(`\n${scheme}: Stop`);
@@ -219,7 +220,7 @@ console.log("\na quiet stop: reduced motion");
   await page.waitForURL(/\/c\/[0-9a-f]{32}\//);
   await pause(60);
   const bottom = await pill(page).evaluate((el) => el.getBoundingClientRect().bottom);
-  check((await page.evaluate(() => window.__animated)) === 0 && bottom > 800 - 16, "with prefers-reduced-motion the pill is docked at once and nothing is animated");
+  check((await page.evaluate(() => window.__animated)) === 0 && bottom > 800 - 16 - NOTE, "with prefers-reduced-motion the pill is docked at once and nothing is animated");
   await context.close();
 }
 
@@ -276,15 +277,15 @@ console.log("\na 320px phone");
   await settled(page);
   await pause(400);
   now = await fits();
-  check(now.bottom <= 568 && now.bottom > 568 - 20 && now.scroll <= 320, "docked on the phone: the pill sits on the bottom edge and nothing scrolls sideways");
+  check(now.bottom <= 568 && now.bottom > 568 - 20 - NOTE && now.scroll <= 320, "docked on the phone: the pill sits on the bottom edge and nothing scrolls sideways");
   now = await keyboardTop(260);
-  check(now.bottom <= 568 - 260 + 1 && now.bottom > 568 - 260 - 20, `docked, a keyboard of 260px lifts the pill to sit on it (bottom at ${Math.round(now.bottom)})`);
+  check(now.bottom <= 568 - 260 + 1 && now.bottom > 568 - 260 - 20 - NOTE, `docked, a keyboard of 260px lifts the pill to sit on it (bottom at ${Math.round(now.bottom)})`);
   await keyboardTop(0);
 
   await page.setViewportSize({ width: 320, height: 300 });
   await pause(200);
   now = await fits();
-  check(now.bottom <= 300 && now.bottom > 300 - 20, "when the browser shrinks the layout for the keyboard (300px left), the docked pill follows the new bottom");
+  check(now.bottom <= 300 && now.bottom > 300 - 20 - NOTE, "when the browser shrinks the layout for the keyboard (300px left), the docked pill follows the new bottom");
   await openHome(page);
   await page.setViewportSize({ width: 320, height: 300 });
   await pause(300);

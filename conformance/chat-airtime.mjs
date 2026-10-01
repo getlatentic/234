@@ -44,7 +44,9 @@ for (const scheme of ["light", "dark"]) {
   const { page, card } = opened;
   const shown = (await card.locator("article").innerText()).replace(/\s+/g, " ");
   check(/MTN airtime/.test(shown) && shown.includes("0703 123 4567") && shown.includes("₦500"), `the approval card shows what the person typed (${shown.slice(0, 90)})`);
-  check(/Simulated: no money moves/.test(shown), "and says it is simulated");
+  check(!/Simulated/.test(shown), "the card itself carries no simulation label");
+  check(await page.locator('[data-slot="test-box"]').innerText() === "Test", "the page has the Test box on top");
+  check((await page.locator('[data-slot="simulation-note"]').innerText()).trim() === "This is a simulation", "and the simulation line under the composer");
   const { checkout, calls, who } = await approveAndPay(context, opened);
   check(who === "MTN airtime", `the checkout page names what is bought (${who})`);
   check(await seen(card.getByText("Airtime delivered").first().waitFor({ timeout: 10000 })), "the card goes to the delivered receipt");

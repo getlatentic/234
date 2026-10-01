@@ -44,7 +44,7 @@ for (const scheme of ["light", "dark"]) {
   check(home.ok() && new URL(page.url()).pathname === "/", "the home page opens at /");
   check((await focusedId(page)) === "text", "the input has focus with no click");
   check((await page.locator("chat-thread[data-draft]").count()) === 1, "the page is a chat that is not made yet");
-  const shown = await visibleText(page);
+  const shown = (await visibleText(page)).filter((t) => t.trim() !== "Test");
   check(/approve/i.test(shown[0]) && shown.length === 1 + (await page.locator("chat-starters button").count()), `the only text on the page is the one line and the starters; the wordmark is a drawing (${JSON.stringify(shown)})`);
   check((await page.locator("header, footer, nav").count()) === 0, "no header, footer or bar");
   check((await page.locator('[data-action="chats"]').isVisible()) === false, "a visitor with no chats has no chats button");
@@ -116,7 +116,7 @@ for (const scheme of ["light", "dark"]) {
   await page.locator("chat-thread[data-me]").waitFor({ state: "attached" });
   check((await focusedId(page)) === "text" && (await page.locator("chat-thread[data-draft]").count()) === 1, "New chat lands on the same ready composer");
   check((await rows(page).count()) === 1, "a visitor with an earlier chat still gets a fresh composer, with the list one tap away");
-  const again = await visibleText(page);
+  const again = (await visibleText(page)).filter((t) => t.trim() !== "Test");
   check(/approve/i.test(again[0]) && again.length === 1 + (await page.locator("chat-starters button").count()), "and it is as bare as the first time: its line and the starters");
 
   console.log(`\n${scheme}: two quick sends`);
@@ -173,7 +173,7 @@ watchErrors(phone, errors);
 await openHome(phone);
 const layout = () =>
   phone.evaluate(() => {
-    const floating = [...document.querySelectorAll("*")].filter((el) => ["fixed", "sticky"].includes(getComputedStyle(el).position) && el.getClientRects().length > 0).map((el) => el.localName);
+    const floating = [...document.querySelectorAll("*")].filter((el) => ["fixed", "sticky"].includes(getComputedStyle(el).position) && el.getClientRects().length > 0 && el.dataset.slot !== "test-box").map((el) => el.localName);
     const form = document.querySelector('[data-slot="composer"]').getBoundingClientRect();
     return { floating, scrollWidth: document.documentElement.scrollWidth, width: innerWidth, formBottom: form.bottom, height: innerHeight, threadHeight: document.querySelector("chat-thread").getBoundingClientRect().height };
   });

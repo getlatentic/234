@@ -16,6 +16,7 @@ def product(request: HttpRequest) -> dict[str, object]:
     return {
         "product_name": settings.PRODUCT_NAME,
         "product_tagline": tagline(settings.PRODUCT_NAME),
+        "simulation": settings.SIMULATION,
         "ground": GROUND,
         "sandbox_origin": settings.SANDBOX_ORIGIN,
         "sandbox_capabilities": json.dumps(sandbox.host_sandbox()),

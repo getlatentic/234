@@ -150,7 +150,6 @@
     document.getElementById("waiting")?.remove();
     const card = fromTemplate("t-card");
     card.dataset.phase = q.phase;
-    setText(card, "mode", q.mode.label);
     setText(card, "who", whoOf(q));
     setText(card, "amount", q.amount.display);
     if (NO_MONEY_MOVED.includes(q.phase)) slot(card, "amount").classList.add("line-through", "text-ink-3");
