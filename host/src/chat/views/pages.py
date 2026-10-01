@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from functools import cache
+
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -26,7 +28,10 @@ MANIFEST_ICONS = (
 )
 
 
+@cache
 def turn_settings() -> Settings:
+    """Read once per process: the configuration of a running Worker does not change, and each setting is a
+    call into JavaScript."""
     return Settings.from_env(runtime.get)
 
 

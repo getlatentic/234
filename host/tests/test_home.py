@@ -73,3 +73,29 @@ def test_the_browser_and_the_manifest_take_their_colour_from_the_palette(visitor
     manifest = visitor.client.get("/manifest.webmanifest").json()
     assert manifest["background_color"] == GROUND["light"]
     assert manifest["theme_color"] == PRIMARY == "#03492f"
+
+
+def test_the_model_settings_are_read_once_however_many_pages_are_shown(visitor, monkeypatch):
+    from chat.views import pages
+
+    reads = []
+    monkeypatch.setattr(pages.runtime, "get", lambda name, default=None: reads.append(name) or default)
+    pages.turn_settings.cache_clear()
+    try:
+        for _ in range(3):
+            assert visitor.client.get("/").status_code == 200
+        assert len(reads) == len(set(reads)) > 0
+    finally:
+        pages.turn_settings.cache_clear()
+
+
+def test_the_home_says_so_when_no_model_is_configured(visitor, monkeypatch):
+    from chat.views import pages
+
+    monkeypatch.setattr(pages.runtime, "get", lambda name, default=None: default)
+    pages.turn_settings.cache_clear()
+    try:
+        body = visitor.client.get("/").content.decode()
+    finally:
+        pages.turn_settings.cache_clear()
+    assert "No model is configured" in body
