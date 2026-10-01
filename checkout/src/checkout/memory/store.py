@@ -114,14 +114,16 @@ class MemoryStore:
         )  # fmt: skip
 
     async def delete_everything(self, owner: str) -> int:
-        """Erases every entry and every proposal of the owner for good: no undo."""
-        answers = await self._db.batch(
+        """Erases every entry and every proposal of the owner for good: no undo. How many notes the person
+        had is counted first: D1 counts the rows its triggers and indexes change as changes too."""
+        notes = await self.count_live(owner)
+        await self._db.batch(
             [
                 ("DELETE FROM memory_entry WHERE owner = ?", (owner,)),
                 ("DELETE FROM memory_proposal WHERE owner = ?", (owner,)),
             ]
         )
-        return answers[0].changes
+        return notes
 
     async def purge(self) -> int:
         """Deletes for good what the retention period has passed: forgotten entries and proposals that have

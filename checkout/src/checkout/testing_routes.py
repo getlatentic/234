@@ -19,6 +19,8 @@ RESET_TABLES = (
     "sim_recipients",
     "sim_transactions",
     "sim_vtpass",
+    "memory_proposal",
+    "memory_entry",
 )
 _INSERT_PROBE = (
     "INSERT INTO sim_transactions (reference, amount_kobo, currency, email, status, description)"
