@@ -19,7 +19,7 @@ def _what(op: str, kind: str, title: str, hook: str) -> str:
 
 
 def _detail(payload: dict[str, Any]) -> str:
-    if payload.get("kind") != "recipient":
+    if payload.get("kind") != "recipient" or "account_number" not in payload:
         return ""
     ending = mask_account(payload["account_number"])[-4:]
     bank = payload.get("bank_name") or ""

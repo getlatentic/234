@@ -7,9 +7,7 @@ const state = { id: null, token: null, view: null, busy: false, notice: "" };
 
 const fromTemplate = (id) => document.getElementById(id).content.firstElementChild.cloneNode(true);
 const slot = (node, name) => node.querySelector(`[data-slot="${name}"]`);
-const show = (node, on) => {
-  node.hidden = !on;
-};
+const show = (node, on) => node.toggleAttribute("hidden", !on);
 const plainError = (text) => (text ?? "").replace(/^[A-Z][A-Z_]+:\s*/, "");
 const textOf = (result) => result.content?.find((block) => block.type === "text")?.text;
 

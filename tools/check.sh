@@ -25,6 +25,7 @@ teardown() {
   PORT_BASE=8900 "$root/tools/down.sh" quiet
   PORT_BASE=8940 "$root/tools/down.sh" quiet
   PORT_BASE=8960 "$root/tools/down.sh" quiet
+  PORT_BASE=8980 "$root/tools/down.sh" quiet
   rm -f "$lock"
 }
 trap teardown EXIT
@@ -51,7 +52,7 @@ limit 120 node --test "$root/conformance/menu-logic.test.mjs" "$root/conformance
 limit 120 node "$root/conformance/markdown-unit.mjs"
 limit 120 node --test "$root"/sandbox/test/*.test.mjs
 
-for base in 8900 8940 8960; do
+for base in 8900 8940 8960 8980; do
   PORT_BASE=$base "$root/tools/down.sh" quiet
 done
 preflight 8900 8999 || { echo "Ports 8900-8999 are not free; stop what holds them and run again."; exit 1; }
@@ -61,6 +62,7 @@ ALT_RUNNERS=1 timeout --kill-after=10 900 "$root/tools/up.sh" || { echo "!! the 
 export CHECKOUT_URL=http://localhost:8900 HOST_URL=http://localhost:8901 MODEL_URL=http://127.0.0.1:8902
 inside checkout 300 uv run pytest -m worker -q
 limit 300 node "$root/conformance/connectors-ts-client.mjs"
+limit 300 node "$root/conformance/memory-ts-client.mjs"
 inside host 600 env RUNNER_URLS=do=http://localhost:8901,queue=http://localhost:8903,waituntil=http://localhost:8904 \
   uv run pytest -m worker -q tests/test_worker_durable.py
 inside host 300 uv run pytest -m worker -q tests/test_worker_socket.py tests/test_worker_start.py tests/test_worker_menu.py
@@ -96,6 +98,11 @@ for suite in sandbox-proxy inline-checkout inline-checkout-hosts; do
 done
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8960 ENGINE=webkit node "$root/conformance/sandbox-proxy.mjs"
 PORT_BASE=8960 "$root/tools/down.sh" quiet
+
+echo "== stack with sign-in against the Firebase Auth emulator on ports 8980-8999: what 234 remembers"
+PORT_BASE=8980 AUTH=1 VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the sign-in stack did not come up"; exit 1; }
+limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-memory.mjs"
+PORT_BASE=8980 "$root/tools/down.sh" quiet
 
 [ $fail = 0 ] && echo "ALL SUITES PASSED" || echo "SOME SUITES FAILED"
 exit $fail

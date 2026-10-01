@@ -188,3 +188,20 @@ async def test_save_is_refused_when_the_owner_has_no_room_left():
     await saved(stack, ALICE, **CITY)
     full = await memory_call(stack, ALICE, "remember", kind="fact", title="Third", hook="x", body="y")
     assert text_of(full).startswith("MEMORY_FULL")
+
+
+async def test_a_recipient_is_forgotten_and_brought_back_like_any_note():
+    stack = make_stack()
+    note = await saved(stack, ALICE, **MUM)
+    gone = await propose(stack, ALICE, "forget", id=note)
+    view = gone["structuredContent"]["memory"]
+    assert (view["state"], view["kind"], view["title"], view["detail"]) == (
+        "forgotten",
+        "recipient",
+        "Mum",
+        "",
+    )
+    assert "0123456789" not in json.dumps(gone)
+    back = await decide(stack, ALICE, gone, "undo_memory")
+    assert back["structuredContent"]["memory"]["state"] == "restored"
+    assert (await stack.db.row("SELECT account_number FROM memory_entry"))["account_number"] == "0123456789"
