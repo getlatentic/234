@@ -102,6 +102,14 @@ PORT_BASE=8960 "$root/tools/down.sh" quiet
 echo "== stack with sign-in against the Firebase Auth emulator on ports 8980-8999: what 234 remembers"
 PORT_BASE=8980 AUTH=1 VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the sign-in stack did not come up"; exit 1; }
 limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-memory.mjs"
+inside host 300 env AUTH=1 CHECKOUT_URL=http://localhost:8980 HOST_URL=http://localhost:8981 MODEL_URL=http://127.0.0.1:8982 \
+  uv run pytest -m worker -q tests/test_worker_auth.py
+PORT_BASE=8980 "$root/tools/down.sh" quiet
+
+echo "== stack with sign-in against real key verification (no emulator) on ports 8980-8999: the token checks"
+PORT_BASE=8980 AUTH=keys VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the keys stack did not come up"; exit 1; }
+inside host 300 env AUTH=keys CHECKOUT_URL=http://localhost:8980 HOST_URL=http://localhost:8981 MODEL_URL=http://127.0.0.1:8982 \
+  uv run pytest -m worker -q tests/test_worker_auth.py
 PORT_BASE=8980 "$root/tools/down.sh" quiet
 
 [ $fail = 0 ] && echo "ALL SUITES PASSED" || echo "SOME SUITES FAILED"
