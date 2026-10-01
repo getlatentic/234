@@ -1,4 +1,3 @@
-{% load partials %}
 {% partialdef row %}
 <li class="flex items-center" data-slot="row">
   <a {% if entry %}href="{% url 'chat:page' entry.id %}"{% endif %}{% if entry.id == chat.id %} aria-current="page"{% endif %} data-slot="open" class="focus-ring flex min-h-11 min-w-0 flex-1 items-center rounded-control px-3 text-ink no-underline hover:bg-sunken aria-[current]:bg-mint aria-[current]:font-semibold"><span class="truncate">{{ entry.title|default:"New chat" }}</span></a>

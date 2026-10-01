@@ -35,10 +35,9 @@ Notes:
 
 | Package | Licence | Project |
 |---|---|---|
-| Django 5.2 | BSD-3-Clause | host |
+| Django 6.1 | BSD-3-Clause | host |
 | asgiref, sqlparse | BSD-3-Clause | host |
 | django-cf | MIT | host |
-| django-template-partials | MIT | host |
 | httpx, httpcore | BSD-3-Clause | host |
 | anyio, h11 | MIT | host |
 | idna | BSD-3-Clause | host |

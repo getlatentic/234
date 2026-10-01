@@ -32,7 +32,6 @@ CSRF_TRUSTED_ORIGINS = runtime.get_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
     "django.contrib.staticfiles",
-    "template_partials",
     "chat",
     "accounts",
     "a2a",

@@ -99,7 +99,6 @@ source = { virtual = "." }
 dependencies = [
     { name = "django" },
     { name = "django-cf" },
-    { name = "django-template-partials" },
     { name = "httpx" },
     { name = "tzdata" },
 ]
@@ -118,9 +117,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "django", specifier = ">=5.2.17,<5.3" },
+    { name = "django", specifier = ">=6.1.1,<6.2" },
     { name = "django-cf", specifier = ">=0.2.16" },
-    { name = "django-template-partials", specifier = ">=25.3" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "tzdata" },
 ]
@@ -207,16 +205,16 @@ wheels = [
 
 [[package]]
 name = "django"
-version = "5.2.17"
+version = "6.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asgiref" },
     { name = "sqlparse" },
     { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/d8/43e9d000519adceb189620b6869ff88031e046df91c2e9da72f8f6918399/django-5.2.17.tar.gz", hash = "sha256:9d4d93be539a18ab80d058eb515900e10951e04c537c5a6b394fc49528d3251f", size = 10889740, upload-time = "2026-08-04T15:04:03.173Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/d4/8314b5bdef20832f0ac6ae3b3e4d4924e4759fa3b4af27609dd747e7a6be/django-6.1.1.tar.gz", hash = "sha256:7ab93536d8e677aa14554c56426290c69480bf2ee68d7513d4a22f57d6bfeb84", size = 11284905, upload-time = "2026-09-02T17:20:45.621Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/f8/ce120525ca78f12b07daf65786679c5d0b54a75285a8958d3ae55e39da35/django-5.2.17-py3-none-any.whl", hash = "sha256:f04fb3b36ee119e1af4fa1d397d5fd6cf12700f49321e84d4f4c642c5b1973db", size = 8315563, upload-time = "2026-08-04T15:03:59.1Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/ca/c1040a4fd15754ede7df15fd72fc2e123045b473b253ab5f5284e11c651e/django-6.1.1-py3-none-any.whl", hash = "sha256:585fb82bf15053c42cf52e67c2f1b54a032dca384759315fd6678ab1870d1d72", size = 8419512, upload-time = "2026-09-02T17:20:39.153Z" },
 ]
 
 [[package]]
@@ -230,18 +228,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4a/36/54c79ee577493ed2b57e4557c75b7f5df41db73f3c6a1ec7188a222ccb47/django_cf-0.2.16.tar.gz", hash = "sha256:e9ee23f64dc171f9e019d21f434877069f78f2fa9834e9e6c45ff1f8e302ffcf", size = 32806, upload-time = "2026-09-01T14:36:50.553Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bb/6c/67d25d3a445b7b43befe329fdc45e2c47dab38c62f4023065cee09680b9a/django_cf-0.2.16-py3-none-any.whl", hash = "sha256:5d6033649920c1b7e146f429f6fcdfefd277d5faba0c2660deb524b8f1183163", size = 25837, upload-time = "2026-09-01T14:36:49.287Z" },
-]
-
-[[package]]
-name = "django-template-partials"
-version = "25.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b0/2e/957ee4a6ee0a7d46a18676ba8b01d762ef89d00b7769cc532853f9f989e1/django_template_partials-25.3.tar.gz", hash = "sha256:6d11f7bb049ce3032e6fe3331137b771e34239ce1af18c55ef6a9b667cf2ef36", size = 18052, upload-time = "2025-11-14T08:27:21.917Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9b/9d/48f8721e48b938ca2e2dde577986624543be6ff9bdccac20ccb747be4287/django_template_partials-25.3-py2.py3-none-any.whl", hash = "sha256:a19334934cf40e4e1218802a4ddfdf22b8f78cc5a0b8c75a18b97e6ea4f3c108", size = 9702, upload-time = "2025-11-14T08:27:20.243Z" },
 ]
 
 [[package]]
