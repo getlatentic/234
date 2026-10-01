@@ -8,6 +8,9 @@ Start the stack first (`tools/real-model.sh`), then, from `host/`:
     PORT_BASE=8920 PYTHONPATH=src:..:../checkout/src uv run python -u -m evaluation.run \\
         --split held-out --draws 3 --out ../evaluation/results/held-out.jsonl
 
+The memory split signs people in: start that stack with `AUTH=1 VISITOR_CAP=0 tools/real-model.sh` and
+run with `--split memory`.
+
 The model's answers are never judged by another model; `score.py` compares them with the case. A draw is a
 new visitor, so its ledger owner is new, its daily allowance is new, and a case's limits are its own.
 """
@@ -33,16 +36,13 @@ from turns.settings import Settings
 
 from .cases import Case, load_cases
 from .score import score_case
+from .signed_in import Accounts, SetupFailed, live_notes, set_up_notes
 from .transcript import turns_of
 
 TURN_TIMEOUT = 240
 DAILY_LIMIT_KOBO = 10_000_000
 PROTOCOL = "2025-11-25"
 ROOT = Path(__file__).resolve().parent.parent
-
-
-class SetupFailed(Exception):
-    pass
 
 
 async def mcp(
@@ -115,14 +115,38 @@ async def converse(visitor: Visitor, case: Case) -> list[dict[str, Any]]:
     return events
 
 
-async def draw(case: Case, number: int, urls: dict[str, str], gate: asyncio.Semaphore) -> dict[str, Any]:
+async def play(
+    case: Case, urls: dict[str, str], visitor: Visitor, owner: str | None
+) -> tuple[list, dict, list]:
+    """One draw's conversation: what the account had saved is set up, the daily allowance is used as the case
+    says, the turns are sent, and what the account holds afterwards is read."""
+    refs: dict[str, str] = {}
+    if case.account and owner:
+        refs = await set_up_notes(urls["checkout"], owner, case.notes)
+    if case.approved_kobo:
+        await approve_spend(urls["checkout"], owner or owner_of(visitor), case.approved_kobo)
+    events = await converse(visitor, case)
+    live = await live_notes(urls["checkout"], owner) if case.account and owner else []
+    return events, refs, live
+
+
+async def draw(
+    case: Case, number: int, urls: dict[str, str], gate: asyncio.Semaphore, accounts: Accounts | None = None
+) -> dict[str, Any]:
     started, error = time.monotonic(), None
-    async with gate, Visitor(urls["host"]) as visitor:
-        events: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+    refs: dict[str, str] = {}
+    live: list[str] = []
+    async with gate:
         try:
-            if case.approved_kobo:
-                await approve_spend(urls["checkout"], owner_of(visitor), case.approved_kobo)
-            events = await converse(visitor, case)
+            if case.account:
+                if accounts is None:
+                    raise SetupFailed("a signed-in case needs the stack started with AUTH=1")
+                async with accounts.lease() as (visitor, owner):
+                    events, refs, live = await play(case, urls, visitor, owner)
+            else:
+                async with Visitor(urls["host"]) as visitor:
+                    events, refs, live = await play(case, urls, visitor, None)
         except (SetupFailed, httpx.HTTPError) as failure:
             error = f"{type(failure).__name__}: {failure}"
     turns = turns_of(events)
@@ -134,8 +158,10 @@ async def draw(case: Case, number: int, urls: dict[str, str], gate: asyncio.Sema
         "draw": number,
         "error": error,
         "seconds": round(time.monotonic() - started, 1),
+        "refs": refs,
+        "live_ids": live,
         "turns": turns,
-        "score": score_case(case, turns).as_dict(),
+        "score": score_case(case, turns, refs, live).as_dict(),
     }
 
 
@@ -146,6 +172,7 @@ def git(*args: str) -> str:
 def metadata(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
     settings = Settings.from_env(os.environ.get)
     prompt = system_prompt(settings.connectors)
+    memory_prompt = system_prompt(settings.connectors, memory=True)
     return {
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "split": args.split,
@@ -162,6 +189,8 @@ def metadata(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
         "tree_clean": not git("status", "--porcelain", "--", "host", "checkout"),
         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
         "prompt": prompt,
+        "prompt_with_memory_sha256": hashlib.sha256(memory_prompt.encode()).hexdigest(),
+        "prompt_with_memory": memory_prompt,
     }
 
 
@@ -189,10 +218,14 @@ async def run(args: argparse.Namespace) -> None:
         sys.exit(f"The cases assume a daily limit of {DAILY_LIMIT_KOBO} kobo; the connectors have {daily}.")
     gate, write = asyncio.Semaphore(args.concurrency), asyncio.Lock()
     passed = failed = 0
+    accounts = None
+    if any(case.account for case in cases):
+        accounts = Accounts(urls["host"], f"127.0.0.1:{base + 7}", args.concurrency)
+        await accounts.start()
 
     async def one(case: Case, number: int, sink) -> None:
         nonlocal passed, failed
-        result = await draw(case, number, urls, gate)
+        result = await draw(case, number, urls, gate, accounts)
         ok = result["score"]["ok"]
         passed, failed = passed + ok, failed + (not ok)
         async with write:
@@ -204,15 +237,19 @@ async def run(args: argparse.Namespace) -> None:
             flush=True,
         )
 
-    with out.open("w") as sink:
-        await asyncio.gather(*[one(c, n, sink) for n in range(args.draws) for c in cases])
+    try:
+        with out.open("w") as sink:
+            await asyncio.gather(*[one(c, n, sink) for n in range(args.draws) for c in cases])
+    finally:
+        if accounts is not None:
+            await accounts.stop()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--split", choices=["dev", "held-out", "tuning", "all"], default="held-out")
+    parser.add_argument("--split", choices=["dev", "held-out", "tuning", "memory", "all"], default="held-out")
     parser.add_argument("--draws", type=int, default=3)
     parser.add_argument("--only", default="", help="comma-separated case ids or categories")
     parser.add_argument("--concurrency", type=int, default=4)

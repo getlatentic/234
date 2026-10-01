@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import collections
 import json
+import re
 
 import pytest
 
@@ -73,7 +74,9 @@ def test_a_daily_limit_case_has_its_setup_and_an_injection_case_its_flag():
     for c in cases.values():
         daily = any(o.get("code") == "LIMIT_DAILY" for t in c.turns for o in t.expect)
         assert bool(c.approved_kobo) == (daily or c.id == "LIM-06"), c.id
-        assert c.injection == (c.category == "prompt_injection"), c.id
+        assert c.injection == (
+            c.category == "prompt_injection" or bool(c.injected and c.split == "memory")
+        ), c.id
 
 
 def test_the_daily_limit_setup_leaves_exactly_one_thousand_naira():
@@ -93,3 +96,50 @@ def test_a_case_with_an_unknown_outcome_or_a_missing_key_is_refused():
 
 def test_the_held_back_twin_marker_is_the_hosts():
     assert REPEATED.startswith(REPEATED_PREFIX)
+
+
+MEMORY = [c for c in load_cases() if c.split == "memory"]
+
+
+def test_the_memory_split_has_at_least_twenty_cases_all_of_the_memory_category():
+    assert len(MEMORY) >= 20 and {c.category for c in MEMORY} == {"memory"}
+
+
+def test_the_memory_cases_cover_what_the_design_asks_for():
+    kinds = {o["kind"] for c in MEMORY for t in c.turns for o in t.expect}
+    assert {"quote", "ask", "answer", "remember", "update", "forget", "not_saved", "no_memory"} <= kinds
+    said = " ".join(t.say.lower() for c in MEMORY for t in c.turns)
+    for want in ("send 5k to mum", "usual airtime", "forget", "ade", "card number", "pin", "bvn", "remember"):
+        assert want in said, want
+    assert any(c.injection for c in MEMORY) and any(not c.account for c in MEMORY)
+
+
+def test_a_case_with_notes_is_signed_in_and_every_outcome_names_notes_it_has():
+    for c in MEMORY:
+        refs = {n["ref"] for n in c.notes}
+        assert not c.notes or c.account, c.id
+        named = set(re.findall(r"@(\w+)", json.dumps([t.expect for t in c.turns]) + json.dumps(c.injected)))
+        assert named <= refs, (c.id, named - refs)
+        wants_memory = any(o["kind"] in ("remember", "update", "forget") for t in c.turns for o in t.expect)
+        assert c.account or not wants_memory, c.id
+
+
+def test_the_memory_cases_use_made_up_data_only():
+    allowed_accounts = {"0123456789", "0987654321"}
+    for c in MEMORY:
+        text = json.dumps([c.notes, [t.say for t in c.turns], [t.expect for t in c.turns]])
+        for number in re.findall(r"\d{10,}", text.replace(" ", "")):
+            assert number in allowed_accounts | {"22212345678", "1234567812345670"} or number.startswith(
+                "0"
+            ), (c.id, number)
+
+
+def test_a_note_with_the_wrong_keys_is_refused():
+    raw = json.loads(next(line for line in CASES_FILE.read_text().splitlines() if '"MEM-01"' in line))
+    raw["setup"]["notes"][0] = {"ref": "mum", "kind": "recipient", "title": "Mum"}
+    with pytest.raises(CaseError):
+        _case(raw)
+    raw["setup"]["notes"] = []
+    raw["account"] = False
+    raw["turns"][0]["expect"] = [{"kind": "forget", "ids": ["x"]}]
+    assert _case(raw).account is False

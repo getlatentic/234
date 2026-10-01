@@ -27,12 +27,15 @@ KINDS = (
     "false_claim",
     "injection",
 )
+MEMORY_KINDS = ("leak", "false_save", "silent_write")
 
 
 def load_draws(path: Path, cases: dict[str, Case]) -> list[dict[str, Any]]:
     draws = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     for draw in draws:
-        draw["scored"] = score_case(cases[draw["case"]], draw["turns"])
+        draw["scored"] = score_case(
+            cases[draw["case"]], draw["turns"], draw.get("refs"), draw.get("live_ids")
+        )
     return draws
 
 
@@ -48,7 +51,8 @@ def table(title: str, rows: dict[str, tuple[int, int]], total: tuple[int, int]) 
 
 def dangerous_table(draws: list[dict[str, Any]]) -> list[str]:
     lines = ["| Dangerous failure | draws | a card reached the person |", "|---|---|---|"]
-    for kind in KINDS:
+    memory = any(d["category"] == "memory" for d in draws)
+    for kind in (*KINDS, *(MEMORY_KINDS if memory else ())):
         hits = [d for d in draws if any(f.kind == kind for f in d["scored"].findings)]
         cards = [d for d in hits if any(f.kind == kind and f.card for f in d["scored"].findings)]
         lines.append(f"| {kind} | {len(hits)} | {len(cards)} |")

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 CASES_FILE = Path(__file__).with_name("cases.jsonl")
-SPLITS = ("dev", "held-out", "tuning")
+SPLITS = ("dev", "held-out", "tuning", "memory")
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
     "ask": {"mention"},
@@ -15,6 +15,17 @@ OUTCOME_KINDS = {
     "menu": set(),
     "refused": {"tool", "args", "code"},
     "no_approve": set(),
+    "remember": {"note_kind", "args", "contains"},
+    "update": {"id", "contains"},
+    "forget": {"ids"},
+    "answer": {"mention"},
+    "not_saved": set(),
+    "no_memory": set(),
+}
+NOTE_KEYS = {
+    "recipient": {"ref", "kind", "title", "account_number", "bank"},
+    "preference": {"ref", "kind", "title", "hook", "body"},
+    "fact": {"ref", "kind", "title", "hook", "body"},
 }
 MAX_MESSAGE = 500
 
@@ -44,6 +55,10 @@ class Case:
     approved_kobo: tuple[int, ...] = ()
     injection: bool = False
     injected: dict[str, Any] = field(default_factory=dict)
+    account: bool = False
+    """The person is signed in: the draw is made as an account, which has memory."""
+    notes: tuple[dict[str, Any], ...] = ()
+    """What the account has saved before the first turn, each with a `ref` that an outcome names as `@ref`."""
 
 
 def _outcome(case_id: str, outcome: dict[str, Any]) -> dict[str, Any]:
@@ -71,6 +86,10 @@ def _case(raw: dict[str, Any]) -> Case:
         )
     if not raw.get("user_next", "").strip():
         raise CaseError(f"{case_id}: user_next is empty")
+    notes = tuple(_note(case_id, n) for n in raw.get("setup", {}).get("notes", ()))
+    account = bool(raw.get("account"))
+    if notes and not account:
+        raise CaseError(f"{case_id}: notes are the account's: the case needs account true")
     return Case(
         case_id,
         raw["split"],
@@ -81,7 +100,16 @@ def _case(raw: dict[str, Any]) -> Case:
         tuple(raw.get("setup", {}).get("approved_kobo", ())),
         bool(raw.get("injection")),
         raw.get("injected", {}),
+        account,
+        notes,
     )
+
+
+def _note(case_id: str, note: dict[str, Any]) -> dict[str, Any]:
+    wanted = NOTE_KEYS.get(note.get("kind", ""))
+    if wanted is None or set(note) != wanted:
+        raise CaseError(f"{case_id}: a note of kind {note.get('kind')!r} has the keys {sorted(wanted or ())}")
+    return note
 
 
 def load_cases(path: Path = CASES_FILE) -> list[Case]:

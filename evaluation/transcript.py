@@ -7,7 +7,7 @@ A turn record is a plain dict, so it is stored as it is:
     say, calls, cards, reply, notices, finish_reasons, end, latency_ms, log
 
 `calls` are the model's tool calls (tool, server, arguments, is_error, result, repeated); `cards` are the
-approval or menu cards the chat got, as a line each; `log` is the turn in order, for a reader.
+approval, menu or memory cards the chat got, as a line each; `log` is the turn in order, for a reader.
 """
 
 from typing import Any
@@ -21,7 +21,8 @@ def _card(payload: dict[str, Any]) -> dict[str, Any]:
     data = (payload.get("result") or {}).get("structuredContent") or {}
     quote = data.get("quote") or {}
     amount = quote.get("amount") or {}
-    return {
+    memory = data.get("memory")
+    card = {
         "tool": payload.get("tool"),
         "quote_id": quote.get("id"),
         "kind": (quote.get("details") or {}).get("kind"),
@@ -29,6 +30,7 @@ def _card(payload: dict[str, Any]) -> dict[str, Any]:
         "merchant": quote.get("merchant"),
         "menu_items": len(data.get("items") or []) or None,
     }
+    return {**card, "memory_op": memory.get("op"), "memory_title": memory.get("title")} if memory else card
 
 
 def _call(payload: dict[str, Any]) -> dict[str, Any]:
