@@ -9,6 +9,7 @@ from django.template import engines
 from django.template.utils import get_app_template_dirs
 from django.templatetags.static import static
 from django.urls import resolve, reverse
+from django.utils.formats import get_format
 
 
 def _compile_templates() -> None:
@@ -19,6 +20,8 @@ def _compile_templates() -> None:
 
 
 def warm_up() -> None:
+    list(engines["django"].engine.template_context_processors)
+    get_format("DATE_FORMAT")
     reverse("chat:index")
     resolve("/")
     static("chat/app.css")
