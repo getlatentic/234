@@ -2,7 +2,7 @@
 <li class="flex items-center" data-slot="row">
   <a {% if entry %}href="{% url 'chat:page' entry.id %}"{% endif %}{% if entry.id == chat.id %} aria-current="page"{% endif %} data-slot="open" class="focus-ring flex min-h-11 min-w-0 flex-1 items-center rounded-control px-3 text-ink no-underline hover:bg-sunken aria-[current]:bg-mint aria-[current]:font-semibold"><span class="truncate">{{ entry.title|default:"New chat" }}</span></a>
   {% if not entry or entry.owner == request.owner %}
-  <form method="post" {% if entry %}action="{% url 'chat:delete' entry.id %}"{% endif %} data-confirm>{% csrf_token %}
+  <form method="post" {% if entry %}action="{% url 'chat:delete' entry.id %}"{% endif %} data-confirm><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
     <button aria-label="Delete chat" title="Delete chat" class="focus-ring grid size-11 cursor-pointer place-items-center rounded-control text-ink-3 hover:text-bad">
       <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.600L14 6M8.500 9v4M11.500 9v4"/></svg>
     </button>

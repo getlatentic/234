@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import json
 import os
-import re
+import secrets
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -38,8 +38,7 @@ class Visitor:
         self.http = httpx.AsyncClient(base_url=self.base, timeout=30, follow_redirects=False)
 
     async def __aenter__(self) -> Visitor:
-        page = await self.http.get("/")
-        self.csrf = re.search(r'csrf-token" content="([^"]+)', page.text).group(1)
+        self.csrf = (await self.http.get("/api/me")).json()["csrf"]
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -56,9 +55,8 @@ class Visitor:
         return {"X-CSRFToken": self.csrf}
 
     async def new_chat(self) -> str:
-        """The id the home page offers; the chat exists once its first `send` has been accepted."""
-        page = await self.http.get("/")
-        chat = re.search(r'data-chat="([0-9a-f]{32})"', page.text).group(1)
+        """An id of the kind the home page mints; the chat exists once its first `send` has been accepted."""
+        chat = secrets.token_hex(16)
         self._unstarted.add(chat)
         return chat
 

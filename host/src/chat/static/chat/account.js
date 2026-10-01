@@ -39,6 +39,29 @@ customElements.define(
         if (action === "sign-in") this.#signIn();
         if (action === "sign-out") this.#signOut();
       });
+      if (!this.hasAttribute("data-shell")) this.#resume();
+    }
+
+    // The static home page: the button or the account, and the Firebase web app's identifiers, as /api/me has
+    // them; nothing is shown where sign-in is off.
+    fill({ account, signIn }) {
+      if (!signIn) {
+        this.hidden = true;
+        return;
+      }
+      Object.assign(this.dataset, { apiKey: signIn.apiKey, authDomain: signIn.authDomain, projectId: signIn.projectId });
+      if (signIn.emulator) this.dataset.emulator = signIn.emulator;
+      const parts = this.querySelector(`template[data-kind="${account ? "signed-in" : "signed-out"}"]`).content.cloneNode(true);
+      if (account) {
+        parts.querySelector('[data-slot="initial"]').textContent = account.initial;
+        parts.querySelector('[data-slot="email"]').textContent = account.email;
+      }
+      this.note.before(parts);
+      this.#resume();
+    }
+
+    // After a sign-in or sign-out reload the drawer opens again, and a sign-in that went through a redirect is finished.
+    #resume() {
       if (recalled(REOPEN) !== null) {
         remember(REOPEN, null);
         customElements.whenDefined("chat-sheet").then(() => this.closest("chat-sheet")?.open());

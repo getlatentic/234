@@ -91,18 +91,31 @@ start_sandbox() {  # the card sandbox: a static JavaScript Worker that answers o
   echo "TIMEOUT starting the sandbox (see $log)"; return 1
 }
 
+shell_settings() {  # NAME=value for each setting that shapes a page's policy, on one line: the host gets them as variables, and the build of the home shell (chat/shell.py) reads them from the environment
+  local settings="DJANGO_DEBUG=1 SANDBOX_ORIGIN=http://127.0.0.1:$sandbox_port"
+  case "${AUTH:-}" in
+    1 | keys) settings="$settings FIREBASE_PROJECT_ID=demo-twothreefour FIREBASE_API_KEY=fake-api-key-for-the-emulator FIREBASE_AUTH_DOMAIN=localhost ACCOUNT_KEY=dummy-local-account-key FIREBASE_KEYS_URL=http://127.0.0.1:$keys_port/keys" ;;
+  esac
+  if [ "${AUTH:-}" = "1" ]; then settings="$settings FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:$auth_port"; fi
+  echo "$settings"
+}
+
+build_shell() {  # the static assets and the home page, as a deploy builds them
+  (cd "$root/host" && env WORKERS_CI=1 $(shell_settings) uv run python src/manage.py collectstatic --noinput --clear > /dev/null &&
+    env WORKERS_CI=1 $(shell_settings) uv run python src/manage.py build_shell > /dev/null)
+}
+
 host_vars() {  # port: what every host gets, the runner variants included
   local model="--var LLM_BASE_URL:http://127.0.0.1:$model_port/v1"
   [ "${REAL_MODEL:-}" = "1" ] && model="--env real --var LLM_BASE_URL:$LLM_BASE_URL --var LLM_MODEL:$LLM_MODEL"
-  local auth=""
-  case "${AUTH:-}" in
-    1 | keys) auth="--var FIREBASE_PROJECT_ID:demo-twothreefour --var FIREBASE_API_KEY:fake-api-key-for-the-emulator --var FIREBASE_AUTH_DOMAIN:localhost --var ACCOUNT_KEY:dummy-local-account-key --var FIREBASE_KEYS_URL:http://127.0.0.1:$keys_port/keys" ;;
-  esac
-  [ "${AUTH:-}" = "1" ] && auth="$auth --var FIREBASE_AUTH_EMULATOR_HOST:127.0.0.1:$auth_port"
-  echo --var "CHECKOUT_MCP_URL:http://localhost:$checkout_port" $model $auth \
+  local setting settings=""
+  for setting in $(shell_settings); do
+    case "$setting" in DJANGO_DEBUG=*) ;; *) settings="$settings --var ${setting/=/:}" ;; esac
+  done
+  echo --var "CHECKOUT_MCP_URL:http://localhost:$checkout_port" $model $settings \
     --var "PUBLIC_BASE_URL:http://localhost:$1" --var "MODEL_CALLS_PER_DAY:${CAP:-0}" \
     --var "VISITOR_MODEL_CALLS_PER_DAY:${VISITOR_CAP:-60}" --var "WATCHDOG_SECONDS:${WATCHDOG_SECONDS:-30}" \
-    --var "SANDBOX_ORIGIN:http://127.0.0.1:$sandbox_port" --var "SANDBOX_SIGNING_KEY:$sandbox_key" --var "INLINE_PAYSTACK:${INLINE_PAYSTACK:-1}" \
+    --var "SANDBOX_SIGNING_KEY:$sandbox_key" --var "INLINE_PAYSTACK:${INLINE_PAYSTACK:-1}" \
     --var "CONTEXT_WINDOW_TOKENS:${CONTEXT_WINDOW_TOKENS:-32000}" --var "COMPACT_AT:${COMPACT_AT:-0.6}" \
     --var "KEEP_RECENT_TOKENS:${KEEP_RECENT_TOKENS:-6000}" --var "COMPACTION_TIMEOUT_SECONDS:${COMPACTION_TIMEOUT_SECONDS:-45}"
 }

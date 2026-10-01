@@ -3,14 +3,12 @@
 the number of messages that arrive for its id at the same moment, and a refused message makes none."""
 
 import asyncio
-import re
 
 import pytest
 
 from .worker_client import Visitor, finished, reset_budget, until
 
 pytestmark = pytest.mark.worker
-CHATS = re.compile(r'href="/c/([0-9a-f]{32})/"')
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +17,7 @@ async def fresh_budget():
 
 
 async def chats_listed(visitor: Visitor) -> set[str]:
-    return set(CHATS.findall((await visitor.http.get("/")).text))
+    return {chat["id"] for chat in (await visitor.http.get("/api/me")).json()["chats"]}
 
 
 async def race(rounds: int, messages: int) -> None:

@@ -13,6 +13,7 @@ import "./tool-row.js";
 import { postJson } from "./http.js";
 import { assistantBubble, builders, shownBubble } from "./render.js";
 import { Follow } from "./scroll.js";
+import { adoptChat, hydrate } from "./shell.js";
 import { EventStream } from "./stream.js";
 import { settleTools } from "./tool-status.js";
 
@@ -28,6 +29,7 @@ customElements.define(
     #stopping = false;
 
     connectedCallback() {
+      if (this.hasAttribute("data-shell")) adoptChat(this);
       this.seq = Number(this.dataset.lastSeq ?? 0);
       this.thread = this.querySelector('[data-slot="thread"]');
       this.composer = this.querySelector("chat-composer");
@@ -53,6 +55,7 @@ customElements.define(
         onReset: () => location.reload(),
         onStatus: (state) => this.querySelector('[data-slot="offline"]').classList.toggle("hidden", state === "open"),
       });
+      if (this.hasAttribute("data-shell")) void hydrate(this);
       if (this.hasAttribute("data-draft")) return;
       this.stream.start();
       this.follow.jump();
@@ -107,10 +110,23 @@ customElements.define(
       this.composer.stopping = this.#stopping;
     }
 
-    #problem(text) {
+    problem(text) {
       const slot = this.querySelector('[data-slot="error"]');
       slot.textContent = text ?? "";
       slot.classList.toggle("hidden", !text);
+    }
+
+    // The chats button, for a visitor who has chats or can sign in.
+    offerChats() {
+      this.toggleAttribute("data-chats", true);
+      this.chatsButton.hidden = false;
+    }
+
+    // The host cannot answer: its reason is shown above the field, and nothing can be sent.
+    refuse(reason) {
+      this.querySelector('[data-slot="problem"]').textContent = reason;
+      this.composer.field.disabled = true;
+      this.composer.sync();
     }
 
     // A starter that is a whole message goes into the field and is sent, once; the keyboard stays down after a
@@ -125,7 +141,7 @@ customElements.define(
       if (this.#sending) return;
       this.#sending = true;
       this.composer.sending = true;
-      this.#problem(null);
+      this.problem(null);
       try {
         const { seq } = await postJson(this.hasAttribute("data-draft") ? this.dataset.startUrl : this.dataset.sendUrl, { text });
         this.composer.sent();
@@ -137,7 +153,7 @@ customElements.define(
         this.follow.jump();
       } catch (error) {
         this.starters.disabled = false;
-        this.#problem(error.message);
+        this.problem(error.message);
       } finally {
         this.#sending = false;
         this.composer.sending = false;
@@ -155,7 +171,7 @@ customElements.define(
       } catch (error) {
         this.#stopping = false;
         this.composer.stopping = false;
-        this.#problem(error.message);
+        this.problem(error.message);
       }
     }
 
@@ -165,8 +181,7 @@ customElements.define(
       this.composer.glide(() => this.removeAttribute("data-draft"));
       history.replaceState(null, "", this.dataset.pageUrl);
       this.sheet.add({ title, url: this.dataset.pageUrl, deleteUrl: this.dataset.deleteUrl });
-      this.toggleAttribute("data-chats", true);
-      this.chatsButton.hidden = false;
+      this.offerChats();
       this.stream.start();
     }
 

@@ -149,7 +149,9 @@ FIREBASE_PROJECT_ID = runtime.get("FIREBASE_PROJECT_ID", "")
 FIREBASE_API_KEY = runtime.get("FIREBASE_API_KEY", "")
 FIREBASE_AUTH_DOMAIN = runtime.get("FIREBASE_AUTH_DOMAIN", "")
 ACCOUNT_KEY = runtime.get("ACCOUNT_KEY", _INSECURE_DEV_KEY if DEBUG else "")
-SIGN_IN_ENABLED = all((FIREBASE_PROJECT_ID, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, ACCOUNT_KEY))
+# The static build holds no secret; it needs to know whether sign-in is on, for the home shell and its policy.
+_SIGN_IN_KEY = ACCOUNT_KEY or runtime.IS_STATIC_BUILD
+SIGN_IN_ENABLED = all((FIREBASE_PROJECT_ID, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, _SIGN_IN_KEY))
 # Development only: the Firebase Auth emulator (host:port) and a stand-in for Google's key document. Setting
 # either outside development is refused at startup, so no public configuration can accept an unsigned token.
 FIREBASE_AUTH_EMULATOR_HOST = runtime.get("FIREBASE_AUTH_EMULATOR_HOST", "")

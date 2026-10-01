@@ -4,7 +4,7 @@
 {% block head %}<script type="module" src="{% static 'chat/thread.js' %}"></script>{% endblock %}
 {% block content %}
 <chat-thread class="block min-h-dvh"
-    data-chat="{{ chat.id }}"{% if draft %} data-draft{% endif %}{% if chats or sign_in_enabled %} data-chats{% endif %}{% if transport %} data-transport="{{ transport }}"{% endif %} data-last-seq="{{ last_seq }}"{% if working %} data-working{% endif %}
+    data-chat="{{ chat.id }}"{% if draft %} data-draft{% endif %}{% if shell %} data-shell data-me-url="{% url 'chat:me' %}"{% endif %}{% if chats or sign_in_enabled %} data-chats{% endif %}{% if transport %} data-transport="{{ transport }}"{% endif %} data-last-seq="{{ last_seq }}"{% if working %} data-working{% endif %}
     data-send-url="{% url 'chat:send' chat.id %}" data-cancel-url="{% url 'chat:cancel' chat.id %}" data-start-url="{% url 'chat:start' chat.id %}" data-page-url="{% url 'chat:page' chat.id %}" data-delete-url="{% url 'chat:delete' chat.id %}"
     data-ticket-url="{% url 'chat:ticket' chat.id %}"
     data-events-url="{% url 'chat:events' chat.id %}" data-card-url="{% url 'chat:card' chat.id %}"
@@ -18,8 +18,8 @@
   </button>
   <div class="pointer-events-none fixed inset-x-0 top-0 z-20 hidden h-[calc(max(0.75rem,env(safe-area-inset-top))+4.5rem)] bg-linear-to-b from-ground from-65% to-transparent in-data-chats:block" aria-hidden="true"></div>
 
-  <div class="mx-auto flex min-h-dvh w-full max-w-2xl flex-col pb-[var(--keyboard-inset,0px)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] in-data-chats:pt-[calc(max(0.75rem,env(safe-area-inset-top))+4rem)] in-data-draft:pb-[calc(var(--keyboard-inset,0px)+10dvh)]">
-    {% if model_problem %}<p class="m-0 mb-3 text-sm text-bad" role="alert">{{ model_problem }}</p>{% endif %}
+  <div class="mx-auto flex min-h-dvh w-full max-w-2xl flex-col pb-[var(--keyboard-inset,0px)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] in-data-chats:pt-[calc(max(0.75rem,env(safe-area-inset-top))+4rem)] in-data-draft:pt-[calc(max(0.75rem,env(safe-area-inset-top))+4rem)] in-data-draft:pb-[calc(var(--keyboard-inset,0px)+10dvh)]">
+    {% if model_problem or shell %}<p class="m-0 mb-3 text-sm text-bad empty:hidden" role="alert" data-slot="problem">{{ model_problem|default:"" }}</p>{% endif %}
 
     <div class="hidden flex-col items-center gap-3 pb-8 text-center in-data-draft:mt-auto in-data-draft:flex" data-slot="home">
       <p class="m-0 flex" data-slot="wordmark" role="img" aria-label="{{ product_name }}">{% include "chat/_wordmark.html" %}</p>
@@ -66,7 +66,7 @@
   </div>
 
   {% include "chat/_sheet.html" %}
-  {% if account %}{% include "chat/_memory.html" %}{% endif %}
+  {% if shell %}{% if sign_in_enabled %}<template data-kind="memory">{% include "chat/_memory.html" %}</template>{% endif %}{% elif account %}{% include "chat/_memory.html" %}{% endif %}
 
   <template data-kind="user">{% include "chat/_item.html#user" %}</template>
   <template data-kind="assistant">{% include "chat/_item.html#assistant" %}</template>

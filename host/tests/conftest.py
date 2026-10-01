@@ -45,16 +45,15 @@ def backend():
 
 @pytest.fixture
 def visitor(client):
-    """A browser: the test client plus the CSRF token its pages carry."""
-    import re
+    """A browser: the test client plus the CSRF token that /api/me gives its pages."""
+    import secrets
 
     class Browser:
         def __init__(self):
             self.client = client
 
         def token(self):
-            page = client.get("/")
-            return re.search(r'csrf-token" content="([^"]+)', page.content.decode()).group(1)
+            return client.get("/api/me").json()["csrf"]
 
         def post(self, path, data=None, json=None):
             headers = {"HTTP_X_CSRFTOKEN": self.token()}
@@ -68,9 +67,8 @@ def visitor(client):
             """A stored chat of this visitor, made the way the page's first message makes one."""
             from chat.models import Chat
 
-            page = client.get("/")
-            chat_id = re.search(r'data-chat="([0-9a-f]{32})"', page.content.decode()).group(1)
-            return Chat.objects.create(id=chat_id, owner=page.wsgi_request.owner).id
+            owner = client.get("/api/me").wsgi_request.owner
+            return Chat.objects.create(id=secrets.token_hex(16), owner=owner).id
 
     return Browser()
 

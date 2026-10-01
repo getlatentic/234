@@ -18,6 +18,7 @@ from ..backend import get_backend
 from ..context import tagline
 from ..models import Access, Chat, Event
 from ..palette import GROUND, PRIMARY
+from ..shell import render_shell
 from ..starters import STARTERS
 
 TRANSPORTS = ("ws", "sse")
@@ -56,9 +57,11 @@ def _thread(request: HttpRequest, chat: Chat, events: list[Event], draft: bool) 
 
 @require_GET
 def home(request: HttpRequest) -> HttpResponse:
-    """A composer for a chat that does not exist yet: its id is minted here, the row is made by the first
-    message (views/send.py `start`), and until then nothing is stored."""
-    return _thread(request, Chat(owner=request.owner), [], draft=True)
+    """The empty home: a composer for a chat that does not exist yet. It is the static shell (shell.py) that
+    Workers static assets serve before the Worker is reached; this answers where the assets hold no copy
+    (a stack that was not built, a test). The page mints the chat's id, the first message makes the row
+    (views/send.py `start`), and until then nothing is stored."""
+    return HttpResponse(render_shell(request))
 
 
 @require_GET

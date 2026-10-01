@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from django.urls import path, re_path
 
-from .views import cancel, cards, compact, events, hooks, memory, pages, send, socket
+from .views import cancel, cards, compact, events, hooks, me, memory, pages, send, socket
 
 app_name = "chat"
 
@@ -9,6 +9,7 @@ CHAT = r"^c/(?P<chat_id>[0-9a-f]{32})/"
 
 urlpatterns = [
     path("", pages.home, name="index"),
+    path("api/me", me.me, name="me"),
     path("manifest.webmanifest", pages.manifest, name="manifest"),
     path("hooks/payment", hooks.payment, name="payment-hook"),
     path("join/<str:token>", pages.join, name="join"),

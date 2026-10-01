@@ -45,9 +45,10 @@ def test_chats_belong_to_the_visitor_who_made_them(visitor):
 def test_the_list_shows_only_my_chats_newest_activity_first(visitor):
     first, second = visitor.new_chat(), visitor.new_chat()
     Chat.objects.create(owner="v:someone-else")
-    page = visitor.client.get("/").content.decode()
-    assert page.count('/delete" data-confirm') == 2
-    assert page.index(second) < page.index(first)
+    listed = visitor.client.get("/api/me").json()["chats"]
+    assert [chat["id"] for chat in listed] == [second, first]
+    assert all(chat["mine"] and chat["deleteUrl"] == f"/c/{chat['id']}/delete" for chat in listed)
+    assert listed[0]["url"] == f"/c/{second}/"
 
 
 def test_a_share_link_lets_another_visitor_in_and_it_expires(visitor, settings):
@@ -58,7 +59,8 @@ def test_a_share_link_lets_another_visitor_in_and_it_expires(visitor, settings):
     landed = guest.get(link.removeprefix("http://testserver"))
     assert landed.status_code == 302 and landed["Location"] == f"/c/{chat_id}/"
     assert guest.get(f"/c/{chat_id}/").status_code == 200
-    assert chat_id in guest.get("/").content.decode()
+    listed = guest.get("/api/me").json()["chats"]
+    assert [(chat["id"], chat["mine"]) for chat in listed] == [(chat_id, False)]
     assert guest.get("/join/not-a-token").status_code == 410
 
 

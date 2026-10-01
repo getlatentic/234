@@ -13,7 +13,6 @@ import base64
 import itertools
 import json
 import os
-import re
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -31,7 +30,6 @@ KEY_DIR = Path(__file__).resolve().parents[2] / ".stack" / str(PORT - 1) / "keys
 EMULATOR = os.environ.get("AUTH") == "1"
 PROJECT = "demo-twothreefour"
 PAY = "Buy ₦500 MTN airtime for 08031234567"
-CHATS = re.compile(r'href="/c/([0-9a-f]{32})/"')
 
 
 ADDRESSES = itertools.count(1)
@@ -72,12 +70,12 @@ async def fresh_budget():
     if not (KEY_DIR / "private.pem").exists():
         pytest.skip("the stack was not started with AUTH=1 or AUTH=keys")
     async with httpx.AsyncClient() as probe:
-        if "chat-account" not in (await probe.get(HOST)).text:
+        if not (await probe.get(f"{HOST}/api/me")).json()["signIn"]:
             pytest.skip("the host has no sign-in")
 
 
 async def chats(visitor: Visitor) -> set[str]:
-    return set(CHATS.findall((await visitor.http.get("/")).text))
+    return {chat["id"] for chat in (await visitor.http.get("/api/me")).json()["chats"]}
 
 
 async def sign_in(visitor: Visitor, uid: str, **changes) -> httpx.Response:
@@ -187,6 +185,6 @@ async def test_sign_ins_from_one_address_are_limited_to_twelve_a_minute():
 
 async def test_a_post_without_the_csrf_token_is_refused():
     async with httpx.AsyncClient(base_url=HOST) as bare:
-        await bare.get("/")
+        await bare.get("/api/me")
         answer = await bare.post("/auth/session", json={"idToken": signed(claims("uid-csrf"))})
         assert answer.status_code == 403

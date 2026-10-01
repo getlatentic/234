@@ -57,10 +57,10 @@ echo "snapshot: raw $raw bytes, gzip $gz bytes (budget $BUDGET_GZIP_BYTES)"
 firsts=(); nexts=()
 for _ in $(seq 1 "$restores"); do
   start "--python-load-snapshot=snapshot.bin --python-snapshot-dir=$work" || exit 1
-  firsts+=("$(seconds /)"); nexts+=("$(seconds /)")
+  firsts+=("$(seconds /api/me)"); nexts+=("$(seconds /api/me)")
   stop
 done
-echo "restored snapshot, GET /: first request ${firsts[*]} s, next request ${nexts[*]} s"
+echo "restored snapshot, GET /api/me (the home page itself is a static asset): first request ${firsts[*]} s, next request ${nexts[*]} s"
 
 if [ "$gz" -gt "$BUDGET_GZIP_BYTES" ]; then
   echo "OVER BUDGET: the gzip snapshot is $((gz - BUDGET_GZIP_BYTES)) bytes over. docs/performance.md says what grows it."

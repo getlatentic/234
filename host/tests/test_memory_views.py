@@ -50,7 +50,7 @@ def test_a_site_without_sign_in_has_none_of_it(client, backend, how, path):
     if how == "get":
         assert client.get(path).status_code == 404
     else:
-        token = client.get("/").content.decode().split('csrf-token" content="')[1].split('"')[0]
+        token = client.get("/api/me").json()["csrf"]
         assert (
             client.post(path, "{}", content_type="application/json", HTTP_X_CSRFTOKEN=token).status_code
             == 404
@@ -141,18 +141,25 @@ def test_a_change_is_never_made_by_a_get(ada, backend, path):
 
 
 def test_the_drawer_offers_what_234_remembers_to_an_account_and_to_nobody_else(ada, sign_in_on):
-    page = ada.client.get("/").content.decode()
+    assert ada.me()["memory"] is True and Device().me()["memory"] is False
+    chat = ada.chat()
+    page = ada.client.get(f"/c/{chat}/").content.decode()
     assert "What 234 remembers" in page and 'data-url="/memory/"' in page and "/memory/export.json" in page
     assert (
         page.index('data-slot="email"')
         < page.index("What 234 remembers")
         < page.index('data-action="sign-out"')
     )
-    for other in (Device().client.get("/").content.decode(),):
-        assert "What 234 remembers" not in other and "chat-memory" not in other
+
+
+def test_the_home_shell_holds_the_memory_sheet_only_inside_a_template(sign_in_on, client):
+    shell = client.get("/").content.decode()
+    before, _, after = shell.partition('<template data-kind="memory">')
+    assert "<chat-memory" not in before and "<chat-memory" in after.split("</template>")[0]
 
 
 def test_a_site_without_sign_in_says_nothing_of_memory(client):
+    assert client.get("/api/me").json()["memory"] is False
     page = client.get("/").content.decode()
     assert "remember" not in page.lower() and "chat-memory" not in page
 

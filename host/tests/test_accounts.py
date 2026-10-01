@@ -16,7 +16,7 @@ from chat.models import Access, Chat
 from turns.ledger_owner import ledger_owner
 
 from .account_support import ACCOUNT_KEY, Device
-from .firebase_support import NOW, claims, token
+from .firebase_support import NOW, PROJECT, claims, token
 
 pytestmark = pytest.mark.django_db
 
@@ -32,19 +32,24 @@ def test_the_owner_is_a_stable_32_hex_value_from_the_uid_and_the_key():
 
 
 def test_without_firebase_configuration_there_is_no_button_no_accounts_and_the_site_works(client):
-    page = client.get("/").content.decode()
-    assert "chat-account" not in page and "Continue with Google" not in page
+    me = client.get("/api/me").json()
+    assert me["signIn"] is None and me["account"] is None and me["memory"] is False
     assert client.post("/auth/session", "{}", content_type="application/json").status_code == 404
     assert client.post("/auth/signout").status_code == 404
 
 
-def test_with_configuration_the_drawer_offers_google_and_the_chats_button_is_there_for_everyone(sign_in_on):
-    page = Device().client.get("/").content.decode()
-    assert "Continue with Google" in page and 'data-auth-domain="demo.firebaseapp.com"' in page
-    assert 'data-api-key="public-api-key"' in page and "google-g.svg" in page
-    chats_button = re.search(r'<button type="button" data-action="chats"[^>]*>', page).group(0)
-    assert " hidden" not in chats_button
-    assert "Sign out" not in page
+def test_with_configuration_the_page_is_told_to_offer_google_to_everyone(sign_in_on):
+    me = Device().me()
+    assert me["signIn"] == {
+        "apiKey": "public-api-key",
+        "authDomain": "demo.firebaseapp.com",
+        "projectId": PROJECT,
+        "emulator": "",
+    }
+    assert me["account"] is None and me["memory"] is False
+    shell = Device().client.get("/").content.decode()
+    assert "Continue with Google" in shell and "google-g.svg" in shell
+    assert 'data-api-key="' not in shell, "the shell holds nothing the configuration of a deployment decides"
 
 
 def test_a_valid_token_sets_our_session_cookie_and_not_the_token(sign_in_on, key):
@@ -133,19 +138,18 @@ def test_a_tampered_or_expired_session_cookie_is_an_anonymous_visitor(sign_in_on
     device.sign_in(key)
     value = device.client.cookies["session"].value
     device.client.cookies["session"] = value[:-2] + ("AA" if not value.endswith("AA") else "BB")
-    assert "Sign out" not in device.client.get("/").content.decode()
+    assert device.me()["account"] is None
     device.client.cookies["session"] = value
-    assert "Sign out" in device.client.get("/").content.decode()
+    assert device.me()["account"] is not None
     monkeypatch.setattr("django.core.signing.time.time", lambda: NOW + 31 * 86400 + 10**9)
-    assert "Sign out" not in device.client.get("/").content.decode()
+    assert device.me()["account"] is None
 
 
 def test_a_signed_in_drawer_shows_the_email_an_initial_and_sign_out(sign_in_on, key):
     device = Device()
     device.sign_in(key)
-    page = device.client.get("/").content.decode()
-    assert "ada@example.com" in page and "Sign out" in page and "Continue with Google" not in page
-    assert re.search(r">A</span>", page)
+    me = device.me()
+    assert me["account"] == {"email": "ada@example.com", "initial": "A"} and me["memory"] is True
 
 
 def test_the_anonymous_visitors_chats_become_the_accounts_at_sign_in(sign_in_on, key):
@@ -157,8 +161,7 @@ def test_the_anonymous_visitors_chats_become_the_accounts_at_sign_in(sign_in_on,
     owner = account_owner("uid-abc", ACCOUNT_KEY)
     assert set(Chat.objects.filter(owner=owner).values_list("id", flat=True)) == {first, second}
     assert not Chat.objects.filter(owner=anonymous).exists()
-    page = device.client.get("/").content.decode()
-    assert first in page and second in page
+    assert {chat["id"] for chat in device.me()["chats"]} == {first, second}
     assert device.client.get(f"/c/{first}/").status_code == 200
     assert "visitor" not in device.client.cookies or not device.client.cookies["visitor"].value
 
@@ -171,8 +174,7 @@ def test_a_second_device_with_the_same_uid_has_the_same_chats_and_the_same_owner
     two.sign_in(key)
     owner = account_owner("uid-abc", ACCOUNT_KEY)
     assert Chat.objects.get(pk=mine).owner == Chat.objects.get(pk=its_own).owner == owner
-    page = two.client.get("/").content.decode()
-    assert mine in page and its_own in page
+    assert {chat["id"] for chat in two.me()["chats"]} == {mine, its_own}
     assert one.client.get(f"/c/{its_own}/").status_code == 200
     assert two.client.get("/").wsgi_request.owner == one.client.get("/").wsgi_request.owner == owner
 
@@ -183,7 +185,7 @@ def test_another_account_sees_none_of_it(sign_in_on, key):
     one.sign_in(key)
     other.sign_in(key, uid="uid-other", email="grace@example.com")
     assert other.client.get(f"/c/{chat}/").status_code == 404
-    assert chat not in other.client.get("/").content.decode()
+    assert chat not in {listed["id"] for listed in other.me()["chats"]}
 
 
 def test_signing_in_twice_changes_nothing_and_loses_nothing(sign_in_on, key):
@@ -261,10 +263,11 @@ def test_sign_out_ends_as_a_fresh_visitor_who_cannot_see_the_accounts_chats(sign
     assert page.wsgi_request.owner.startswith("v:") and page.wsgi_request.owner != account_owner(
         "uid-abc", ACCOUNT_KEY
     )
-    assert chat not in page.content.decode() and device.client.get(f"/c/{chat}/").status_code == 404
-    assert "Continue with Google" in page.content.decode()
+    assert chat not in {listed["id"] for listed in device.me()["chats"]}
+    assert device.client.get(f"/c/{chat}/").status_code == 404
+    assert device.me()["account"] is None and device.me()["signIn"]
     signing_back = device.sign_in(key)
-    assert signing_back.status_code == 200 and chat in device.client.get("/").content.decode()
+    assert signing_back.status_code == 200 and chat in {listed["id"] for listed in device.me()["chats"]}
 
 
 def test_signing_out_twice_or_when_anonymous_keeps_the_visitor(sign_in_on):

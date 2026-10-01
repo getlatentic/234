@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-const csrf = () => document.querySelector('meta[name="csrf-token"]').content;
+import { csrfToken } from "./me.js";
 
 export async function postJson(url, body = {}) {
+  const token = await csrfToken();
+  if (!token) throw Object.assign(new Error("Could not reach the server. Try again."), { status: 0 });
   const response = await fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json", "X-CSRFToken": csrf() },
+    headers: { "content-type": "application/json", "X-CSRFToken": token },
     body: JSON.stringify(body),
     credentials: "same-origin",
   });

@@ -42,13 +42,13 @@ def test_a_starter_that_needs_the_person_is_marked_to_fill_and_the_others_are_no
     assert [(text, bool(fill)) for text, fill in buttons] == [(s.text, not s.sends) for s in STARTERS]
 
 
-def test_the_chats_button_is_hidden_until_the_visitor_has_a_chat(visitor):
-    assert " hidden" in chats_button(visitor.client.get("/").content.decode())
-    assert (
-        "data-chats"
-        not in visitor.client.get("/").content.decode().split("<chat-thread", 1)[1].split(">", 1)[0]
-    )
-    visitor.new_chat()
+def test_the_chats_button_is_hidden_until_the_page_learns_there_is_something_to_open(visitor):
+    home = visitor.client.get("/").content.decode()
+    assert " hidden" in chats_button(home)
+    assert "data-chats" not in home.split("<chat-thread", 1)[1].split(">", 1)[0]
+
+
+def test_where_sign_in_is_on_the_chats_button_is_there_from_the_start(visitor, sign_in_on):
     home = visitor.client.get("/").content.decode()
     assert " hidden" not in chats_button(home)
     assert "data-chats" in home.split("<chat-thread", 1)[1].split(">", 1)[0]
@@ -75,7 +75,7 @@ def test_the_browser_and_the_manifest_take_their_colour_from_the_palette(visitor
     assert manifest["theme_color"] == PRIMARY == "#03492f"
 
 
-def test_the_model_settings_are_read_once_however_many_pages_are_shown(visitor, monkeypatch):
+def test_the_model_settings_are_read_once_however_many_times_the_page_asks(visitor, monkeypatch):
     from chat.views import pages
 
     reads = []
@@ -83,19 +83,21 @@ def test_the_model_settings_are_read_once_however_many_pages_are_shown(visitor, 
     pages.turn_settings.cache_clear()
     try:
         for _ in range(3):
-            assert visitor.client.get("/").status_code == 200
+            assert visitor.client.get("/api/me").status_code == 200
         assert len(reads) == len(set(reads)) > 0
     finally:
         pages.turn_settings.cache_clear()
 
 
-def test_the_home_says_so_when_no_model_is_configured(visitor, monkeypatch):
+def test_the_page_is_told_when_no_model_is_configured(visitor, monkeypatch):
     from chat.views import pages
 
     monkeypatch.setattr(pages.runtime, "get", lambda name, default=None: default)
     pages.turn_settings.cache_clear()
     try:
-        body = visitor.client.get("/").content.decode()
+        problem = visitor.client.get("/api/me").json()["problem"]
+        shell = visitor.client.get("/").content.decode()
     finally:
         pages.turn_settings.cache_clear()
-    assert "No model is configured" in body
+    assert "No model is configured" in problem
+    assert 'data-slot="problem"></p>' in shell and "No model is configured" not in shell

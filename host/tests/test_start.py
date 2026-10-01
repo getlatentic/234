@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import re
+import secrets
 import struct
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pytest
 from django.test import Client
 
 from chat.models import Chat
+from chat.shell import PLACEHOLDER_CHAT
 from turns import kinds
 
 pytestmark = pytest.mark.django_db
@@ -14,12 +16,9 @@ pytestmark = pytest.mark.django_db
 BRAND = Path(__file__).resolve().parents[1] / "src" / "chat" / "static" / "chat" / "brand"
 
 
-def chat_id_in(html: str) -> str:
-    return re.search(r'data-chat="([0-9a-f]{32})"', html).group(1)
-
-
 def draft_of(visitor) -> str:
-    return chat_id_in(visitor.client.get("/").content.decode())
+    """An id of the kind the page mints in the browser: 32 random hex characters."""
+    return secrets.token_hex(16)
 
 
 def test_the_home_page_is_a_composer_for_a_chat_that_is_not_stored(visitor):
@@ -27,19 +26,20 @@ def test_the_home_page_is_a_composer_for_a_chat_that_is_not_stored(visitor):
     html = page.content.decode()
     assert page.status_code == 200 and "data-draft" in html
     assert re.search(r"<textarea[^>]*autofocus", html)
-    assert f"/c/{chat_id_in(html)}/start" in html
+    assert f"/c/{PLACEHOLDER_CHAT}/start" in html
     assert Chat.objects.count() == 0
 
 
-def test_a_visitor_with_earlier_chats_still_gets_a_fresh_composer(visitor):
+def test_a_visitor_with_earlier_chats_still_gets_a_fresh_composer_and_the_page_lists_the_chats(visitor):
     earlier = visitor.new_chat()
     html = visitor.client.get("/").content.decode()
-    assert "data-draft" in html and draft_of(visitor) != earlier
-    assert f'href="/c/{earlier}/"' in html
+    assert "data-draft" in html and earlier not in html
+    assert [chat["id"] for chat in visitor.client.get("/api/me").json()["chats"]] == [earlier]
 
 
-def test_every_visit_to_the_home_page_offers_its_own_chat_id(visitor):
-    assert draft_of(visitor) != draft_of(visitor)
+def test_the_home_page_is_the_same_for_every_visitor(visitor, client):
+    visitor.new_chat()
+    assert client.get("/").content == Client().get("/").content
 
 
 def test_the_first_message_makes_the_chat_and_names_it(visitor, backend):
@@ -101,7 +101,7 @@ def test_an_id_that_is_someone_elses_chat_cannot_be_started_again(visitor, backe
 def test_a_stranger_cannot_reach_a_chat_by_starting_it(visitor, backend):
     chat_id = visitor.new_chat()
     stranger = Client()
-    token = re.search(r'csrf-token" content="([^"]+)', stranger.get("/").content.decode()).group(1)
+    token = stranger.get("/api/me").json()["csrf"]
     posted = stranger.post(
         f"/c/{chat_id}/start", '{"text": "hi"}', content_type="application/json", HTTP_X_CSRFTOKEN=token
     )

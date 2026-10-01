@@ -57,6 +57,21 @@ def page_policy() -> str:
     return "; ".join(parts)
 
 
+def page_headers() -> dict[str, str]:
+    """The security headers every page of the host carries. Django sets them on what it serves; the home shell
+    is a static asset the Worker never sees, so the same set is written to its `_headers` file at build time
+    (chat/shell.py)."""
+    headers = {
+        "Content-Security-Policy": page_policy(),
+        "X-Frame-Options": settings.X_FRAME_OPTIONS,
+        "Referrer-Policy": settings.SECURE_REFERRER_POLICY,
+        "Cross-Origin-Opener-Policy": settings.SECURE_CROSS_ORIGIN_OPENER_POLICY,
+    }
+    if settings.SECURE_CONTENT_TYPE_NOSNIFF:
+        headers["X-Content-Type-Options"] = "nosniff"
+    return headers
+
+
 class ContentSecurityPolicyMiddleware:
     """Pages run only their own scripts and frame only the card sandbox."""
 

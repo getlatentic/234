@@ -58,8 +58,7 @@ def test_nothing_can_be_sent_to_a_chat_that_is_not_mine(visitor, backend):
 
     chat_id = visitor.new_chat()
     stranger = Client()
-    stranger.get("/")
-    token = stranger.cookies["csrftoken"].value
+    token = stranger.get("/api/me").json()["csrf"]
     posted = stranger.post(
         f"/c/{chat_id}/send",
         json.dumps({"text": "hi"}),

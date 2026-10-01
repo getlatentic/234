@@ -6,7 +6,9 @@
   "workers_dev": false,
   "preview_urls": false,
   "observability": { "enabled": true },
-  "assets": { "directory": "./staticfiles" },
+  // The static files and, once tools/up.sh has built it, the home page (index.html with its _headers) are served
+  // without starting the Worker; every other path reaches it.
+  "assets": { "directory": "./staticfiles", "html_handling": "auto-trailing-slash", "not_found_handling": "none" },
   // The bytecode of the packages is built here and shipped next to them (checked against its source on import), so
   // the Worker's startup compiles nothing of theirs. The public template also does src, which this config cannot:
   // `wrangler dev` watches src and would rebuild for the bytecode it has just written.

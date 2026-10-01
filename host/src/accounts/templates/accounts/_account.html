@@ -1,8 +1,6 @@
-{% load static %}{% if sign_in_enabled %}
-<chat-account class="block border-t border-line pt-2" data-session-url="{% url 'accounts:session' %}" data-signout-url="{% url 'accounts:signout' %}" data-sdk="{% static 'chat/vendor/firebase-auth.esm.min.js' %}" data-api-key="{{ firebase.apiKey }}" data-auth-domain="{{ firebase.authDomain }}" data-project-id="{{ firebase.projectId }}"{% if firebase.emulator %} data-emulator="{{ firebase.emulator }}"{% endif %}>
-  {% if account %}
+{% load static %}{% partialdef signed_in %}
   <div class="flex min-h-11 items-center gap-3 px-3" data-slot="account">
-    <span class="grid size-8 shrink-0 place-items-center rounded-full bg-mint text-sm font-semibold text-ink" aria-hidden="true">{{ account.initial }}</span>
+    <span class="grid size-8 shrink-0 place-items-center rounded-full bg-mint text-sm font-semibold text-ink" data-slot="initial" aria-hidden="true">{{ account.initial }}</span>
     <span class="min-w-0 flex-1 truncate text-sm text-ink" data-slot="email">{{ account.email }}</span>
   </div>
   <button type="button" data-action="open-memory" class="focus-ring flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-sunken">
@@ -11,11 +9,19 @@
   <button type="button" data-action="sign-out" class="focus-ring flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-control px-3 text-left text-ink hover:bg-sunken disabled:cursor-default disabled:opacity-60">
     <svg viewBox="0 0 20 20" class="size-5 text-ink-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4H5.500A1.500 1.500 0 0 0 4 5.500v9A1.500 1.500 0 0 0 5.500 16H8M12.500 7 16 10l-3.500 3M16 10H8.500"/></svg>Sign out
   </button>
-  {% else %}
+{% endpartialdef %}{% partialdef signed_out %}
   <button type="button" data-action="sign-in" class="focus-ring flex min-h-11 w-full cursor-pointer items-center justify-center gap-2.5 rounded-full border border-google-edge bg-google-surface px-4 text-sm font-medium text-google-ink hover:brightness-95 disabled:cursor-default disabled:opacity-60">
     <img src="{% static 'chat/brand/google-g.svg' %}" alt="" width="20" height="20" class="size-5">Continue with Google
   </button>
-  {% endif %}
+{% endpartialdef %}{% if shell %}{% if sign_in_enabled %}
+<chat-account class="block border-t border-line pt-2" data-shell data-session-url="{% url 'accounts:session' %}" data-signout-url="{% url 'accounts:signout' %}" data-sdk="{% static 'chat/vendor/firebase-auth.esm.min.js' %}">
+  <template data-kind="signed-in">{% partial signed_in %}</template>
+  <template data-kind="signed-out">{% partial signed_out %}</template>
+  <p class="m-0 px-3 pt-1 text-sm text-ink-3 empty:hidden" data-slot="note" role="status"></p>
+</chat-account>
+{% endif %}{% elif sign_in_enabled %}
+<chat-account class="block border-t border-line pt-2" data-session-url="{% url 'accounts:session' %}" data-signout-url="{% url 'accounts:signout' %}" data-sdk="{% static 'chat/vendor/firebase-auth.esm.min.js' %}" data-api-key="{{ firebase.apiKey }}" data-auth-domain="{{ firebase.authDomain }}" data-project-id="{{ firebase.projectId }}"{% if firebase.emulator %} data-emulator="{{ firebase.emulator }}"{% endif %}>
+  {% if account %}{% partial signed_in %}{% else %}{% partial signed_out %}{% endif %}
   <p class="m-0 px-3 pt-1 text-sm text-ink-3 empty:hidden" data-slot="note" role="status"></p>
 </chat-account>
 {% endif %}

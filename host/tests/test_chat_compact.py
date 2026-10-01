@@ -108,8 +108,7 @@ def test_a_guest_with_the_share_link_may_read_a_chat_but_not_compact_it(visitor,
     from django.test import Client
 
     guest = Client()
-    page = guest.get("/")
-    token = page.content.decode().split('csrf-token" content="')[1].split('"')[0]
+    token = guest.get("/api/me").json()["csrf"]
     guest.get(f"/join/{tickets.mint_share_token(chat_id)}")
     answer = guest.post(f"/c/{chat_id}/compact", HTTP_X_CSRFTOKEN=token)
     assert answer.status_code == 403 and backend.compacted == []
@@ -122,8 +121,7 @@ def test_a_stranger_cannot_compact_someone_elses_chat(visitor, backend):
 
     chat_id = visitor.new_chat()
     stranger = Client()
-    page = stranger.get("/")
-    token = page.content.decode().split('csrf-token" content="')[1].split('"')[0]
+    token = stranger.get("/api/me").json()["csrf"]
     assert stranger.post(f"/c/{chat_id}/compact", HTTP_X_CSRFTOKEN=token).status_code == 404
     assert backend.compacted == []
 

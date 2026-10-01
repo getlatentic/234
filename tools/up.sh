@@ -26,7 +26,7 @@ mkdir -p "$state"
 [ "${REAL_MODEL:-}" = "1" ] || (cd "$root/host" && uv run python tests/fake_model.py "$model_port" > "$state/model.log" 2>&1 &)
 (cd "$root" && npm run build:host > /dev/null && node conformance/build-probe.mjs > /dev/null)
 (cd "$root/checkout" && uv run python ../card/build.py > /dev/null && uv run python ../card/build.py src/checkout/card/card-official.html --client official > /dev/null && uv run python ../card/build.py --card menu > /dev/null && uv run python ../card/build.py --card memory > /dev/null)
-(cd "$root/host" && WORKERS_CI=1 uv run python src/manage.py collectstatic --noinput --clear > /dev/null)
+build_shell
 [ -f "$root/checkout/src/checkout/card/react-card.html" ] || cp "$root/reference/ts-demo/dist/views/card.html" "$root/checkout/src/checkout/card/react-card.html"
 
 rig=()
