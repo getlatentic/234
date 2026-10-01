@@ -55,7 +55,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 # application-name meta. The wordmark drawn on the home is the same name, spelled as paths.
 PRODUCT_NAME = "234"
 
-# While the payment and airtime providers are simulated, the page says so: a "Test" box on top and a line under the composer.
+# While the providers are simulated the page says so: a "Test" box on top and a line under the composer.
 SIMULATION = runtime.get_bool("SIMULATION", True)
 
 TEMPLATES = [
