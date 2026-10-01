@@ -221,14 +221,48 @@ after idle: a cold Worker isolate plus a new Durable Object plus the writes.
 A brand-new Worker's address answers **404 for about a minute** after its first deploy while the route spreads; a
 redeploy of an existing Worker does not.
 
-## For a static shell of the home page
+## The home page as a static asset
 
-The home page needs three things from Python: the CSRF token (the `csrf-token` meta tag, from the cookie the middleware
-sets), the account state (`accounts.context`: whether sign-in exists, who is signed in), and the chat list (one query,
-`chats_of`). None of these changed here, and nothing in this work depends on `GET /` being a page: the warm-up
-loads the templates, the URL conf and the views, so a JSON endpoint that supplies the three costs the same cold start
-(about 0.2 s above an empty Worker) and one query warm. The shell takes Python off the first paint; the first call that
-needs the token or the list still meets a cold isolate about a fifth to a third of the time.
+`GET /` is no longer a request to the Worker. `build_shell` renders the empty home once at build time into
+`staticfiles/index.html` (with a `_headers` file), Workers static assets serve it from the edge, and what is the
+visitor's (the CSRF token, the chats, the account) comes from `GET /api/me`, which the page asks for when it loads
+([chat-ui.md](chat-ui.md#the-home-is-a-static-page) has the contract and the headers). The assets config is
+`"assets": {"directory": "./staticfiles", "html_handling": "auto-trailing-slash", "not_found_handling": "none"}` with
+`run_worker_first` left at its default: a path that has an asset (`/`, `/static/...`) is answered by the platform,
+every other path (`/c/...`, `/auth/...`, `/hooks/...`, `/join/...`, `/memory/...`, `/ops/...`, `/a2a`, `/api/me`, the
+manifest) has none and reaches the Worker. `/index.html` redirects to `/`.
+
+**Measured on 2026-10-01** on four throwaway probes of the public template (two of the tree before this change,
+`ea08695`, two of this one), one Cloudflare location (Frankfurt) and the same laptop, deleted afterwards; the real Workers
+were not touched. Curl opens a new connection for every request; the browser is Chromium with a new context for every load.
+
+| | Before: Django renders `/` | After: static `/` and `/api/me` |
+|---|---|---|
+| Worker invocations for six `GET /` (`wrangler tail`) | six | **none** (only `/api/me` and `/c/<id>/` were seen) |
+| Warm `GET /`, curl, 60 requests: first byte (of it, after the TLS handshake) | 247 ms (189) | **112 ms (52)** |
+| Warm `GET /api/me`, 60 requests | | 233 ms (173) |
+| Cold `GET /` (after 12 to 13 minutes with no traffic; the first request of each of 3 rounds on 2 probes) | **1.24, 1.27, 1.79 s** curl; 1.37 and 1.60 s browser first byte (a sixth request met a warm isolate: 0.38 s) | **0.095, 0.100, 0.105 s**: a static asset has no cold start |
+| Cold `GET /api/me` (same rounds) | | 1.13, 1.18, 2.07 s curl; the page's own call, 2.6 and 2.8 s from navigation start |
+| Browser, until the composer exists and takes typing, warm, 15 loads each, interleaved: median (range) | 820 ms (522 to 2953) | **547 ms (464 to 677)** |
+| The same, the loads that met a cold Worker | 1.77 and 2.05 s | 0.65 to 1.04 s |
+| Local, warm, median of 75: `GET /` / `GET /api/me` | 14.7 ms | **1.9 ms** / 12.0 ms |
+
+What this says. The home no longer waits for Python: the first byte is the platform's (about 0.1 s with a new
+connection), it does not depend on how long the Worker has been idle, and the time to a usable composer no longer has the
+tail the cold Worker gave it (the "before" loads over 1.4 s are isolates starting; the "after" loads stay within 0.2 s of
+each other). The cold start did not go away: it moved to `/api/me`, which the page asks for in the background. On a cold
+Worker the chat list, the account and the chats button arrive 1.1 to 2.1 s after load (about 0.2 s on a warm one), the
+composer and the starters are usable before that, and a first message sent in that time waits for the token. Someone who
+reads the page before sending has paid the cold start by then.
+
+A probe was not a real deployment: it had no secrets, no service binding, and a model that was not set, so the composer
+is turned off by `/api/me` (`problem`) a moment after load in these runs; the real Worker's `/api/me` also asks the
+database for the chat list, as these did. The numbers of one afternoon on one connection vary by the factor the
+sections above found for the platform, so read them for size, not for the digit.
+
+`tools/startup-budget.sh` now times `GET /api/me` on the restored snapshot, because `/` is not served by the Worker:
+first request 0.11 s, next 0.022 s; the snapshot is 11,681,729 bytes gzip (11,655,225 before; the budget is
+12,240,000).
 
 ## Versions
 
@@ -271,7 +305,7 @@ changes:
 
 `tools/startup-budget.sh` saves the host's startup snapshot the way a deploy does, fails when its gzip size is over
 `BUDGET_GZIP_BYTES` (**12,240,000**, 5% over the 11,655,225 above), restores it three times and prints the first and
-next `GET /` on the restored snapshot (about 0.12 s and 0.03 s now). `tools/check.sh` runs it once, before the stacks
+next `GET /api/me` on the restored snapshot (the home page is a static asset: about 0.11 s and 0.02 s now). `tools/check.sh` runs it once, before the stacks
 come up. It uses ports `PORT_BASE+18` and `+19` and takes about 45 s. When it fails, find what grew the snapshot
 (`tracemalloc` by module, as in "Where the startup goes") before raising the number; the deployed cap is not published
 and was measured near 18.5 to 19.7 MB elsewhere.
