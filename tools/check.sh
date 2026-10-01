@@ -1,6 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Everything, from a clean start: lint, unit tests, the Worker tests against local workerd and D1 (the three
+# Everything, from a clean start: lint, unit tests, the startup budget of the host Worker (docs/performance.md),
+# the Worker tests against local workerd and D1 (the three
 # turn runners included), the browser conformance runs, the A2A runs with the official clients, the daily
 # caps, the probe card, the card sandbox and the Paystack popup on a stack with a stand-in for Paystack, and the crash
 # test. It uses ports 8900-8999 only.
@@ -56,6 +57,7 @@ for base in 8900 8940 8960 8980; do
   PORT_BASE=$base "$root/tools/down.sh" quiet
 done
 preflight 8900 8999 || { echo "Ports 8900-8999 are not free; stop what holds them and run again."; exit 1; }
+limit 300 env PORT_BASE=8900 "$root/tools/startup-budget.sh"
 
 echo "== stack: connectors 8900, host 8901 (Durable Object runner), model 8902, queue runner 8903, waitUntil runner 8904"
 ALT_RUNNERS=1 timeout --kill-after=10 900 "$root/tools/up.sh" || { echo "!! the stack did not come up"; exit 1; }

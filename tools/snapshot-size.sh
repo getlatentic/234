@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Measures the startup snapshot of a Python Worker: raw and gzip-compressed bytes (Cloudflare caps the
 # compressed size near 19.7 MB in practice), and how long the first
-# request takes on a fresh start. Touches only its own port, which is in the stack's range.
+# request takes on a fresh start. The two request times are taken while workerd is saving the snapshot, which
+# makes them slower than a Worker's real first requests: tools/startup-budget.sh restores the snapshot and times
+# those. Touches only its own port, which is in the stack's range.
 # usage: tools/snapshot-size.sh <worker dir> [port]     (default port 8990)
 set -e
 dir=$(cd "$1" && pwd); port=${2:-8990}
