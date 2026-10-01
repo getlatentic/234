@@ -8,6 +8,7 @@ The tool list a host reads is built from here, so a tool's visibility is declare
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -77,12 +78,17 @@ class Tool:
     visibility: tuple[str, ...] | None = None
     annotations: dict[str, Any] = field(default_factory=dict)
 
+    @cached_property
+    def input_schema(self) -> dict[str, Any]:
+        """Built once: a tool's arguments do not change while the Worker runs, and every tools/list asks."""
+        return plain_schema(self.arguments.model_json_schema())
+
     def listed(self) -> dict[str, Any]:
         listing: dict[str, Any] = {
             "name": self.name,
             "title": self.title,
             "description": self.description,
-            "inputSchema": plain_schema(self.arguments.model_json_schema()),
+            "inputSchema": self.input_schema,
         }
         if self.annotations:
             listing["annotations"] = self.annotations
