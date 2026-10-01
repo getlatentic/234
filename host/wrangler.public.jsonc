@@ -37,7 +37,7 @@
     "SANDBOX_ORIGIN": "https://@SANDBOX_WORKER@.@SUBDOMAIN@.workers.dev",
     "CHECKOUT_MCP_BINDING": "CHECKOUT_MCP",
     "CHECKOUT_MCP_URL": "https://@CONNECTORS_WORKER@.internal",
-    "CONNECTORS": "paystack-pay,send-money,airtime,food-order",
+    "CONNECTORS": "paystack-pay,send-money,airtime,food-order,memory",
     // Model spend: calls per day for everyone and for each visitor.
     "MODEL_CALLS_PER_DAY": "300",
     "VISITOR_MODEL_CALLS_PER_DAY": "30"
