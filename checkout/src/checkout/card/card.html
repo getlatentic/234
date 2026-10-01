@@ -86,7 +86,8 @@
   </div>
 </template>
 
-<script>// A minimal MCP Apps view: JSON-RPC 2.0 over window.postMessage to the host that framed us.
+<script>// SPDX-License-Identifier: AGPL-3.0-or-later
+// A minimal MCP Apps view: JSON-RPC 2.0 over window.postMessage to the host that framed us.
 // Wire format: ext-apps specification 2026-01-26 (ui/initialize, ui/notifications/*, tools/call).
 const McpApp = (() => {
   const PROTOCOL_VERSION = "2026-01-26";
@@ -185,7 +186,8 @@ const McpApp = (() => {
   };
 })();
 </script>
-<script>// Paystack's checkout as a popup inside the card (Paystack Inline v2, `resumeTransaction(access_code)`), as an
+<script>// SPDX-License-Identifier: AGPL-3.0-or-later
+// Paystack's checkout as a popup inside the card (Paystack Inline v2, `resumeTransaction(access_code)`), as an
 // option: it is used only where it can run, and anywhere it cannot the card opens the checkout link as it always
 // did, with nothing for the person to read. The popup is a frame of Paystack's own that fills the window of the
 // page that opens it, so the card first asks the host for full screen.
@@ -356,7 +358,8 @@ const InlineCheckout = (() => {
   return { open, hostAllows, displayChanged, dismiss };
 })();
 </script>
-<script>// The approval card: shows a quote as the server holds it, and lets the person act on it.
+<script>// SPDX-License-Identifier: AGPL-3.0-or-later
+// The approval card: shows a quote as the server holds it, and lets the person act on it.
 // Markup lives in the Django templates (<template> elements); this file only fills them in.
 (() => {
   const POLL_MS = 2000;
