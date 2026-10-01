@@ -55,8 +55,11 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
 - **Logs:** `tools/deploy.sh tail sandbox`. A view whose declaration was narrowed leaves a `csp.refused` line there,
   and the host's log has `card.csp` and `card.csp.refused` lines for what each card asked and got.
 - **One site.** The sandbox is another origin on another hostname, and on workers.dev it is still the same *site* as
-  the host (workers.dev is a public suffix): the host's cookies are host-only, which keeps them from it. A different
-  site needs a custom domain for the sandbox: set `SANDBOX_ORIGIN` and the sandbox's `HOST_ORIGINS` to match.
+  the host (workers.dev is a public suffix): the host's cookies are host-only, which keeps them from it. With
+  `CUSTOM_DOMAIN` set ([A custom domain](#a-custom-domain)) the host is on its own site and the sandbox stays on
+  workers.dev, a different site: a cookie the sandbox's origin can set can no longer reach the host. A different
+  site for the sandbox without a custom domain for the host is not possible; set `SANDBOX_ORIGIN` and the sandbox's
+  `HOST_ORIGINS` to match to move it.
 - **Paystack's popup** is on by default (`INLINE_PAYSTACK`, a variable of the host and of the connectors) and does
   nothing in this deployment: it applies only where the connectors run in Paystack test mode with a key, which the
   public deployment never does. No card declares an external origin here, so no visitor sees a line about one.
@@ -160,6 +163,28 @@ Two things about rotating, both measured on 2026-09-29:
 `A2A_TOKENS` is not set, so no other agent can call the A2A endpoint. To allow one:
 `openssl rand -hex 32 | sed 's/^/partner:/' | npx wrangler secret put A2A_TOKENS --name <host-worker>`.
 
+## A custom domain
+
+The host can live on a domain of a zone in your Cloudflare account, for example `234.example.com` (use your own;
+the real one stays in untracked files). Set `CUSTOM_DOMAIN` in the environment or in `.env.deploy.local`, like
+`SUBDOMAIN`, and deploy:
+
+```
+CUSTOM_DOMAIN=234.example.com
+```
+
+Cloudflare creates the DNS record and the certificate when the route is attached (no record may exist for that name
+beforehand; the zone must be on the same account). A new certificate can take a few minutes, and the smoke test waits
+up to five for it.
+
+- **What the deploy does with it.** The host's config gets `"routes": [{ "pattern": "<domain>", "custom_domain": true }]`; `PUBLIC_BASE_URL` (the A2A agent card's `url`, and the checkout page's way back to the chat) becomes the custom origin; `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS` list both the custom domain and the workers.dev address; the sandbox's `HOST_ORIGINS` lists both origins, so it frames a page of either and no other (it names the one that asked as its only `frame-ancestors`). `tools/deploy.sh render TEMPLATE OUT` shows the result without deploying; `host/tests/test_custom_domain.py` checks it with stub names, with and without a domain. Without `CUSTOM_DOMAIN` every rendered file is what it was.
+- **The canonical host is the custom domain, and both answer.** The workers.dev address does not redirect: it serves the same Worker, which is simpler and keeps the deploy's own checks (and `ops/migrate`) on an address that needs no DNS. A card is signed for the origin the page was reached at (`chat/sandbox.py`), so a card works on either.
+- **The sandbox stays on workers.dev.** The host's `SANDBOX_ORIGIN` does not change. With the host on its own domain the two are different *sites* as well as different origins, which workers.dev alone could not give: the Paystack card's origin cannot set a cookie that the host receives ([mcp-apps-compliance.md](mcp-apps-compliance.md#one-site-two-origins)). The page's `frame-src` is unchanged: the sandbox's origin alone.
+- **Cookies are per host.** The visitor cookie and the session cookie name no `Domain`, so they belong to the host that set them and are not shared between the custom domain and the workers.dev address. Moving visitors from the workers.dev address to the custom domain therefore starts every one of them as a new anonymous visitor (no chat history, a new daily allowance), and a signed-in person signs in once more on the new origin (their account, and so their chats, are the same once they have). Nothing is copied between origins.
+- **Sign-in from the custom origin** needs the domain in the Firebase project's authorized domains ([auth.md](auth.md#what-you-do-in-the-console)). `FIREBASE_AUTH_DOMAIN` stays the `firebaseapp.com` handler: the popup and the redirect run through it and come back to whichever origin started them.
+- **The smoke test** (`tools/deploy.sh`, with the domain set) also checks, on the custom domain: the home page, `/api/me`, the page's policy against the workers.dev one, cookies without a `Domain`, a POST from the custom origin accepted by CSRF (and one naming another origin refused), the sandbox framing the custom origin and no other, and the workers.dev address still answering with no redirect.
+- **Unsetting it** and deploying removes the route (Cloudflare removes the record) and the origins; chats made on the custom domain stay in the database under their visitors, who can no longer reach them from the workers.dev address.
+
 ## Redeploy
 
 ```
@@ -168,8 +193,10 @@ tools/deploy.sh
 
 It refuses when the working tree has uncommitted changes. Then it runs `ruff` and the unit tests of both projects
 (including the public-configuration tests) and the sandbox's, deploys the sandbox, applies the ledger migrations,
-deploys the connectors, deploys the host (which runs Django's migrations inside the Worker), and smoke-tests the three
-addresses with curl. It sends one word
+deploys the connectors, deploys the host (its build step collects the static files and renders the home page, which
+the platform then serves without the Worker: [chat-ui.md](chat-ui.md#the-home-is-a-static-page); the settings that
+shape its policy reach the build through the environment) and runs Django's migrations inside the Worker, and
+smoke-tests the three addresses with curl, the home page's headers included. It sends one word
 to a fresh chat, so once a model is set a deploy makes one model call. `CHECK_FULL=1 tools/deploy.sh` also runs `tools/check.sh` first
 (fifteen minutes, ports 8900-8999).
 

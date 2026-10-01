@@ -24,11 +24,16 @@
 # Any name below can be overridden from the environment (HOST_WORKER=old tools/deploy.sh destroy) or from the
 # untracked file .env.deploy.local at the repository root (plain NAME=value lines, read by the shell).
 # SUBDOMAIN, your account's workers.dev subdomain, has no default and must be set.
+# CUSTOM_DOMAIN (optional, the same two places, for example 234.example.com) puts the host on a domain of a zone
+# in your Cloudflare account: a route with custom_domain, the canonical origin settings, the sandbox's allowed
+# embedder, and smoke checks of that origin. The host also keeps answering on its workers.dev address.
+#   tools/deploy.sh render TEMPLATE OUT   fills in a wrangler template without deploying (the tests use it)
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck disable=SC1091
-[ ! -f "$root/.env.deploy.local" ] || source "$root/.env.deploy.local"
+env_file=${DEPLOY_ENV_FILE:-$root/.env.deploy.local}
+# shellcheck disable=SC1090
+[ ! -f "$env_file" ] || source "$env_file"
 
 HOST_WORKER=${HOST_WORKER:-ask234}
 CONNECTORS_WORKER=${CONNECTORS_WORKER:-ask234-connectors}
@@ -36,15 +41,21 @@ SANDBOX_WORKER=${SANDBOX_WORKER:-ask234-sandbox}
 HOST_DB=${HOST_DB:-ask234-host-db}
 LEDGER_DB=${LEDGER_DB:-ask234-ledger}
 SUBDOMAIN=${SUBDOMAIN:-}
+CUSTOM_DOMAIN=${CUSTOM_DOMAIN:-}
 [ -n "$SUBDOMAIN" ] || { echo "deploy: set SUBDOMAIN to your account's workers.dev subdomain (environment or .env.deploy.local; docs/deploy.md)" >&2; exit 1; }
 RATE_LIMIT_NAMESPACE=${RATE_LIMIT_NAMESPACE:-4391}
+if [ -n "$CUSTOM_DOMAIN" ]; then
+  [[ $CUSTOM_DOMAIN =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] && [[ $CUSTOM_DOMAIN != *.workers.dev ]] ||
+    { echo "deploy: CUSTOM_DOMAIN is a host name of a zone in your account (for example 234.example.com), not a URL and not on workers.dev" >&2; exit 1; }
+fi
 
 wrangler="$root/node_modules/.bin/wrangler"
 HOST_URL="https://$HOST_WORKER.$SUBDOMAIN.workers.dev"
 CONNECTORS_URL="https://$CONNECTORS_WORKER.$SUBDOMAIN.workers.dev"
 SANDBOX_URL="https://$SANDBOX_WORKER.$SUBDOMAIN.workers.dev"
+CUSTOM_URL=${CUSTOM_DOMAIN:+https://$CUSTOM_DOMAIN}
 OWNER_SECRETS="LLM_BASE_URL LLM_MODEL LLM_API_KEY"
-AUTH_FILE="$root/.env.auth.local"
+AUTH_FILE=${AUTH_FILE:-$root/.env.auth.local}
 AUTH_NAMES="FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN"
 AUTH_ENABLED=""
 
@@ -110,17 +121,37 @@ d1_id() {  # database name: its id, or nothing when it does not exist
   "$wrangler" d1 info "$1" --json < /dev/null 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["uuid"])' 2>/dev/null || true
 }
 
+routes_line() {  # the host's route on the custom domain, or nothing
+  [ -z "$CUSTOM_DOMAIN" ] || printf '"routes": [{ "pattern": "%s", "custom_domain": true }],' "$CUSTOM_DOMAIN"
+}
+
+custom_domain_edits() {  # sed expressions: with a custom domain it is the canonical origin, and the workers.dev address is still accepted
+  [ -n "$CUSTOM_DOMAIN" ] || return 0
+  printf '%s\n' \
+    "s|^\([[:space:]]*\"DJANGO_ALLOWED_HOSTS\": \"[^\"]*\)\"|\1,$CUSTOM_DOMAIN\"|" \
+    "s|^\([[:space:]]*\"DJANGO_CSRF_TRUSTED_ORIGINS\": \"[^\"]*\)\"|\1,$CUSTOM_URL\"|" \
+    "s|^\([[:space:]]*\"PUBLIC_BASE_URL\": \"\)https://$HOST_WORKER\.$SUBDOMAIN\.workers\.dev\"|\1$CUSTOM_URL\"|" \
+    "s|^\([[:space:]]*\"HOST_PUBLIC_URL\": \"\)https://$HOST_WORKER\.$SUBDOMAIN\.workers\.dev\"|\1$CUSTOM_URL\"|" \
+    "s|\(\"HOST_ORIGINS\": \"[^\"]*\)\"|\1,$CUSTOM_URL\"|"
+}
+
 render() {  # template output: the template with this file's names filled in
   [ -n "${AUTH_LOADED:-}" ] || { load_auth; AUTH_LOADED=1; }
-  local ledger_id host_id
-  ledger_id=$(d1_id "$LEDGER_DB"); host_id=$(d1_id "$HOST_DB")
+  local ledger_id=${LEDGER_DB_ID:-} host_id=${HOST_DB_ID:-} edits
+  [ -n "$ledger_id" ] || ledger_id=$(d1_id "$LEDGER_DB")
+  [ -n "$host_id" ] || host_id=$(d1_id "$HOST_DB")
   [ -n "$ledger_id" ] && [ -n "$host_id" ] || die "the databases $LEDGER_DB and $HOST_DB do not both exist: run tools/deploy.sh init"
+  edits=$(mktemp)
+  custom_domain_edits > "$edits"
   sed -e "s|@HOST_WORKER@|$HOST_WORKER|g" -e "s|@CONNECTORS_WORKER@|$CONNECTORS_WORKER|g" \
     -e "s|@SANDBOX_WORKER@|$SANDBOX_WORKER|g" \
     -e "s|@HOST_DB@|$HOST_DB|g" -e "s|@HOST_DB_ID@|$host_id|g" \
     -e "s|@LEDGER_DB@|$LEDGER_DB|g" -e "s|@LEDGER_DB_ID@|$ledger_id|g" \
     -e "s|@SUBDOMAIN@|$SUBDOMAIN|g" -e "s|@RATE_LIMIT_NAMESPACE@|$RATE_LIMIT_NAMESPACE|g" "$1" |
-    sed -e "s|^\([[:space:]]*\)// @FIREBASE_VARS@\$|\1$(auth_vars_line)|" > "$2"
+    sed -f "$edits" |
+    sed -e "s|^\([[:space:]]*\)// @FIREBASE_VARS@\$|\1$(auth_vars_line)|" \
+      -e "s|^\([[:space:]]*\)// @ROUTES@\$|\1$(routes_line)|" > "$2"
+  rm -f "$edits"
 }
 
 secrets_present() {  # worker: the names of the secrets it already has
@@ -160,6 +191,10 @@ upload() {  # dir: uploads the rendered config in dir; the secrets to add arrive
   tag=$(git -C "$root" rev-parse --short HEAD)
   [ -z "$pending" ] || options=(--secrets-file /dev/stdin)
   cd "$root/$dir"
+  if [ "$dir" = host ]; then  # the build of the home page (host/build_shell) gives it the policy these settings decide
+    export SANDBOX_ORIGIN="$SANDBOX_URL"
+    [ -z "$AUTH_ENABLED" ] || export FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN
+  fi
   uv run pywrangler sync > /dev/null
   printf '%s' "$pending" | filtered "Uploaded|Deployed|https://|Version ID|Startup|Total Upload" \
     "$wrangler" deploy -c wrangler.deploy.jsonc --tag "$tag" --message "deploy $tag" ${options[@]+"${options[@]}"}
@@ -241,12 +276,18 @@ deploy_all() {
 
 http_status() { curl -s -m 60 -o /dev/null -w '%{http_code}' "$@" || true; }
 
+header_of() {  # url name: the value of one response header (name in any case), without its line ending
+  curl -s -m 30 -D - -o /dev/null "$1" | tr -d '\r' | grep -i "^$2:" | head -1 | cut -d: -f2- | sed 's/^ //' || true
+}
+
 smoke_auth() {  # cookie-jar csrf-token: sign-in is on exactly when .env.auth.local says so, and a garbage token is refused
-  local jar=$1 csrf=$2 page headers
-  page=$(curl -s -m 60 -b "$jar" "$HOST_URL/" || true)
+  local jar=$1 csrf=$2 page headers me
+  page=$(curl -s -m 60 "$HOST_URL/" || true)
+  me=$(curl -s -m 60 -b "$jar" "$HOST_URL/api/me" || true)
   headers=$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' || true)
   if [ -n "$AUTH_ENABLED" ]; then
-    check "sign-in: the drawer offers Google" "$(grep -c 'Continue with Google' <<< "$page" || true)" 1
+    check "sign-in: the home page holds the account part of the drawer" "$(grep -c '<chat-account' <<< "$page" || true)" 1
+    check "sign-in: /api/me carries the Firebase web app's public identifiers" "$(grep -c '"signIn": {"apiKey"' <<< "$me" || true)" 1
     check "sign-in: /auth/session refuses a garbage token" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/auth/session" \
       -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' -d '{"idToken":"garbage"}' || true)" 401
     check "sign-in: /auth/session needs the CSRF token" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/auth/session" \
@@ -254,11 +295,44 @@ smoke_auth() {  # cookie-jar csrf-token: sign-in is on exactly when .env.auth.lo
     check "sign-in: the popup keeps its link to the page (COOP)" "$(grep -ci '^cross-origin-opener-policy: same-origin-allow-popups' <<< "$headers" || true)" 1
     check "sign-in: only apis.google.com is added to script-src" "$(grep -ci "script-src 'self' https://apis.google.com;" <<< "$headers" || true)" 1
   else
-    check "sign-in is off: no button on the page" "$(grep -c 'Continue with Google' <<< "$page" || true)" 0
+    check "sign-in is off: no account part on the page" "$(grep -c '<chat-account' <<< "$page" || true)" 0
+    check "sign-in is off: /api/me names no Firebase app" "$(grep -c '"signIn": null' <<< "$me" || true)" 1
     check "sign-in is off: /auth/session does not exist" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/auth/session" \
       -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' -d '{}' || true)" 404
     check "sign-in is off: COOP is same-origin" "$(grep -ci '^cross-origin-opener-policy: same-origin$' <<< "$headers" || true)" 1
   fi
+}
+
+smoke_shell() {  # the home page is a static asset (no Worker, no cookie) under the headers every other page has
+  local headers
+  headers=$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' || true)
+  check "the home page is served by the assets: it sets no cookie and does not vary" "$(grep -ciE '^(set-cookie|vary):' <<< "$headers" || true)" 0
+  check "the home page's policy is the one every page of the Worker has" "$(header_of "$HOST_URL/" content-security-policy)" "$(header_of "$HOST_URL/manifest.webmanifest" content-security-policy)"
+  check "the home page is not framed, not sniffed, and sends no referrer elsewhere" "$(grep -ciE '^(x-frame-options: DENY|x-content-type-options: nosniff|referrer-policy: same-origin)$' <<< "$headers" || true)" 3
+  check "the home page is cached for a minute and revalidated" "$(grep -ci '^cache-control: public, max-age=60, must-revalidate$' <<< "$headers" || true)" 1
+  check "/api/me is never stored" "$(header_of "$HOST_URL/api/me" cache-control)" "no-store, private"
+  check "/api/me refuses a request that comes from another site" "$(curl -s -m 30 -o /dev/null -w '%{http_code}' -H 'Sec-Fetch-Site: cross-site' "$HOST_URL/api/me" || true)" 403
+}
+
+smoke_custom() {  # the host on its custom domain: page, /api/me, cookies, the sandbox framing it, and the workers.dev address still answering
+  local origin=$CUSTOM_URL waited=0 jar token stranger=https://evil.example
+  say "the custom domain $CUSTOM_DOMAIN (a new one can take a few minutes to get its certificate)"
+  while [ "$(http_status "$origin/api/me")" != 200 ] && [ "$waited" -lt 300 ]; do sleep 10; waited=$((waited + 10)); done
+  jar=$(mktemp)
+  check "custom domain: the home page" "$(http_status "$origin/")" 200
+  check "custom domain: /api/me" "$(http_status -c "$jar" "$origin/api/me")" 200
+  check "custom domain: the home page has the policy of the workers.dev address" "$(header_of "$origin/" content-security-policy)" "$(header_of "$HOST_URL/" content-security-policy)"
+  check "custom domain: its cookies are its own (none names a Domain)" "$(curl -s -m 30 -D - -o /dev/null "$origin/api/me" | grep -i '^set-cookie:' | grep -ci 'domain=' || true)" 0
+  token=$(grep -o '"csrf": "[^"]*' <(curl -s -m 60 -b "$jar" "$origin/api/me") | cut -d'"' -f4 || true)
+  check "custom domain: its own origin is trusted for a POST (an empty message is refused as empty, not as forged)" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$origin/c/$(openssl rand -hex 16)/start" \
+    -H "origin: $origin" -H "referer: $origin/" -H "X-CSRFToken: $token" -H 'content-type: application/json' -d '{"text":""}' || true)" 422
+  check "custom domain: a POST that names another origin is refused as forged" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$origin/c/$(openssl rand -hex 16)/start" \
+    -H "origin: $stranger" -H "referer: $stranger/" -H "X-CSRFToken: $token" -H 'content-type: application/json' -d '{"text":""}' || true)" 403
+  check "custom domain: the sandbox frames pages of that origin" "$(http_status "$SANDBOX_URL/?host=$origin")" 200
+  check "custom domain: and names it alone as its embedder" "$(curl -s -m 30 -D - -o /dev/null "$SANDBOX_URL/?host=$origin" | tr -d '\r' | grep -Eci "frame-ancestors $origin(;|$)" || true)" 1
+  check "custom domain: and still refuses a page on any other origin" "$(http_status "$SANDBOX_URL/?host=$stranger")" 403
+  check "custom domain: the workers.dev address still answers, with no redirect" "$(http_status "$HOST_URL/api/me")/$(curl -s -m 30 -o /dev/null -w '%{redirect_url}' "$HOST_URL/")" "200/"
+  rm -f "$jar"
 }
 
 smoke_test() {
@@ -276,10 +350,11 @@ smoke_test() {
   check "connectors tools/list without the token" "$(http_status -X POST "$CONNECTORS_URL/paystack-pay/mcp" \
     -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
   check "connectors /test routes are off" "$(http_status "$CONNECTORS_URL/test/summary")" 404
-  check "host page" "$(http_status -c "$jar" "$HOST_URL/")" 200
+  check "host page" "$(http_status "$HOST_URL/")" 200
+  smoke_shell
   check "the host's page frames only the sandbox" "$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' | grep -ciE "frame-src $SANDBOX_URL( https://[a-z0-9-]+\\.firebaseapp\\.com)?;" || true)" 1
-  check "the host's cookies are the host's alone (none names a Domain)" "$(grep -ci 'domain=' <(curl -s -m 30 -D - -o /dev/null "$HOST_URL/") || true)" 0
-  csrf=$(curl -s -m 60 -b "$jar" -c "$jar" "$HOST_URL/" | grep -o 'csrf-token" content="[^"]*' | cut -d'"' -f3 || true)
+  check "the host's cookies are the host's alone (none names a Domain)" "$(grep -ci 'domain=' <(curl -s -m 30 -D - -o /dev/null -c "$jar" "$HOST_URL/api/me") || true)" 0
+  csrf=$(grep -o '"csrf": "[^"]*' <(curl -s -m 60 -b "$jar" -c "$jar" "$HOST_URL/api/me") | cut -d'"' -f4 || true)
   chat=$(openssl rand -hex 16)
   started=$(curl -s -m 60 -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$chat/start" \
     -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' \
@@ -290,6 +365,7 @@ smoke_test() {
   check "the log answered" "$(if [ -n "$page" ]; then echo yes; else echo no; fi)" yes
   check "no stack trace" "$(if grep -q 'Traceback' <<< "$page"; then echo trace; else echo none; fi)" none
   smoke_auth "$jar" "$csrf"
+  [ -z "$CUSTOM_DOMAIN" ] || smoke_custom
   rm -f "$jar"
   [ "$failures" -eq 0 ] || die "$failures smoke checks failed"
 }
@@ -361,6 +437,7 @@ cmd_names() {
   cat <<EOF
 sandbox Worker     $SANDBOX_WORKER     $SANDBOX_URL
 host Worker        $HOST_WORKER        $HOST_URL
+custom domain      $( [ -n "$CUSTOM_DOMAIN" ] && echo "$CUSTOM_URL (canonical; $HOST_URL still answers)" || echo "none (CUSTOM_DOMAIN is not set)")
 connectors Worker  $CONNECTORS_WORKER  $CONNECTORS_URL
 host database      $HOST_DB
 ledger database    $LEDGER_DB
@@ -388,6 +465,7 @@ case "$cmd" in
   rotate) cmd_rotate "${2:?what to rotate}" ;;
   upload) cmd_upload "${2:?host, connectors or sandbox}" ;;
   names) cmd_names ;;
+  render) render "${2:?template}" "${3:?output}" ;;
   auth) cmd_auth ;;
   destroy) cmd_destroy ;;
   versions) "$wrangler" versions list --name "$(worker_of "${2:?host, connectors or sandbox}")" ;;
