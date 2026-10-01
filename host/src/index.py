@@ -10,9 +10,12 @@ from django_cf import handle_wsgi
 from workers import Response, WorkerEntrypoint
 
 from chat.socket_gate import chat_for_socket
+from config.warm import warm_up
 from config.wsgi import application
 from turns.alternatives import runners
 from turns.chat_object import Chat  # noqa: F401
+
+warm_up()
 
 
 class Default(WorkerEntrypoint):
