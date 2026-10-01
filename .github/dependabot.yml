@@ -12,6 +12,11 @@ updates:
     directory: /checkout
     schedule:
       interval: weekly
+    ignore:
+      # pydantic 2.13 needs pydantic-core 2.46.5, which has no WebAssembly wheel for the Python Workers
+      # runtime (docs/performance.md, "Versions"). 2.14 will be proposed again once it loads there.
+      - dependency-name: pydantic
+        versions: ["2.13.x"]
   - package-ecosystem: uv
     directory: /conformance/a2a-python
     schedule:
