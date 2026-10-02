@@ -308,7 +308,7 @@
     if (!text) return;
     const order = orderOf(state.quote);
     await run("decline_quote", { approval_token: state.token ?? "" });
-    McpApp.message(`Correction to the card for ${order}: ${text}`).catch(() => undefined);
+    McpApp.message(`Correction to the card for ${order}: ${text}. That card is declined: quote it again with this change.`).catch(() => undefined);
   }
   root.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;

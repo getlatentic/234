@@ -42,6 +42,7 @@ class Turn:
     say: str
     expect: tuple[dict[str, Any], ...]
     said: dict[str, Any] = field(default_factory=dict)
+    via: str = "send"
 
 
 @dataclass(frozen=True)
@@ -75,7 +76,12 @@ def _case(raw: dict[str, Any]) -> Case:
     if raw["split"] not in SPLITS:
         raise CaseError(f"{case_id}: split {raw['split']!r}")
     turns = tuple(
-        Turn(t["say"], tuple(_outcome(case_id, o) for o in t["expect"]), t.get("said", {}))
+        Turn(
+            t["say"],
+            tuple(_outcome(case_id, o) for o in t["expect"]),
+            t.get("said", {}),
+            t.get("via", "send"),
+        )
         for t in raw["turns"]
     )
     if not 1 <= len(turns) <= 2:

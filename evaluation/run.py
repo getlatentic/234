@@ -104,7 +104,7 @@ async def converse(visitor: Visitor, case: Case) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     try:
         for turn in case.turns:
-            sent = await visitor.send(chat, turn.say)
+            sent = await visitor.send(chat, turn.say, "message" if turn.via == "card" else "send")
             if sent.status_code != 200:
                 raise SetupFailed(f"the message was refused: HTTP {sent.status_code} {sent.text[:100]}")
             seq = sent.json()["seq"]

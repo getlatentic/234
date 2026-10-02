@@ -196,7 +196,7 @@ async function checks() {
     await page.keyboard.press("Enter");
     await page.waitForTimeout(400);
     check((await calls(page)).some((c) => c.name === "decline_quote"), `${key}: the card is declined`);
-    check(await page.evaluate(() => window.__log.some((e) => e.kind === "message" && /^Correction to the card for .+₦.+: make it 2000 naira$/.test(e.detail))), `${key}: the note reached the chat with the order it corrects`);
+    check(await page.evaluate(() => window.__log.some((e) => e.kind === "message" && /^Correction to the card for .+₦.+: make it 2000 naira\. That card is declined: quote it again with this change\.$/.test(e.detail))), `${key}: the note reached the chat with the order it corrects`);
     await context.close();
   }
   {
