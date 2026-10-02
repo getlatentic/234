@@ -161,7 +161,9 @@ async def test_one_owner_spending_everything_at_once_leaves_the_other_owners_day
 async def test_the_control_overspends_each_owner_so_the_per_owner_test_can_fail(worker):
     """The proof the per-owner tests above can fail: the same load against a read-then-write approval."""
     overspent = {ALICE: 0, BOB: 0}
-    for round_ in range(6):
+    for round_ in range(40):
+        if min(overspent.values()) >= 1:
+            break
         await worker.http.post(f"{BASE_URL}/test/reset")
         made = {
             owner: [await make(worker.as_owner(owner), f"naive-{owner[:2]}{round_}{i:03d}") for i in range(8)]
