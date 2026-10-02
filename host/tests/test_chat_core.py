@@ -205,6 +205,15 @@ async def test_the_same_note_from_two_tabs_is_kept_once(core):
     assert await c.types() == ["card_context", "card_context"]
 
 
+async def test_a_note_the_log_already_holds_is_not_added_again_after_others(core):
+    c = core(ScriptedModel("x"))
+    first = await c.core.note("Quote q1 now shows: expired.")
+    await c.core.note("Quote q2 now shows: declined.")
+    again = await c.core.note("Quote q1 now shows: expired.")
+    assert again == first
+    assert await c.types() == ["card_context", "card_context"]
+
+
 async def interrupt_after_streaming(c, sql_events):
     """The state a restart leaves: a turn started, part of a reply streamed, nothing else."""
     log = c.core.log

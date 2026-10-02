@@ -8,7 +8,6 @@ the small interfaces used here.
 """
 
 import asyncio
-import json
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -97,18 +96,20 @@ class ChatCore:
         return {"seq": event.seq, "task": task}
 
     async def note(self, text: str) -> dict[str, Any]:
-        """What a card tells the model (ui/update-model-context): kept, and never a reason to reply. Every tab
-        showing the card says it, so the same note twice in a row is kept once."""
+        """What a card tells the model (ui/update-model-context): kept, and never a reason to reply. A note
+        names its quote and what the card shows, so a card that says it again (another tab, a reload that
+        draws the chat's old cards) adds nothing: a note already in the log is kept once."""
         try:
             text = clean_text(text)
         except InputRefused as refused:
             return {"error": refused.code, "message": str(refused)}
-        last = await self._db.row(
-            "SELECT seq, payload FROM chat_event WHERE chat_id = ? AND type = ? ORDER BY seq DESC LIMIT 1",
-            self.chat_id, kinds.CARD_CONTEXT,
+        known = await self._db.row(
+            "SELECT seq FROM chat_event WHERE chat_id = ? AND type = ? "
+            "AND json_extract(payload, '$.text') = ? LIMIT 1",
+            self.chat_id, kinds.CARD_CONTEXT, text,
         )  # fmt: skip
-        if last is not None and json.loads(last["payload"])["text"] == text:
-            return {"seq": last["seq"]}
+        if known is not None:
+            return {"seq": known["seq"]}
         event = await self.log.append(kinds.CARD_CONTEXT, {"text": text})
         return {"seq": event.seq}
 
