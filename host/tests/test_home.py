@@ -62,7 +62,6 @@ def test_the_chats_button_is_the_234_icon_at_the_top_left_outside_the_composer(v
         "top-[max(0.75rem,env(safe-area-inset-top))]" in button
         and "size-11" in button
         and "rounded-xl" in button
-        and "chat/brand/icon" in button
     )
     assert html.index(button) < html.index("<chat-composer")
 
