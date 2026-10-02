@@ -53,6 +53,8 @@
       default: return q.merchantRef ? `Order ${q.merchantRef}` : "";
     }
   };
+  const orderOf = (q) =>
+    [whoOf(q), q.details.kind === "data" ? q.details.plan : "", subOf(q), q.amount.display].filter(Boolean).join(", ");
   const whatOf = (q) => (q.details.kind === "data" ? q.details.plan : q.details.kind === "airtime" || q.details.kind === "food" ? "" : q.description);
 
   function rows(pairs) {
@@ -304,8 +306,9 @@
     const field = root.querySelector('[data-slot="correction"]');
     const text = field.value.trim();
     if (!text) return;
+    const order = orderOf(state.quote);
     await run("decline_quote", { approval_token: state.token ?? "" });
-    McpApp.message(text).catch(() => undefined);
+    McpApp.message(`Correction to the card for ${order}: ${text}`).catch(() => undefined);
   }
   root.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
