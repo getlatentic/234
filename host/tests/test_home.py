@@ -54,14 +54,15 @@ def test_where_sign_in_is_on_the_chats_button_is_there_from_the_start(visitor, s
     assert "data-chats" in home.split("<chat-thread", 1)[1].split(">", 1)[0]
 
 
-def test_the_chats_button_is_a_round_button_at_the_top_left_outside_the_composer(visitor):
+def test_the_chats_button_is_the_234_icon_at_the_top_left_outside_the_composer(visitor):
     html = visitor.client.get("/").content.decode()
     button = chats_button(html)
     assert "fixed" in button and "left-[max(0.75rem,env(safe-area-inset-left))]" in button
     assert (
         "top-[max(0.75rem,env(safe-area-inset-top))]" in button
         and "size-11" in button
-        and "rounded-full" in button
+        and "rounded-xl" in button
+        and "chat/brand/icon" in button
     )
     assert html.index(button) < html.index("<chat-composer")
 
