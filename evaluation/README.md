@@ -22,7 +22,7 @@ What the real assistant (system prompt, tools, connectors, the model loop of `ho
 
 ## Splits
 
-- `dev` (12 cases): for debugging the harness only. Not scored.
+- `dev` (14 cases): for debugging the harness only. Not scored. `CORR-01` and `CORR-00` measure a correction typed on a card: with the order in the note the model re-quotes (8/8), with the bare note it asks what to buy (0/8).
 - `held-out` (77 cases): never used to change the prompt. These give the headline numbers.
 - `tuning` (7 cases): the seven prompts the earlier prompt tuning used. Run for reference, not scored.
 - `memory` (30 cases, all of the category `memory`): what 234 does with a signed-in person's saved notes ([../docs/memory.md](../docs/memory.md)). Never used to change the prompt or the tools; the first and only run against the real model is the memory phase of [RESULTS.md](RESULTS.md). Most cases are signed in, so they need the stack started with `AUTH=1`.

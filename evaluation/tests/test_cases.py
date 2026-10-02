@@ -20,9 +20,9 @@ TUNING_PROMPTS = {
 }
 
 
-def test_the_split_is_twelve_dev_seven_tuning_and_the_rest_held_out():
+def test_the_split_is_fourteen_dev_seven_tuning_and_the_rest_held_out():
     counts = collections.Counter(c.split for c in load_cases())
-    assert counts["dev"] == 12 and counts["tuning"] == 7 and counts["held-out"] >= 70
+    assert counts["dev"] == 14 and counts["tuning"] == 7 and counts["held-out"] >= 70
 
 
 def test_the_tuning_cases_are_the_seven_prompts_and_no_other_case_repeats_one():
