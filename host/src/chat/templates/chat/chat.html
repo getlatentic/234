@@ -3,8 +3,8 @@
 {% block title %}{{ chat.title|default:product_name }}{% endblock %}
 {% block head %}<script type="module" src="{% static 'chat/thread.js' %}"></script>{% endblock %}
 {% block content %}
-<chat-thread class="block min-h-dvh"
-    data-chat="{{ chat.id }}"{% if draft %} data-draft{% endif %}{% if shell %} data-shell data-me-url="{% url 'chat:me' %}"{% endif %}{% if chats or sign_in_enabled %} data-chats{% endif %}{% if transport %} data-transport="{{ transport }}"{% endif %} data-last-seq="{{ last_seq }}"{% if working %} data-working{% endif %}
+<chat-thread class="block min-h-dvh lg:data-sidebar:pl-80"
+    data-chat="{{ chat.id }}"{% if draft %} data-draft{% endif %}{% if shell %} data-shell data-me-url="{% url 'chat:me' %}"{% endif %}{% if chats or sign_in_enabled %} data-chats data-sidebar{% endif %}{% if transport %} data-transport="{{ transport }}"{% endif %} data-last-seq="{{ last_seq }}"{% if working %} data-working{% endif %}
     data-send-url="{% url 'chat:send' chat.id %}" data-cancel-url="{% url 'chat:cancel' chat.id %}" data-start-url="{% url 'chat:start' chat.id %}" data-page-url="{% url 'chat:page' chat.id %}" data-delete-url="{% url 'chat:delete' chat.id %}"
     data-ticket-url="{% url 'chat:ticket' chat.id %}"
     data-events-url="{% url 'chat:events' chat.id %}" data-card-url="{% url 'chat:card' chat.id %}"
@@ -13,8 +13,8 @@
     data-sandbox-origin="{{ sandbox_origin }}" data-sandbox="{{ sandbox_capabilities }}">
   <h1 class="sr-only" data-slot="title">{{ chat.title|default:"New chat" }}</h1>
 
-  <button type="button" data-action="chats" aria-label="Chats" title="Chats"{% if not chats and not sign_in_enabled %} hidden{% endif %} class="focus-ring fixed left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-30 grid size-11 cursor-pointer place-items-center rounded-full border border-line bg-raised text-ink-2 shadow-soft hover:text-ink">
-    <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.500 4h11a1.500 1.500 0 0 1 1.500 1.500v6a1.500 1.500 0 0 1-1.500 1.500H10l-3.500 3v-3H4.500A1.500 1.500 0 0 1 3 11.500v-6A1.500 1.500 0 0 1 4.500 4z"/><path d="M7 7.500h6M7 10h3.500"/></svg>
+  <button type="button" data-action="chats" aria-label="Chats" title="Chats"{% if not chats and not sign_in_enabled %} hidden{% endif %} class="focus-ring fixed left-[max(0.75rem,env(safe-area-inset-left))] top-[max(0.75rem,env(safe-area-inset-top))] z-30 grid size-11 cursor-pointer place-items-center overflow-hidden rounded-xl shadow-soft in-data-sidebar:lg:hidden">
+    <img src="{% static 'chat/brand/icon.svg' %}" alt="" width="44" height="44" class="size-11">
   </button>
   {% if simulation %}<p class="pointer-events-none fixed right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-30 m-0 rounded-control border border-line-strong bg-raised px-3 py-1 text-sm font-medium text-ink-2" data-slot="test-box">Test</p>{% endif %}
   <div class="pointer-events-none fixed inset-x-0 top-0 z-20 hidden h-[calc(max(0.75rem,env(safe-area-inset-top))+4.5rem)] bg-linear-to-b from-ground from-65% to-transparent in-data-chats:block" aria-hidden="true"></div>

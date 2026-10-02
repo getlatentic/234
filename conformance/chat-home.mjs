@@ -199,7 +199,7 @@ console.log("\nthe chats button");
   check(await button.isVisible(), "the button appears when the first chat exists");
   const spot = async () => button.evaluate((el) => ({ ...el.getBoundingClientRect().toJSON(), position: getComputedStyle(el).position, radius: parseFloat(getComputedStyle(el).borderTopLeftRadius) }));
   let b = await spot();
-  check(b.position === "fixed" && b.left >= 8 && b.top >= 8 && b.left < 24 && b.top < 24 && b.width >= 44 && b.height >= 44 && b.radius >= b.width / 2, `it is a round 44px button fixed at the top left (${Math.round(b.left)}, ${Math.round(b.top)})`);
+  check(b.position === "fixed" && b.left >= 8 && b.top >= 8 && b.left < 24 && b.top < 24 && b.width >= 44 && b.height >= 44 && b.radius >= 8 && (await button.locator("img").count()) === 1, `it is a 44px button with the 234 icon, fixed at the top left (${Math.round(b.left)}, ${Math.round(b.top)})`);
   check((await page.locator('[data-slot="pill"] [data-action="chats"]').count()) === 0, "and it is not inside the composer");
   const first = await page.locator("[data-slot=thread] > *").first().evaluate((el) => el.getBoundingClientRect().toJSON());
   check(first.top >= b.top + b.height, `the transcript starts below it (first line at ${Math.round(first.top)}, button ends at ${Math.round(b.top + b.height)})`);

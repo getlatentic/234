@@ -11,11 +11,12 @@
 </li>
 {% endpartialdef %}
 <chat-sheet class="contents">
-  <dialog aria-label="Chats" class="m-0 mr-auto h-dvh max-h-none w-80 max-w-[calc(100%-3rem)] rounded-r-sheet border-r border-line bg-raised p-0 text-ink shadow-soft backdrop:bg-scrim open:motion-safe:animate-drawer-in open:backdrop:motion-safe:animate-fade-in">
+  <dialog aria-label="Chats" class="fixed left-0 top-0 z-40 m-0 mr-auto h-dvh max-h-none w-80 max-w-[calc(100%-3rem)] rounded-r-sheet border-r border-line bg-raised p-0 text-ink shadow-soft backdrop:bg-scrim open:motion-safe:animate-drawer-in open:backdrop:motion-safe:animate-fade-in">
     <div class="flex h-full flex-col gap-2 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] pr-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
       <div class="flex items-center justify-between">
+        <a href="{% url 'chat:index' %}" aria-label="{{ product_name }}" class="focus-ring flex min-h-11 items-center rounded-control px-3 [&>svg]:h-7">{% include "chat/_wordmark.html" %}</a>
         <button type="button" data-action="close" aria-label="Close" title="Close" class="focus-ring grid size-11 cursor-pointer place-items-center rounded-control text-ink-2 hover:text-ink">
-          <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+          <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2.500"/><path d="M8 4v12"/></svg>
         </button>
       </div>
       <div class="flex flex-col">

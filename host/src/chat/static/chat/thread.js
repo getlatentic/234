@@ -120,6 +120,7 @@ customElements.define(
     offerChats() {
       this.toggleAttribute("data-chats", true);
       this.chatsButton.hidden = false;
+      this.sheet.restore();
     }
 
     // The host cannot answer: its reason is shown above the field, and nothing can be sent.
