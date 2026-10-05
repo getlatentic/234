@@ -437,3 +437,24 @@ def test_claudes_own_client_metadata_document_is_accepted(signed_in, monkeypatch
     page = signed_in.client.get("/oauth/authorize", query)
     assert page.status_code == 200 and "Allow Claude to use 234?" in page.content.decode()
     assert "Returns to claude.ai" in page.content.decode()
+
+
+def test_no_statement_of_the_authorization_server_locks_rows_d1_refuses_for_update(signed_in, monkeypatch):
+    """The path Claude takes, which met D1's refusal of SELECT ... FOR UPDATE live on 2026-10-05 (the suite
+    makes SQLite refuse it too: conftest.like_d1)."""
+    monkeypatch.setattr("oauth.views.fetch", lambda url: (200, {}, json.dumps(CLAUDE).encode()))
+    verifier, challenge = pkce()
+    query = authorize_query(CLAUDE["client_id"], challenge, redirect_uri=CLAUDE["redirect_uris"][0])
+    assert signed_in.client.get("/oauth/authorize", query).status_code == 200
+    later = grants.time.time() + 2 * 24 * 3600
+    monkeypatch.setattr("oauth.clients.time.time", lambda: later)
+    assert signed_in.client.get("/oauth/authorize", query).status_code == 200, "the document is fetched again"
+    answer = signed_in.client.post("/oauth/authorize", {**query, "decision": "allow"})
+    code = parse_qs(urlsplit(answer["Location"]).query)["code"][0]
+    tokens = exchange(CLAUDE["client_id"], code, verifier, redirect_uri=CLAUDE["redirect_uris"][0]).json()
+    form = {
+        "grant_type": "refresh_token",
+        "refresh_token": tokens["refresh_token"],
+        "client_id": CLAUDE["client_id"],
+    }
+    assert "access_token" in form_post("/oauth/token", form).json()

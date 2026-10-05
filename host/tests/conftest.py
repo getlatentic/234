@@ -32,6 +32,15 @@ def other_chat(db):
 
 
 @pytest.fixture(autouse=True)
+def like_d1(monkeypatch):
+    """D1 refuses SELECT ... FOR UPDATE. Django leaves it out on SQLite; told SQLite has it, Django sends it
+    and SQLite refuses it too, so no test passes here with a statement production would refuse."""
+    from django.db import connection
+
+    monkeypatch.setattr(connection.features, "has_select_for_update", True)
+
+
+@pytest.fixture(autouse=True)
 def backend():
     from chat import backend as module
 

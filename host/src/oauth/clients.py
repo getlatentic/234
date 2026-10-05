@@ -9,6 +9,8 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
+from django.db import IntegrityError
+
 from .models import Client
 from .redirects import acceptable
 
@@ -112,15 +114,18 @@ def _from_document(client_id: str, fetch: Fetch, now: int) -> Client:
         raise InvalidClient("Only public clients (token_endpoint_auth_method none) are supported.")
     uris = _redirects(metadata)
     _grants_ok(metadata)
-    client, _ = Client.objects.update_or_create(
-        client_id=client_id,
-        defaults={
-            "name": _name(metadata, urlsplit(client_id).hostname or client_id),
-            "redirect_uris": uris,
-            "fetched_at": now,
-            "created_at": now,
-        },
-    )
+    fields = {
+        "name": _name(metadata, urlsplit(client_id).hostname or client_id),
+        "redirect_uris": uris,
+        "fetched_at": now,
+    }
+    # D1 refuses SELECT ... FOR UPDATE, which update_or_create sends: an update, then an insert if none.
+    if not Client.objects.filter(client_id=client_id).update(**fields):
+        try:
+            Client.objects.create(client_id=client_id, created_at=now, **fields)
+        except IntegrityError:
+            Client.objects.filter(client_id=client_id).update(**fields)
+    client = Client.objects.get(client_id=client_id)
     return client
 
 
