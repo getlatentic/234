@@ -19,16 +19,23 @@ MUTATIONS: list[Mutation] = [
     host(
         "a code works once",
         "oauth/grants.py",
-        "    if found is None or Code.objects.filter(digest=found.digest).delete()[0] != 1:",
-        "    if found is None:",
+        '"DELETE FROM oauth_code WHERE digest = %s "',
+        '"SELECT client_id, owner, redirect_uri, challenge, resource, scope, expires_at FROM oauth_code "\n'
+        '        "WHERE digest = %s --"',
+        OAUTH,
+    ),
+    host(
+        "a refresh token is used once",
+        "oauth/grants.py",
+        "WHERE digest = %s AND kind = %s AND used = 0 ",
+        "WHERE digest = %s AND kind = %s ",
         OAUTH,
     ),
     host(
         "a refresh token used twice ends its grant",
         "oauth/grants.py",
-        "        Token.objects.filter(family=found.family).delete()\n"
-        '        raise InvalidGrant("refresh token used twice',
-        '        raise InvalidGrant("refresh token used twice',
+        "            Token.objects.filter(family=used.family).delete()\n",
+        "",
         OAUTH,
     ),
     host(

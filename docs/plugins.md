@@ -36,6 +36,8 @@ The package holds no secret. Each server asks the client to sign in the first ti
 | A client metadata document is fetched only from an HTTPS URL with a path on a host name (no address, no localhost), at most 10 KB, no redirect followed, and kept for a day | `host/src/oauth/clients.py` |
 | The gateway passes on only `mcp-protocol-version`, `mcp-session-id` and `last-event-id`. The owner header and the connector token are the host's own. | `gateway.py`, `turns/hub.py` |
 | The consent form needs the page's CSRF token. The page's `form-action` names only itself and the client's redirect origin. | `views.py` |
+| Registration is rate limited per address, and consent per account. The token endpoint is not rate limited: Claude's and ChatGPT's servers refresh for all their users from a few addresses, and a code or token is 256 random bits. | `views.py` |
+| A code is taken, and a refresh token claimed, by one statement whose returned rows say it ran. On D1, Django's row counts are not rows changed (a write that touches nothing reports -1), and the host tests make every count -1 to keep it that way. | `oauth/sql.py`, `tests/conftest.py` |
 | Everything is `404` while sign-in is off | `views.signing_in` |
 
 Tests: `host/tests/test_oauth.py` (46 cases, run with SQLite refusing `SELECT … FOR UPDATE` as D1 does). `conformance/mcp-oauth.mjs` runs the whole flow with the official TypeScript MCP client and a real browser against the Firebase Auth emulator. Two accounts each approve a client, and one account cannot see the other's quote.

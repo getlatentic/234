@@ -38,6 +38,12 @@ def like_d1(monkeypatch):
     from django.db import connection
 
     monkeypatch.setattr(connection.features, "has_select_for_update", True)
+    # D1's counts are not rows changed (oauth/sql.py): no code may lean on what update() or delete() return.
+    from django.db.models.query import QuerySet
+
+    update, delete = QuerySet.update, QuerySet.delete
+    monkeypatch.setattr(QuerySet, "update", lambda self, **kw: (update(self, **kw), -1)[1])
+    monkeypatch.setattr(QuerySet, "delete", lambda self: (delete(self), (-1, {}))[1])
 
 
 @pytest.fixture(autouse=True)

@@ -43,8 +43,8 @@ def _client_address(request: HttpRequest) -> str:
     return request.META.get("HTTP_CF_CONNECTING_IP") or request.META.get("REMOTE_ADDR") or "unknown"
 
 
-def _limited(request: HttpRequest) -> bool:
-    return not get_backend().rate_ok(f"oauth:{_client_address(request)}")
+def _limited(key: str) -> bool:
+    return not get_backend().rate_ok(f"oauth-{key}")
 
 
 def _error(error: str, status: int = 400, description: str | None = None) -> JsonResponse:
@@ -102,7 +102,8 @@ def _consent(request: HttpRequest, params: dict[str, str]) -> HttpResponse:
 @signing_in
 @require_http_methods(["GET", "POST"])
 def authorize(request: HttpRequest) -> HttpResponse:
-    if request.method == "POST" and _limited(request):
+    who = request.account.owner if request.account else _client_address(request)
+    if request.method == "POST" and _limited(f"consent:{who}"):
         return HttpResponse(
             "Too many requests. Try again in a minute.", status=429, content_type="text/plain"
         )
@@ -121,8 +122,8 @@ def _form(request: HttpRequest) -> dict[str, str] | None:
 @open_to_pages
 @require_http_methods(["POST", "OPTIONS"])
 def token(request: HttpRequest) -> HttpResponse:
-    if _limited(request):
-        return _error("slow_down", 429)
+    # Not rate limited: Claude's and ChatGPT's servers call it for all their users from a few addresses,
+    # and a code or token is 256 random bits, so there is nothing to guess.
     form = _form(request)
     if form is None:
         return _error("invalid_request", description="Send the form as application/x-www-form-urlencoded.")
@@ -152,7 +153,7 @@ def token(request: HttpRequest) -> HttpResponse:
 @open_to_pages
 @require_http_methods(["POST", "OPTIONS"])
 def register(request: HttpRequest) -> HttpResponse:
-    if _limited(request):
+    if _limited(f"register:{_client_address(request)}"):
         return _error("slow_down", 429)
     if len(request.body) > MAX_BODY:
         return _error("invalid_client_metadata", description="The body is too large.")

@@ -458,3 +458,15 @@ def test_no_statement_of_the_authorization_server_locks_rows_d1_refuses_for_upda
         "client_id": CLAUDE["client_id"],
     }
     assert "access_token" in form_post("/oauth/token", form).json()
+
+
+def test_the_token_endpoint_is_never_rate_limited_and_registration_is_per_address(granted, backend):
+    """Claude's and ChatGPT's servers refresh for all their users from a few addresses."""
+    client_id, tokens = granted
+    backend.allow = False
+    form = {"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"], "client_id": client_id}
+    assert "access_token" in form_post("/oauth/token", form).json()
+    refused = Client().post(
+        "/oauth/register", json.dumps({"redirect_uris": [CALLBACK]}), content_type="application/json"
+    )
+    assert refused.status_code == 429 and any(k.startswith("oauth-register:") for k in backend.rate_keys)

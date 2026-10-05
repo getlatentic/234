@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass
 
 from .models import Code, Token
+from .sql import returning
 
 CODE_SECONDS = 60
 ACCESS_SECONDS = 3600
@@ -108,11 +109,16 @@ def redeem_code(
     now: float | None = None,
 ) -> dict[str, object]:
     moment = _now(now)
-    found = Code.objects.filter(digest=digest(code)).first()
-    # Deleting first makes the code single-use even when two redemptions race: only one delete counts.
-    if found is None or Code.objects.filter(digest=found.digest).delete()[0] != 1:
+    # One statement takes the code: it is single-use however many redemptions race.
+    taken = returning(
+        "DELETE FROM oauth_code WHERE digest = %s "
+        "RETURNING client_id, owner, redirect_uri, challenge, resource, scope, expires_at",
+        [digest(code)],
+    )
+    if not taken:
         raise InvalidGrant("unknown or used code")
-    if found.expires_at < moment:
+    found = Request(*taken[0][:6])
+    if taken[0][6] < moment:
         raise InvalidGrant("expired code")
     if found.client_id != client_id or found.redirect_uri != redirect_uri:
         raise InvalidGrant("code issued to another client or redirect")
@@ -120,26 +126,28 @@ def redeem_code(
         raise InvalidGrant("code issued for another resource")
     if not VERIFIER.fullmatch(verifier) or not hmac.compare_digest(s256(verifier), found.challenge):
         raise InvalidGrant("PKCE verifier does not match")
-    request = Request(
-        found.client_id, found.owner, found.redirect_uri, found.challenge, found.resource, found.scope
-    )
-    return _tokens(secrets.token_hex(16), request, moment)
+    return _tokens(secrets.token_hex(16), found, moment)
 
 
 def refresh(token: str, client_id: str, resource: str | None, now: float | None = None) -> dict[str, object]:
     moment = _now(now)
-    found = Token.objects.filter(digest=digest(token), kind=Token.REFRESH).first()
-    if found is None:
+    claimed = returning(
+        "UPDATE oauth_token SET used = 1 WHERE digest = %s AND kind = %s AND used = 0 "
+        "RETURNING family, client_id, owner, resource, scope, expires_at",
+        [digest(token), Token.REFRESH],
+    )
+    if not claimed:
+        used = Token.objects.filter(digest=digest(token), kind=Token.REFRESH).first()
+        if used is not None:
+            Token.objects.filter(family=used.family).delete()
+            raise InvalidGrant("refresh token used twice; its grant is ended")
         raise InvalidGrant("unknown refresh token")
-    if Token.objects.filter(digest=found.digest, used=False).update(used=True) != 1:
-        Token.objects.filter(family=found.family).delete()
-        raise InvalidGrant("refresh token used twice; its grant is ended")
-    if found.expires_at < moment or found.client_id != client_id:
+    family, owner_client, owner, granted, scope, expires_at = claimed[0]
+    if expires_at < moment or owner_client != client_id:
         raise InvalidGrant("expired refresh token or another client")
-    if resource is not None and resource.rstrip("/") != found.resource:
+    if resource is not None and resource.rstrip("/") != granted:
         raise InvalidGrant("refresh token issued for another resource")
-    request = Request(found.client_id, found.owner, "", "", found.resource, found.scope)
-    return _tokens(found.family, request, moment)
+    return _tokens(family, Request(client_id, owner, "", "", granted, scope), moment)
 
 
 def revoke(token: str) -> None:

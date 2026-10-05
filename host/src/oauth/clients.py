@@ -9,10 +9,9 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
-from django.db import IntegrityError
-
 from .models import Client
 from .redirects import acceptable
+from .sql import returning
 
 MAX_REDIRECTS = 10
 MAX_NAME = 100
@@ -114,19 +113,14 @@ def _from_document(client_id: str, fetch: Fetch, now: int) -> Client:
         raise InvalidClient("Only public clients (token_endpoint_auth_method none) are supported.")
     uris = _redirects(metadata)
     _grants_ok(metadata)
-    fields = {
-        "name": _name(metadata, urlsplit(client_id).hostname or client_id),
-        "redirect_uris": uris,
-        "fetched_at": now,
-    }
-    # D1 refuses SELECT ... FOR UPDATE, which update_or_create sends: an update, then an insert if none.
-    if not Client.objects.filter(client_id=client_id).update(**fields):
-        try:
-            Client.objects.create(client_id=client_id, created_at=now, **fields)
-        except IntegrityError:
-            Client.objects.filter(client_id=client_id).update(**fields)
-    client = Client.objects.get(client_id=client_id)
-    return client
+    # One statement, whose rows say it ran: D1 refuses SELECT ... FOR UPDATE and miscounts updates (sql.py).
+    returning(
+        "INSERT INTO oauth_client (client_id, name, redirect_uris, fetched_at, created_at) "
+        "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (client_id) DO UPDATE SET name = excluded.name, "
+        "redirect_uris = excluded.redirect_uris, fetched_at = excluded.fetched_at RETURNING client_id",
+        [client_id, _name(metadata, urlsplit(client_id).hostname or client_id), json.dumps(uris), now, now],
+    )
+    return Client.objects.get(client_id=client_id)
 
 
 def resolve(client_id: object, fetch: Fetch, now: float | None = None) -> Client:

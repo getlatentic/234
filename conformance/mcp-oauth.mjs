@@ -173,6 +173,14 @@ const report = JSON.parse(ready);
 const auth = report.results.filter((r) => r.id.startsWith("auth."));
 check(report.failed === 0 && auth.length === 3 && auth.every((r) => r.ok), `234 MCP Ready passes with sign-in (${auth.map((r) => r.id).join(", ")})`);
 
+// Last, because using a refresh token twice ends Alice's grant.
+const refreshForm = { grant_type: "refresh_token", refresh_token: alice.auth.kept.tokens.refresh_token, client_id: alice.auth.kept.client.client_id };
+const refreshAt = (form) => fetch(`${HOST}/oauth/token`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(form) }).then((r) => r.json());
+const renewed = await refreshAt(refreshForm);
+check(renewed.access_token?.startsWith("234at_") && renewed.refresh_token !== refreshForm.refresh_token, "a refresh token buys a new pair on D1");
+check((await refreshAt(refreshForm)).error === "invalid_grant", "and is refused the second time");
+const afterReuse = await fetch(AIRTIME, { method: "POST", headers: { authorization: `Bearer ${renewed.access_token}`, "content-type": "application/json", accept: "application/json" }, body: "{}" });
+check(afterReuse.status === 401, "a refresh token used twice ends the grant, the new access token too");
 await alice.client.close();
 await bob.client.close();
 check(errors.length === 0, `no page errors ${errors}`);
