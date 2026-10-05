@@ -38,9 +38,23 @@ The package holds no secret. Each server asks the client to sign in the first ti
 | The consent form needs the page's CSRF token. The page's `form-action` names only itself and the client's redirect origin. | `views.py` |
 | Everything is `404` while sign-in is off | `views.signing_in` |
 
-Tests: `host/tests/test_oauth.py` (44 cases). `conformance/mcp-oauth.mjs` runs the whole flow with the official TypeScript MCP client and a real browser against the Firebase Auth emulator. Two accounts each approve a client, and one account cannot see the other's quote.
+Tests: `host/tests/test_oauth.py` (46 cases, run with SQLite refusing `SELECT … FOR UPDATE` as D1 does). `conformance/mcp-oauth.mjs` runs the whole flow with the official TypeScript MCP client and a real browser against the Firebase Auth emulator. Two accounts each approve a client, and one account cannot see the other's quote.
 
 **Not done:** custom URI schemes for native apps (`cursor://…`) are refused, because the MCP authorization spec allows only HTTPS and loopback redirects. There is no page that lists the clients a person has allowed. A grant ends when the client revokes it or after 30 days without a refresh.
+
+## Events
+
+The four money connectors offer [MCP events](https://developers.openai.com/plugins/build/mcp-events): a client can ask to hear when a quote ends instead of asking again. Memory offers none.
+
+| Part | What it does |
+|---|---|
+| `events/list` | One event, `quote.finished`. It can follow one quote (`quote_id`) or every quote of the account on that connector. The payload holds `quote_id`, `connector`, `state` (settled, failed, abandoned, declined, unavailable, refund_due or expired), `amount_kobo` and `description`. |
+| `events/subscribe` | Webhook delivery only. The secret is `whsec_` plus 24 to 64 bytes in base64. The callback is HTTPS on a host name, never an address or localhost, and no redirect is followed. It must echo a signed challenge before the subscription is kept. A subscription lasts 7 days by default and at most 30. Subscribing again with the same event, arguments and URL refreshes it. |
+| `events/unsubscribe` | Ends the subscription of the account that asks, and only that one |
+| The outbox | A trigger on the quotes table writes one row for each matching subscription when a quote ends, in the statement that ends it (`checkout/migrations/0006_events.sql`). No path that ends a quote can miss it. |
+| Delivery | One event per request, signed with Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`) and `X-MCP-Subscription-Id`. It is sent after the request that ended the quote, then retried every minute (Cron Trigger) with backoff from 30 seconds to an hour, up to 8 attempts, with the same event id. 2xx is delivered. 410 ends the subscription and 413 drops the event. Each row is claimed with a one-minute lease, so two senders never send it twice at once. |
+
+**Not done:** replay (`cursor` is always null and events are not replayable), and dual signatures while a secret rotates. A refresh replaces the secret at once. The secret is kept in D1, because it is needed to sign.
 
 ## 234 MCP Ready
 

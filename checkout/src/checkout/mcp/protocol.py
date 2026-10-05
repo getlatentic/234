@@ -7,8 +7,9 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from ..events import ConnectorEvents, EventError
 from . import modern
-from .registry import RESOURCE_MIME_TYPE, Connector
+from .registry import Connector
 
 PROTOCOL_VERSIONS = modern.LEGACY_VERSIONS
 UI_EXTENSION = modern.UI_EXTENSION
@@ -35,15 +36,11 @@ def error_body(message_id: Any, code: int, text: str, data: Any = None) -> dict[
     return {"jsonrpc": "2.0", "id": message_id, "error": error}
 
 
-def _initialize(connector: Connector, params: Mapping[str, Any]) -> dict[str, Any]:
+def _initialize(connector: Connector, params: Mapping[str, Any], events: bool) -> dict[str, Any]:
     asked = params.get("protocolVersion")
     return {
         "protocolVersion": asked if asked in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0],
-        "capabilities": {
-            "tools": {},
-            "resources": {},
-            "extensions": {UI_EXTENSION: {"mimeTypes": [RESOURCE_MIME_TYPE]}},
-        },
+        "capabilities": modern.capabilities(events),
         "serverInfo": {"name": connector.name, "title": connector.title, "version": "0.1.0"},
         "instructions": connector.instructions,
     }
@@ -63,14 +60,29 @@ async def _read_resource(connector: Connector, params: Mapping[str, Any]) -> dic
     return await resource.contents()
 
 
+async def _event(events: ConnectorEvents | None, method: str, params: Mapping[str, Any]) -> dict[str, Any]:
+    if events is None:
+        raise McpError(METHOD_NOT_FOUND, f"Method not found: {method}")
+    try:
+        return await events.answer(method, dict(params))
+    except EventError as refused:
+        raise McpError(refused.code, str(refused), refused.data) from refused
+
+
 async def dispatch(
-    connector: Connector, method: str, params: Mapping[str, Any], stateless: bool = False
+    connector: Connector,
+    method: str,
+    params: Mapping[str, Any],
+    stateless: bool = False,
+    events: ConnectorEvents | None = None,
 ) -> dict[str, Any]:
     match method:
         case "server/discover" if stateless:
-            return modern.discover(connector)
+            return modern.discover(connector, events is not None)
         case "initialize":
-            return _initialize(connector, params)
+            return _initialize(connector, params, events is not None)
+        case "events/list" | "events/subscribe" | "events/unsubscribe":
+            return await _event(events, method, params)
         case "ping":
             return {}
         case "tools/list":
@@ -87,7 +99,9 @@ async def dispatch(
             raise McpError(METHOD_NOT_FOUND, f"Method not found: {method}")
 
 
-async def answer(connector: Connector, message: Any, stateless: bool = False) -> dict[str, Any] | None:
+async def answer(
+    connector: Connector, message: Any, stateless: bool = False, events: ConnectorEvents | None = None
+) -> dict[str, Any] | None:
     """None for a notification or a response, which get no answer. `stateless` serves the request as the
     2026-07-28 era does: marked complete, and a resource that is not there is invalid params."""
     if not isinstance(message, Mapping) or message.get("jsonrpc") != "2.0":
@@ -99,7 +113,7 @@ async def answer(connector: Connector, message: Any, stateless: bool = False) ->
     if not isinstance(method, str) or not isinstance(params, Mapping):
         return error_body(message_id, INVALID_PARAMS, "method must be a string and params an object")
     try:
-        result = await dispatch(connector, method, params, stateless)
+        result = await dispatch(connector, method, params, stateless, events)
     except McpError as error:
         code = INVALID_PARAMS if stateless and error.code == RESOURCE_NOT_FOUND else error.code
         return error_body(message_id, code, error.message, error.data)

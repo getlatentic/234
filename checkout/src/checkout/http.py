@@ -9,6 +9,7 @@ from typing import Any
 
 from .app import App
 from .config import MEMORY_CONNECTOR
+from .events import ConnectorEvents
 from .mcp import modern
 from .mcp.protocol import (
     INVALID_REQUEST,
@@ -88,6 +89,13 @@ def _screened(message: Any, headers: dict[str, str], stateless: bool) -> HttpRes
     return None
 
 
+def _events_of(app: App, connector: str) -> ConnectorEvents | None:
+    """Events are offered by the connectors that make quotes; memory has none."""
+    if app.events is None or connector == MEMORY_CONNECTOR:
+        return None
+    return ConnectorEvents(app.events, connector, app.ledger.owner)
+
+
 async def handle_mcp(
     app: App, connector_name: str, method: str, headers: dict[str, str], raw: bytes
 ) -> HttpResponse:
@@ -121,7 +129,7 @@ async def handle_mcp(
             acting.enter_context(acting_for(owner))
         if memory_owner is not None:
             acting.enter_context(remembering_for(memory_owner))
-        response = await answer(connector, message, stateless)
+        response = await answer(connector, message, stateless, _events_of(app, connector_name))
     return HttpResponse(202) if response is None else json_response(response)
 
 

@@ -12,6 +12,7 @@ from tools.mutations import (
     airtime_rules,
     compaction_rules,
     config_rules,
+    event_rules,
     host_rules,
     input_rules,
     ledger_rules,
@@ -19,6 +20,7 @@ from tools.mutations import (
     memory_rules,
     menu_rules,
     model_choice_rules,
+    oauth_rules,
     owner_rules,
     payment_leg,
     sandbox_rules,
@@ -48,4 +50,6 @@ MUTATIONS: list[Mutation] = [
     *compaction_rules.MUTATIONS,
     *memory_rules.MUTATIONS,
     *memory_host_rules.MUTATIONS,
+    *oauth_rules.MUTATIONS,
+    *event_rules.MUTATIONS,
 ]

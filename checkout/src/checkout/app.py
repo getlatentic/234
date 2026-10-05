@@ -18,6 +18,9 @@ from .connectors import memory as memory_connector
 from .connectors.kit import CardReader
 from .db import Db
 from .errors import ConfigError
+from .events import Events
+from .events.delivery import Delivery
+from .events.subscriptions import Subscriptions
 from .flows.context import Context
 from .ledger import Ledger, Limits
 from .mcp.registry import Connector
@@ -56,6 +59,8 @@ class App:
     contexts: Mapping[str, Context]
     connectors: Mapping[str, Connector]
     notifier: PaymentNotifier = field(default_factory=NoNotifier)
+    events: Events | None = None
+    delivery: Delivery | None = None
 
 
 def card_reader(name: str) -> CardReader:
@@ -193,6 +198,15 @@ def _notifier_for(settings: Settings, audit: Audit, transport: Transport | None)
     return SignedWebhook(hook, transport or WorkerFetch(follow_redirects=False), audit)
 
 
+def _events_for(
+    settings: Settings, db: Db, clock: Clock, audit: Audit, transport: Transport
+) -> tuple[Events, Delivery]:
+    """MCP events: subscriptions and their delivery reach callbacks with no redirect followed; loopback
+    callbacks only where the test routes are on."""
+    events = Events(Subscriptions(db), transport, clock, allow_loopback=settings.enable_test_routes)
+    return events, Delivery(db, transport, clock, audit)
+
+
 def build_app(
     settings: Settings,
     db: Db,
@@ -200,6 +214,7 @@ def build_app(
     audit: Audit | None = None,
     transport: Transport | None = None,
     webhook_transport: Transport | None = None,
+    callback_transport: Transport | None = None,
 ) -> App:
     clock = clock or SystemClock()
     audit = audit or Audit([print_sink], clock)
@@ -213,4 +228,5 @@ def build_app(
         contexts,
         build_connectors(settings, contexts, memory_context(settings, contexts, db, clock, audit)),
         _notifier_for(settings, audit, webhook_transport),
+        *_events_for(settings, db, clock, audit, callback_transport or WorkerFetch(follow_redirects=False)),
     )

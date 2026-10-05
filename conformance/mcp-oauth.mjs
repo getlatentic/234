@@ -7,7 +7,7 @@
 // Ready checker runs against the protected endpoint. Needs a stack with sign-in (AUTH=1).
 // usage: node conformance/mcp-oauth.mjs
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { Client, StreamableHTTPClientTransport, UnauthorizedError } from "@modelcontextprotocol/client";
 import { chromium } from "playwright";
@@ -126,6 +126,45 @@ const hidden = await bob.client.callTool({ name: "get_quote_status", arguments: 
 check(hidden.isError === true && /QUOTE_NOT_FOUND/.test(hidden.content?.[0]?.text ?? ""), "another account cannot see it");
 
 const token = alice.auth.kept.tokens.access_token;
+
+// MCP events through the gateway: Alice's client subscribes, a receiver of its own answers the challenge,
+// and when Alice declines her quote the receiver gets one signed quote.finished.
+const key = randomBytes(32);
+const received = [];
+const receiver = createServer((req, res) => {
+  let body = "";
+  req.on("data", (c) => (body += c));
+  req.on("end", () => {
+    const message = JSON.parse(body);
+    received.push({ headers: req.headers, body, message });
+    res.setHeader("content-type", "application/json");
+    res.end(message.type === "verification" ? JSON.stringify({ challenge: message.challenge }) : "{}");
+  });
+});
+await new Promise((done) => receiver.listen(0, "127.0.0.1", done));
+const signedRightly = ({ headers, body }) => {
+  const expected = createHmac("sha256", key).update(`${headers["webhook-id"]}.${headers["webhook-timestamp"]}.${body}`).digest();
+  const given = Buffer.from((headers["webhook-signature"] ?? "").replace(/^v1,/, ""), "base64");
+  return given.length === expected.length && timingSafeEqual(given, expected);
+};
+const rpc = async (method, params) => {
+  const answer = await fetch(AIRTIME, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json, text/event-stream", "mcp-protocol-version": "2025-11-25" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+  return answer.json();
+};
+// The official client's schema has no `events` key yet and drops it, so the answer is read as sent.
+const initialized = await rpc("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "oauth-conformance", version: "0.1.0" } });
+check(initialized.result?.capabilities?.events !== undefined, "the airtime server offers MCP events");
+const listed = await rpc("events/list", {});
+check(listed.result?.events?.[0]?.name === "quote.finished", "events/list names quote.finished");
+const callback = `http://127.0.0.1:${receiver.address().port}/events`;
+const subscribed = await rpc("events/subscribe", { name: "quote.finished", arguments: { quote_id: quote.id }, delivery: { mode: "webhook", url: callback, secret: `whsec_${key.toString("base64")}` } });
+check(/^sub_[0-9a-f]{32}$/.test(subscribed.result?.id ?? "") && received[0]?.message.type === "verification" && signedRightly(received[0]), `subscribing answers a signed challenge first (${JSON.stringify(subscribed.error ?? subscribed.result?.id)})`);
+await alice.client.callTool({ name: "decline_quote", arguments: { quote_id: quote.id, approval_token: made._meta.approvalToken } });
+for (let i = 0; i < 40 && received.length < 2; i += 1) await new Promise((done) => setTimeout(done, 250));
+const event = received[1];
+check(event?.message.name === "quote.finished" && event.message.data.quote_id === quote.id && event.message.data.state === "declined", `the decline arrives as quote.finished (${event?.message.data?.state})`);
+check(event && signedRightly(event) && event.headers["x-mcp-subscription-id"] === subscribed.result.id && event.headers["webhook-id"] === event.message.eventId, "signed with the subscriber's key, naming the subscription");
+receiver.close();
 const elsewhere = await fetch(`${HOST}/mcp/send-money`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json, text/event-stream" }, body: "{}" });
 check(elsewhere.status === 401, `the airtime token does not open send-money (${elsewhere.status})`);
 

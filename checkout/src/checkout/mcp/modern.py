@@ -43,6 +43,9 @@ METHODS = (
     "resources/list",
     "resources/templates/list",
     "resources/read",
+    "events/list",
+    "events/subscribe",
+    "events/unsubscribe",
 )
 NAMED = {"tools/call": "name", "resources/read": "uri"}
 SENTINEL_PREFIX, SENTINEL_SUFFIX = "=?base64?", "?="
@@ -109,14 +112,20 @@ def validate(headers: Mapping[str, str], message: Mapping[str, Any]) -> None:
         raise ModernRefusal(404, METHOD_NOT_FOUND, f"Method not found: {method}")
 
 
-def discover(connector: Connector) -> dict[str, Any]:
+def capabilities(events: bool) -> dict[str, Any]:
+    """What a connector offers; `events` where it offers MCP events (a connector that moves money)."""
+    found: dict[str, Any] = {
+        "tools": {},
+        "resources": {},
+        "extensions": {UI_EXTENSION: {"mimeTypes": [RESOURCE_MIME_TYPE]}},
+    }
+    return {**found, "events": {}} if events else found
+
+
+def discover(connector: Connector, events: bool = False) -> dict[str, Any]:
     return {
         "supportedVersions": list(SUPPORTED_VERSIONS),
-        "capabilities": {
-            "tools": {},
-            "resources": {},
-            "extensions": {UI_EXTENSION: {"mimeTypes": [RESOURCE_MIME_TYPE]}},
-        },
+        "capabilities": capabilities(events),
         "instructions": connector.instructions,
     }
 

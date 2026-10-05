@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Cloudflare Worker entrypoint: the four MCP connectors, the simulated checkout page, D1 ledger."""
 
+import asyncio
 from urllib.parse import urlsplit
 
 from workers import Response, WorkerEntrypoint
@@ -52,4 +53,14 @@ class Default(WorkerEntrypoint):
         headers = {key.lower(): value for key, value in request.headers.items()}
         raw = await request.bytes() if request.method not in ("GET", "HEAD") else b""
         result = await handle(app, str(request.method), location.path, headers, raw, location.query)
+        if request.method == "POST" and app.delivery is not None:
+            # A request that ended a quote has put its events in the outbox: send them after answering.
+            self.ctx.waitUntil(asyncio.ensure_future(app.delivery.drain()))
         return Response(result.body, status=result.status, headers=result.headers)
+
+    async def scheduled(self, controller, env, ctx):
+        """Every minute: events that are due again after a failed attempt."""
+        del controller, ctx
+        app = _app_for(env)
+        if app.delivery is not None:
+            await app.delivery.drain()
