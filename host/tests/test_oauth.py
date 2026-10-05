@@ -416,3 +416,24 @@ def test_the_consent_page_may_send_its_form_only_to_itself_and_the_clients_redir
     policy = dict(part.split(" ", 1) for part in page["Content-Security-Policy"].split("; "))
     assert policy["form-action"] == "'self' http://127.0.0.1:33418"
     assert "form-action 'self';" in page_policy()
+
+
+CLAUDE = {
+    "client_id": "https://claude.ai/oauth/mcp-oauth-client-metadata",
+    "client_name": "Claude",
+    "client_uri": "https://claude.ai",
+    "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+    "grant_types": ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:jwt-bearer"],
+    "response_types": ["code"],
+    "token_endpoint_auth_method": "none",
+}
+
+
+def test_claudes_own_client_metadata_document_is_accepted(signed_in, monkeypatch):
+    """The document claude.ai serves (fetched 2026-10-05): it lists a grant this server does not offer."""
+    monkeypatch.setattr("oauth.views.fetch", lambda url: (200, {}, json.dumps(CLAUDE).encode()))
+    _, challenge = pkce()
+    query = authorize_query(CLAUDE["client_id"], challenge, redirect_uri=CLAUDE["redirect_uris"][0])
+    page = signed_in.client.get("/oauth/authorize", query)
+    assert page.status_code == 200 and "Allow Claude to use 234?" in page.content.decode()
+    assert "Returns to claude.ai" in page.content.decode()

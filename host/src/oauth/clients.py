@@ -49,13 +49,14 @@ def _redirects(metadata: dict[str, Any]) -> list[str]:
 
 
 def _grants_ok(metadata: dict[str, Any]) -> None:
+    """A client may list grants this server does not offer (Claude lists jwt-bearer); it is given only the
+    code and refresh grants, and must be able to use the code grant."""
     grants = metadata.get("grant_types", ["authorization_code"])
     if not isinstance(grants, list) or "authorization_code" not in grants:
         raise InvalidClient("grant_types must include authorization_code.")
-    if not set(grants) <= {"authorization_code", "refresh_token"}:
-        raise InvalidClient("Only the authorization_code and refresh_token grants are supported.")
-    if metadata.get("response_types", ["code"]) != ["code"]:
-        raise InvalidClient('response_types must be ["code"].')
+    responses = metadata.get("response_types", ["code"])
+    if not isinstance(responses, list) or "code" not in responses:
+        raise InvalidClient('response_types must include "code".')
 
 
 def register(metadata: object, now: float | None = None) -> dict[str, Any]:
