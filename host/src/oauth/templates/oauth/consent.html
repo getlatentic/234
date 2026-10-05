@@ -1,0 +1,25 @@
+{% extends "chat/base.html" %}
+{% load static %}
+{% block title %}Connect {{ asked.client.name }}{% endblock %}
+{% block head %}<script type="module" src="{% static 'chat/account.js' %}"></script>{% endblock %}
+{% block content %}
+<main class="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-4 py-10" data-slot="consent">
+  <img src="{% static 'chat/brand/icon.svg' %}" alt="{{ product_name }}" width="48" height="48" class="size-12 rounded-xl">
+  <div class="flex flex-col gap-2">
+    <h1 class="m-0 text-balance text-2xl font-semibold text-ink" data-slot="title">{% if account %}Allow {{ asked.client.name }} to use {{ product_name }}?{% else %}Sign in to connect {{ asked.client.name }}{% endif %}</h1>
+    <p class="m-0 text-base text-ink-2" data-slot="scope">{{ asked.what_it_can_do }}</p>
+    <p class="m-0 text-sm text-ink-3" data-slot="redirect">Returns to {{ asked.redirect_host }}</p>
+  </div>
+  {% if account %}
+  <form method="post" class="flex flex-col gap-3" data-slot="decision">
+    {% csrf_token %}
+    {% for name, value in asked.fields.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <button type="submit" name="decision" value="allow" class="btn-primary">Allow</button>
+    <button type="submit" name="decision" value="deny" class="btn-secondary">Cancel</button>
+    <p class="m-0 text-center text-sm text-ink-3" data-slot="account">{{ account.email }}</p>
+  </form>
+  {% else %}
+  {% include "accounts/_account.html" %}
+  {% endif %}
+</main>
+{% endblock %}

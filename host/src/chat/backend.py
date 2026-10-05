@@ -33,6 +33,10 @@ class Backend(Protocol):
 
     def memory(self, owner: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]: ...
 
+    def relay(
+        self, server: str, body: bytes, headers: dict[str, str], owner: str, notes: bool
+    ) -> tuple[int, dict[str, str], bytes]: ...
+
     def rate_ok(self, key: str) -> bool: ...
 
 
@@ -110,6 +114,15 @@ class WorkerBackend:
         from pyodide.ffi import run_sync
 
         return run_sync(self._connectors().call_app_tool(MEMORY_SERVER, name, arguments, ledger_owner(owner)))
+
+    def relay(
+        self, server: str, body: bytes, headers: dict[str, str], owner: str, notes: bool
+    ) -> tuple[int, dict[str, str], bytes]:
+        """An MCP message of an outside client, passed to a connector as `owner` (the OAuth gateway)."""
+        from pyodide.ffi import run_sync
+
+        answer = run_sync(self._connectors().relay(server, body, headers, owner, notes))
+        return answer.status_code, dict(answer.headers), answer.content
 
     def rate_ok(self, key: str) -> bool:
         from js import Object

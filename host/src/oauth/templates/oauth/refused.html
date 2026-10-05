@@ -1,0 +1,10 @@
+{% extends "chat/base.html" %}
+{% load static %}
+{% block title %}Can't connect{% endblock %}
+{% block content %}
+<main class="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-4 px-4 py-10" data-slot="refused">
+  <img src="{% static 'chat/brand/icon.svg' %}" alt="{{ product_name }}" width="48" height="48" class="size-12 rounded-xl">
+  <h1 class="m-0 text-2xl font-semibold text-ink">Can't connect this app</h1>
+  <p class="m-0 text-base text-ink-2">Go back to the app and try again.</p>
+</main>
+{% endblock %}

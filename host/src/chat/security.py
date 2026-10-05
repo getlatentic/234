@@ -43,10 +43,10 @@ def sign_in_sources() -> dict[str, list[str]]:
     return sources
 
 
-def page_policy() -> str:
+def page_policy(form_targets: tuple[str, ...] = ()) -> str:
     """The only frames a page may hold are the card sandbox's, from its own origin, and, where sign-in is on,
-    the Firebase handler's."""
-    extra = sign_in_sources()
+    the Firebase handler's. `form_targets`: origins a form of the page may also be sent or redirected to."""
+    extra = {**sign_in_sources(), "form-action": list(form_targets)}
     parts = []
     for name, base in DIRECTIVES.items():
         sources = base + (

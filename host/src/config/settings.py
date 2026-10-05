@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "chat",
     "accounts",
     "a2a",
+    "oauth",
     "ops",
 ]
 

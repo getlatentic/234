@@ -4,6 +4,7 @@
 @import "../../design/components.css";
 @source "../src/chat/templates";
 @source "../src/accounts/templates";
+@source "../src/oauth/templates";
 @source "../src/chat/static";
 @source not "../src/chat/static/chat/vendor";
 @source not "../src/chat/static/chat/host-styles.js";

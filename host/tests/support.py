@@ -184,6 +184,12 @@ class FakeBackend:
         self.owner: str = ""
         self.memory_calls: list[tuple] = []
         self.memory_answers: dict[str, dict] = {}
+        self.relayed: list[tuple] = []
+        self.relay_answer: tuple = (
+            200,
+            {"content-type": "application/json", "mcp-session-id": "sess-2"},
+            b"{}",
+        )
 
     def submit(self, chat_id, kind, text, task=None):
         self.submitted.append((chat_id, kind, text, task))
@@ -200,6 +206,10 @@ class FakeBackend:
     def card_call(self, chat_id, server, name, arguments):
         self.submitted.append((chat_id, "card_call", server, name, arguments))
         return self.card_answer
+
+    def relay(self, server, body, headers, owner, notes):
+        self.relayed.append((server, body, headers, owner, notes))
+        return self.relay_answer
 
     def refresh_card(self, chat_id, quote_id):
         self.refreshed.append((chat_id, quote_id))

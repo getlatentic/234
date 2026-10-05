@@ -122,6 +122,21 @@ class McpHttp:
             headers["authorization"] = f"Bearer {self._token}"
         return await self._client.post(self.url, json=body, headers=headers)
 
+    async def relay(self, body: bytes, passed_on: dict[str, str], owner: str, notes: bool) -> httpx.Response:
+        """Another client's MCP message, sent as it came with only `passed_on` (the MCP protocol version, the
+        session and the last event id) of its headers; the owner and the token are this client's own."""
+        headers = {
+            **passed_on,
+            "content-type": "application/json",
+            "accept": "application/json, text/event-stream",
+            OWNER_HEADER: _owner_key(owner),
+        }
+        if notes:
+            headers[MEMORY_OWNER_HEADER] = owner
+        if self._token:
+            headers["authorization"] = f"Bearer {self._token}"
+        return await self._client.post(self.url, content=body, headers=headers)
+
     async def _initialize(self) -> None:
         capabilities = {
             "extensions": {"io.modelcontextprotocol/ui": {"mimeTypes": ["text/html;profile=mcp-app"]}}
@@ -256,6 +271,11 @@ class Hub:
         if "app" not in visibility_of(tool):
             raise HubError(f"{name} is not available to cards.")
         return await self._tool_call(server, name, arguments, owner)
+
+    async def relay(
+        self, server: str, body: bytes, passed_on: dict[str, str], owner: str, notes: bool
+    ) -> httpx.Response:
+        return await self._server(server).relay(body, passed_on, owner, notes)
 
     async def read_card(self, server: str, uri: str) -> CardPage:
         connector = self._server(server)
