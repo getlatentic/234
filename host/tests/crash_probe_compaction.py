@@ -8,7 +8,8 @@ usage: CONTEXT_WINDOW_TOKENS=8000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500 [PORT_B
 
 It talks in a chat until the context is over the threshold, with the scripted summariser held back (a slow
 stream), so the compaction is in progress for a good while. It kills the Worker while the summary is being
-written, reads the log as the dead Worker left it, starts the Worker again, and follows the log until the turn
+written, starts the Worker again, reads the log the kill left (the watchdog may already have written its
+resumption after it), and follows the log until the turn
 that was being answered has finished. It reports whether
   - the log the kill left has no compaction in it, no gap, and nothing half written;
   - the watchdog resumed the turn, which compacted the chat once and answered;
@@ -82,13 +83,19 @@ async def main() -> bool:
             before = [e for e in await v.log(chat.chat)]
             print(f"a summary is being written for the message at seq {trigger}; killing the Worker")
             killed = time.monotonic()
+            # The summariser is fast again before the Worker is back: its watchdog resumes the turn at once.
+            await http.post(f"{FAKE_MODEL}/v1/_config", json={"summary_delay": 0})
             print(f"back after {restart():.0f} s")
-            left = await v.log(chat.chat)
+            # The host is the Worker, so the log is read once it is back, when its watchdog may already have
+            # resumed the turn: what the kill left is the log up to the snapshot, and what follows is the
+            # resumption.
+            read = await v.log(chat.chat)
+            left, since = read[: len(before)], read[len(before) :]
             gapless = [e["seq"] for e in left] == list(range(1, len(left) + 1))
             made = sum(e["type"] == "compaction" for e in left)
             print(f"the log the kill left: {len(left)} events, {made} compactions, gapless {gapless}")
-            assert left == before
-            await http.post(f"{FAKE_MODEL}/v1/_config", json={"summary_delay": 0})
+            assert left == before, "the kill changed the log it left"
+            assert not since or since[0]["type"] == "turn.resumed", f"written since the kill: {since[:1]}"
             deadline = time.monotonic() + 150
             log = left
             while time.monotonic() < deadline:
