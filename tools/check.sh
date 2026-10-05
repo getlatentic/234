@@ -51,6 +51,7 @@ inside host 120 uv run pytest -q -c ../evaluation/pytest.ini ../evaluation/tests
 limit 300 node "$root/conformance/card-states.mjs" checks
 limit 120 node --test "$root/conformance/menu-logic.test.mjs" "$root/conformance/lib.test.mjs" "$root/conformance/palette.test.mjs" "$root/conformance/tool-status.test.mjs"
 limit 120 node "$root/conformance/markdown-unit.mjs"
+limit 120 node --test "$root/ready/ready.test.mjs" "$root/ready/plugin.test.mjs"
 limit 120 node --test "$root"/sandbox/test/*.test.mjs
 
 for base in 8900 8940 8960 8980; do
@@ -65,6 +66,11 @@ export CHECKOUT_URL=http://localhost:8900 HOST_URL=http://localhost:8901 MODEL_U
 inside checkout 300 uv run pytest -m worker -q
 limit 300 node "$root/conformance/connectors-ts-client.mjs"
 limit 300 node "$root/conformance/memory-ts-client.mjs"
+for connector in paystack-pay send-money airtime food-order memory; do
+  replay=()
+  [ -f "$root/ready/fixtures/$connector.json" ] && replay=(--fixture "$root/ready/fixtures/$connector.json")
+  limit 120 node "$root/ready/cli.mjs" "$CHECKOUT_URL/$connector/mcp" ${replay[@]+"${replay[@]}"}
+done
 inside host 600 env RUNNER_URLS=do=http://localhost:8901,queue=http://localhost:8903,waituntil=http://localhost:8904 \
   uv run pytest -m worker -q tests/test_worker_durable.py
 inside host 300 uv run pytest -m worker -q tests/test_worker_socket.py tests/test_worker_start.py tests/test_worker_menu.py
@@ -106,6 +112,7 @@ PORT_BASE=8980 AUTH=1 VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.
 limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-memory.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-shell.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-sidebar.mjs"
+limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/mcp-oauth.mjs"
 inside host 300 env AUTH=1 CHECKOUT_URL=http://localhost:8980 HOST_URL=http://localhost:8981 MODEL_URL=http://127.0.0.1:8982 \
   uv run pytest -m worker -q tests/test_worker_auth.py
 PORT_BASE=8980 "$root/tools/down.sh" quiet

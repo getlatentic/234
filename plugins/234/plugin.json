@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "234",
+  "version": "0.1.0",
+  "description": "Buy airtime and data, send money, order food and pay merchants in Nigeria. The person approves every payment on a card.",
+  "author": { "name": "Latentic", "url": "https://234.getlatentic.com" },
+  "homepage": "https://234.getlatentic.com",
+  "repository": "https://github.com/getlatentic/234",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["nigeria", "payments", "airtime", "transfers", "food", "mcp-apps"]
+}

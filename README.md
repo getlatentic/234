@@ -18,8 +18,9 @@ recovery are all folds of that log. The model calls MCP connectors (Paystack-sty
 data through VTpass, a food merchant) that return MCP Apps cards, and each card runs in a sandbox origin of its own,
 framed by a separate Worker. The connectors keep a ledger in D1 with per-visitor limits and once-only approvals.
 A signed-in person can ask it to remember a recipient, a preference or a fact: it proposes, you press Save on a card,
-and the notes are yours to see, edit, export and delete. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
-[compaction](docs/compaction.md), [auth](docs/auth.md), [memory](docs/memory.md),
+and the notes are yours to see, edit, export and delete. Other agents (Claude, ChatGPT, Cursor) reach the same
+connectors through an OAuth gateway, packaged as an Agent Plugin in `plugins/234`. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
+[compaction](docs/compaction.md), [auth](docs/auth.md), [memory](docs/memory.md), [plugins](docs/plugins.md),
 [mcp-apps-compliance](docs/mcp-apps-compliance.md), [model-behaviour](docs/model-behaviour.md),
 [chat-ui](docs/chat-ui.md) and [brand](docs/brand.md).
 

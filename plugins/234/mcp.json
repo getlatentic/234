@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "234-airtime": { "type": "streamable-http", "url": "https://234.getlatentic.com/mcp/airtime" },
+    "234-send-money": { "type": "streamable-http", "url": "https://234.getlatentic.com/mcp/send-money" },
+    "234-food-order": { "type": "streamable-http", "url": "https://234.getlatentic.com/mcp/food-order" },
+    "234-paystack-pay": { "type": "streamable-http", "url": "https://234.getlatentic.com/mcp/paystack-pay" },
+    "234-memory": { "type": "streamable-http", "url": "https://234.getlatentic.com/mcp/memory" }
+  }
+}
