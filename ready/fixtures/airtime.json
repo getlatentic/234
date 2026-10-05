@@ -1,0 +1,1 @@
+{ "calls": [{ "tool": "create_airtime_quote", "args": { "network": "mtn", "phone": "08031234567", "amount_kobo": 50000, "amount_as_user_said": "five hundred naira", "idempotency_key": "ready-replay-0003" } }] }

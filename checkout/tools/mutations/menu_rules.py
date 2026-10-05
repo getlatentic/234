@@ -26,8 +26,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         "the menu search is the model's tool and names the menu view",
         f"{SRC}/connectors/kit.py",
-        "return Tool(name, title, description, arguments, run, view_uri, MODEL_ONLY, QUOTE_HINTS)",
-        "return Tool(name, title, description, arguments, run, view_uri, APP_ONLY, QUOTE_HINTS)",
+        "return Tool(name, title, description, arguments, run, view_uri, MODEL_ONLY, READ_HINTS)",
+        "return Tool(name, title, description, arguments, run, view_uri, APP_ONLY, READ_HINTS)",
         MENU_CARD + CONNECTOR_TOOLS,
     ),
     Mutation(

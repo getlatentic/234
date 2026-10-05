@@ -1,0 +1,1 @@
+{ "calls": [{ "tool": "create_payment_quote", "args": { "amount_kobo": 250000, "amount_as_user_said": "two thousand five hundred naira", "description": "Lunch", "merchant": "Demo Kitchen", "idempotency_key": "ready-replay-0001" } }] }

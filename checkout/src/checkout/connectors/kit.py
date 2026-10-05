@@ -46,6 +46,7 @@ QUOTE_HINTS = {
     "idempotentHint": True,
     "openWorldHint": True,
 }
+READ_HINTS = {"readOnlyHint": True, "openWorldHint": True}
 CARD_HINTS = {**QUOTE_HINTS, "destructiveHint": True}
 
 QuoteId = Annotated[
@@ -185,7 +186,7 @@ class CardConnector:
         run: Callable[[A], Awaitable[ToolResult]],
     ) -> Tool:
         """A tool the model calls that returns text and data but shows no card."""
-        return Tool(name, title, description, arguments, run, annotations=QUOTE_HINTS)
+        return Tool(name, title, description, arguments, run, annotations=READ_HINTS)
 
     def view_tool[A: BaseModel](
         self,
@@ -197,7 +198,7 @@ class CardConnector:
         view_uri: str,
     ) -> Tool:
         """A tool the model calls whose result a view shows the person, instead of the model repeating it."""
-        return Tool(name, title, description, arguments, run, view_uri, MODEL_ONLY, QUOTE_HINTS)
+        return Tool(name, title, description, arguments, run, view_uri, MODEL_ONLY, READ_HINTS)
 
     def _status_tool(self) -> Tool:
         async def status(args: QuoteRef) -> ToolResult:
@@ -214,7 +215,7 @@ class CardConnector:
             "succeeded.",
             QuoteRef,
             status,
-            annotations=QUOTE_HINTS,
+            annotations=READ_HINTS,
         )
 
     def _card_tools(self, submit: SubmitOtpRun | None) -> tuple[Tool, ...]:

@@ -1,0 +1,1 @@
+{ "calls": [{ "tool": "create_transfer_quote", "args": { "account_number": "0123456789", "bank": "GTB", "amount_kobo": 500000, "amount_as_user_said": "five thousand naira", "idempotency_key": "ready-replay-0002" } }] }
