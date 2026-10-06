@@ -21,14 +21,16 @@ const HOSTS = {
   claims: { capabilities: { sandbox: { csp: PAYSTACK } }, context: { displayMode: "inline", availableDisplayModes: ["inline", "fullscreen"] } },
   "no-fullscreen": { capabilities: { sandbox: { csp: PAYSTACK } }, context: { displayMode: "inline", availableDisplayModes: ["inline"] } },
   blocks: { capabilities: { sandbox: { csp: PAYSTACK } }, context: { displayMode: "inline", availableDisplayModes: ["inline", "fullscreen"] } },
+  own: { capabilities: {}, context: {}, name: "checkout-host" },
 };
 
-async function mount(uri, variant = "plain") {
+// `previous`: a tool result shown before, handed to the card again as a host does on a reloaded conversation.
+async function mount(uri, variant = "plain", previous = null) {
   const host = HOSTS[variant];
-  const quote = await post("/api/quote", {});
+  const quote = previous ?? (await post("/api/quote", {}));
   const html = await (await fetch(`/api/card?uri=${encodeURIComponent(uri)}`)).text();
   const frame = document.getElementById("card");
-  const bridge = new AppBridge(null, { name: "conformance-host", version: "0.1.0" }, { openLinks: {}, serverTools: {}, updateModelContext: { text: {} }, ...host.capabilities }, { hostContext: host.context });
+  const bridge = new AppBridge(null, { name: host.name ?? "conformance-host", version: "0.1.0" }, { openLinks: {}, serverTools: {}, updateModelContext: { text: {} }, ...host.capabilities }, { hostContext: host.context });
   bridge.onrequestdisplaymode = async ({ mode }) => {
     record("displaymode", mode);
     return { mode: variant === "blocks" && mode === "fullscreen" ? "fullscreen" : "inline" };

@@ -4,7 +4,9 @@
 (() => {
   const POLL_MS = 2000;
   const FINISHED = ["succeeded", "attention", "failed", "abandoned", "expired", "declined", "unavailable"];
-  const state = { quote: null, token: null, accessCode: null, busy: false, notice: null, shown: "", told: null, polling: false };
+  const state = { quote: null, token: null, accessCode: null, busy: false, notice: null, shown: "", told: null, polling: false, livePhase: null, applied: 0 };
+  // 234's own chat puts a card's outcome in the thread itself; any other host (Claude, ChatGPT) is sent it.
+  const OWN_HOST = "checkout-host";
   const root = document.getElementById("root");
 
   const fromTemplate = (id) => document.getElementById(id).content.firstElementChild.cloneNode(true);
@@ -203,7 +205,12 @@
     return { quote, token: result._meta?.approvalToken ?? null, accessCode: result._meta?.paystack?.accessCode ?? null };
   }
 
-  function apply(outcome) {
+  // `live`: the answer of a call this card made now, not the snapshot the card was created with (a reloaded
+  // conversation shows an old quote as it was, then the first poll says how it ended).
+  function apply(outcome, live = true) {
+    state.applied += 1;
+    const before = state.livePhase;
+    if (live && outcome.quote) state.livePhase = outcome.quote.phase;
     if (outcome.gone && state.quote) {
       state.quote = { ...state.quote, phase: "gone", poll: false, checkoutUrl: null, tracking: null, receipt: null };
       state.accessCode = null;
@@ -227,17 +234,22 @@
       state.shown = shown;
       draw();
     }
-    tellModel();
+    tellModel(before);
     return outcome;
   }
 
-  function tellModel() {
+  // The model always learns how a quote ended. In another host it is also told in the conversation, so it
+  // answers at once, but only for an ending this card saw happen: never again for a quote that had already
+  // ended when the card was shown.
+  function tellModel(before) {
     const q = state.quote;
     if (!q || !FINISHED.includes(q.phase) || state.told === q.phase) return;
     state.told = q.phase;
     const what = q.receipt?.title ?? q.phase.replace(/_/g, " ");
     const text = `The person's card for quote ${q.id} (${q.amount.display}) now shows: ${what}. ${q.message ?? ""}`.trim();
     McpApp.updateModelContext(text).catch(() => undefined);
+    const sawItEnd = before !== null && !FINISHED.includes(before);
+    if (sawItEnd && McpApp.host()?.info?.name !== OWN_HOST) McpApp.message(text).catch(() => undefined);
   }
 
   async function call(tool, args) {
@@ -249,6 +261,8 @@
   }
 
   async function run(tool, args) {
+    // The person pressed a button of the phase the card shows: that is what they saw before the answer.
+    state.livePhase ??= state.quote.phase;
     state.busy = true;
     syncBusy();
     try {
@@ -326,7 +340,15 @@
     call("verify_quote", { quote_id: q.id }).then(apply).finally(() => { state.polling = false; });
   }, 1000);
 
-  McpApp.on("ui/notifications/tool-result", (result) => { apply(outcomeOf(result)); });
+  // A result can be old (a reloaded conversation shows each card again): a quote it shows as still open is asked
+  // about once, so the card shows how it stands now and not a button for a quote that has ended.
+  McpApp.on("ui/notifications/tool-result", (result) => {
+    const shown = apply(outcomeOf(result), false);
+    if (!shown.quote || FINISHED.includes(shown.quote.phase)) return;
+    // Anything shown after the question (the person's own action, a refusal) is newer than its answer.
+    const asked = state.applied;
+    call("verify_quote", { quote_id: shown.quote.id }).then((now) => state.applied === asked && apply(now));
+  });
   McpApp.on("ui/notifications/tool-input", () => undefined);
   McpApp.on("ui/notifications/tool-cancelled", () => apply({ message: "The request was cancelled." }));
   McpApp.on("ui/resource-teardown", () => ({}));

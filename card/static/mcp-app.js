@@ -81,7 +81,7 @@ const McpApp = (() => {
 
   async function connect(appInfo, appCapabilities = {}) {
     const hello = await request("ui/initialize", { appInfo, appCapabilities, protocolVersion: PROTOCOL_VERSION });
-    host = { capabilities: hello.hostCapabilities ?? {}, context: hello.hostContext ?? {} };
+    host = { capabilities: hello.hostCapabilities ?? {}, context: hello.hostContext ?? {}, info: hello.hostInfo ?? {} };
     notify("ui/notifications/initialized");
     reportSize();
     return hello;

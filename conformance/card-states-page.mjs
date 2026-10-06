@@ -7,8 +7,9 @@ const CARD_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'uns
 const log = (window.__log = []);
 window.__height = 0;
 
-// `result` is what the host sends as the tool result; every later tools/call from the card is answered
-// with `answer` (default: the same result), or by the page's __forward hook when the test wires the card to a Worker, so a polling card keeps showing the state under test.
+// `result` is what the host sends as the tool result. A tools/call from the card is answered with `answer` (default:
+// the same result) once the person has acted, and a status read before that with `result`, so a card shows the state
+// under test; or by the page's __forward hook when the test wires the card to a Worker.
 window.__mount = async ({ html, result, answer, scheme, notice, hostContext = {}, csp = CARD_CSP }) => {
   const frame = document.getElementById("card");
   const bridge = new AppBridge(
@@ -26,9 +27,13 @@ window.__mount = async ({ html, result, answer, scheme, notice, hostContext = {}
     bridge.setHostContext({ displayMode: granted });
     return { mode: granted };
   };
+  // `answer` is the reply to the person's action: until they act, a status read finds the quote as shown.
+  let acted = false;
   bridge.oncalltool = async (params) => {
     log.push({ kind: "calltool", name: params.name, args: params.arguments ?? {} });
-    return window.__forward ? window.__forward(params.name, params.arguments ?? {}) : (answer ?? result);
+    if (window.__forward) return window.__forward(params.name, params.arguments ?? {});
+    acted ||= params.name !== "verify_quote";
+    return acted ? (answer ?? result) : result;
   };
   bridge.onopenlink = async (params) => {
     log.push({ kind: "openlink", url: params.url });

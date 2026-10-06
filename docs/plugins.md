@@ -44,6 +44,10 @@ Tests: `host/tests/test_oauth.py` (46 cases, run with SQLite refusing `SELECT â€
 
 **Not done:** custom URI schemes for native apps (`cursor://â€¦`) are refused, because the MCP authorization spec allows only HTTPS and loopback redirects. There is no page that lists the clients a person has allowed. A grant ends when the client revokes it or after 30 days without a refresh.
 
+## The outcome in the conversation
+
+In Claude or ChatGPT, a card whose quote ends (delivered, declined, failed, expired) sends the outcome as a `ui/message`, so the model answers at once instead of waiting to be asked. It does this only for an ending it saw happen: a press of its own button or a live status read. A reloaded conversation shows each card again from its old result. The card then asks the server once how the quote stands, and posts nothing again. In 234's own chat (host `checkout-host`), the host writes the outcome into the thread itself, so the card only updates the model's context. Checked in `conformance/card-outcome-hosts.mjs`, with hosts built on the official ext-apps `AppBridge`.
+
 ## Events
 
 The four money connectors offer [MCP events](https://developers.openai.com/plugins/build/mcp-events): a client can ask to hear when a quote ends instead of asking again. Memory offers none.

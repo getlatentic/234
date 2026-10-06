@@ -74,7 +74,7 @@ done
 inside host 600 env RUNNER_URLS=do=http://localhost:8901,queue=http://localhost:8903,waituntil=http://localhost:8904 \
   uv run pytest -m worker -q tests/test_worker_durable.py
 inside host 300 uv run pytest -m worker -q tests/test_worker_socket.py tests/test_worker_start.py tests/test_worker_menu.py
-for suite in run chat-ui chat-start chat-shell chat-home chat-starters chat-tools chat-scroll chat-states chat-composer chat-send chat-markdown chat-durable chat-cards chat-visitors chat-bridge chat-airtime sim-checkout a2a-js menu-card chat-menu chat-menu-fullscreen; do
+for suite in run chat-ui chat-start chat-shell chat-home chat-starters chat-tools chat-scroll chat-states chat-composer chat-send chat-markdown chat-durable chat-cards chat-visitors chat-bridge chat-airtime sim-checkout a2a-js menu-card chat-menu chat-menu-fullscreen card-outcome-hosts; do
   limit 300 node "$root/conformance/$suite.mjs"
 done
 inside conformance/a2a-python 300 uv run python oracle.py
