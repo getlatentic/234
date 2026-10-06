@@ -105,6 +105,14 @@ build_shell() {  # the static assets and the home page, as a deploy builds them
     env WORKERS_CI=1 $(shell_settings) uv run python src/manage.py build_shell > /dev/null)
 }
 
+pact_vars() {  # PACT=1: a test personal agent whose JWKS conformance/pact-e2e.mjs serves on base+18, and two Brands
+  [ "${PACT:-}" = "1" ] || return 0
+  local pa="http://127.0.0.1:$((base + 18))"
+  echo --var "PACT_AUDIENCE:234-local-pact" \
+    --var "PACT_AGENTS:[{\"issuer\":\"$pa\",\"jwks_uri\":\"$pa/jwks.json\"},{\"issuer\":\"$pa/disabled-pa\",\"jwks_uri\":\"$pa/jwks.json\",\"enabled\":false}]" \
+    --var 'PACT_BRANDS:{"234":{"name":"234","description":"Everything"},"food":{"name":"Mama_Put","description":"Food","connectors":["food-order"]}}'
+}
+
 host_vars() {  # port: what every host gets, the runner variants included
   local model="--var LLM_BASE_URL:http://127.0.0.1:$model_port/v1"
   [ "${REAL_MODEL:-}" = "1" ] && model="--env real --var LLM_BASE_URL:$LLM_BASE_URL --var LLM_MODEL:$LLM_MODEL"
@@ -116,7 +124,7 @@ host_vars() {  # port: what every host gets, the runner variants included
     --var "PUBLIC_BASE_URL:http://localhost:$1" --var "MODEL_CALLS_PER_DAY:${CAP:-0}" \
     --var "VISITOR_MODEL_CALLS_PER_DAY:${VISITOR_CAP:-60}" --var "WATCHDOG_SECONDS:${WATCHDOG_SECONDS:-30}" \
     --var "SANDBOX_SIGNING_KEY:$sandbox_key" --var "INLINE_PAYSTACK:${INLINE_PAYSTACK:-1}" \
-    --var "EVENTS_SECRET:dummy-local-events-secret" \
+    --var "EVENTS_SECRET:dummy-local-events-secret" $(pact_vars) \
     --var "CONTEXT_WINDOW_TOKENS:${CONTEXT_WINDOW_TOKENS:-32000}" --var "COMPACT_AT:${COMPACT_AT:-0.6}" \
     --var "KEEP_RECENT_TOKENS:${KEEP_RECENT_TOKENS:-6000}" --var "COMPACTION_TIMEOUT_SECONDS:${COMPACTION_TIMEOUT_SECONDS:-45}"
 }

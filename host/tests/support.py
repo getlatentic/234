@@ -56,11 +56,13 @@ class ScriptedModel:
     def __init__(self, *script) -> None:
         self.script = list(script)
         self.sent: list[list[dict]] = []
+        self.offered: list[list[str]] = []
 
     async def stream(self, messages, tools):
         from turns.model import Finished, TextDelta
 
         self.sent.append(messages)
+        self.offered.append([t["function"]["name"] for t in tools])
         step = self.script.pop(0)
         if isinstance(step, str):
             step = (step, [])

@@ -12,7 +12,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
-from . import fold, kinds
+from . import fold, kinds, scope
 from .card_calls import CardCalls
 from .db import Db
 from .eventlog import Event, EventLog
@@ -127,7 +127,11 @@ class ChatCore:
 
     async def new_runner(self) -> TurnRunner:
         owner = await self._owner_of_chat()
-        return TurnRunner(self.log, self._db, self._model, self._hub, self._settings, owner, self._clock)
+        row = await self._db.row("SELECT connectors FROM chat_chat WHERE id = ?", self.chat_id)
+        servers = scope.servers_of(row["connectors"] if row else "")
+        return TurnRunner(
+            self.log, self._db, self._model, self._hub, self._settings, owner, self._clock, servers=servers
+        )
 
     async def _the_runner(self) -> TurnRunner:
         """The one runner of this chat: its compactor serialises compactions, the turns' and the person's."""

@@ -9,9 +9,10 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
+from config.sql import returning
+
 from .models import Client
 from .redirects import acceptable
-from .sql import returning
 
 MAX_REDIRECTS = 10
 MAX_NAME = 100

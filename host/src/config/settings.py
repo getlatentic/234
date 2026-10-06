@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "accounts",
     "a2a",
     "oauth",
+    "pact",
     "ops",
 ]
 
@@ -118,6 +119,12 @@ CHECKOUT_MCP_URL = runtime.get("CHECKOUT_MCP_URL", "http://localhost:8787")
 CONNECTORS = runtime.get_list("CONNECTORS", ",".join(TurnSettings.connectors))
 PUBLIC_BASE_URL = runtime.get("PUBLIC_BASE_URL", "http://localhost:8790").rstrip("/")
 OPS_TOKEN = runtime.get("OPS_TOKEN", "")
+# PACT (pact/): the personal agents this host accepts, as a JSON list of {issuer, jwks_uri, enabled}; the one
+# audience it assigns them; and the Brands it serves, as JSON (default: 234 with every connector).
+PACT_AGENTS = runtime.get("PACT_AGENTS", "")
+PACT_AUDIENCE = runtime.get("PACT_AUDIENCE", "")
+PACT_BRANDS = runtime.get("PACT_BRANDS", "")
+
 # The key the host signs its MCP events subscriptions with (turns/quote_events.py); without it, none is made.
 EVENTS_SECRET = runtime.get("EVENTS_SECRET", "")
 

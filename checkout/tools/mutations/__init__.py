@@ -22,6 +22,7 @@ from tools.mutations import (
     model_choice_rules,
     oauth_rules,
     owner_rules,
+    pact_rules,
     payment_leg,
     provider_hook_rules,
     quote_event_host_rules,
@@ -54,4 +55,5 @@ MUTATIONS: list[Mutation] = [
     *event_rules.MUTATIONS,
     *provider_hook_rules.MUTATIONS,
     *quote_event_host_rules.MUTATIONS,
+    *pact_rules.MUTATIONS,
 ]

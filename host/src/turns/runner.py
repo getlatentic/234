@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from . import calls as call_rules
-from . import fold, kinds, messages, quote_events
+from . import fold, kinds, messages, quote_events, scope
 from .budget import take_model_call
 from .card_calls import card_ref
 from .compaction.compactor import Compactor
@@ -78,9 +78,12 @@ class TurnRunner:
         owner: str,
         clock: Callable[[], int],
         ids: Callable[[], str] = new_id,
+        servers: tuple[str, ...] = (),
     ) -> None:
+        """`servers`: the connectors this chat may use (turns/scope.py); empty is every one."""
         self._log, self._db, self._model, self._hub = log, db, model, hub
         self._settings, self._owner, self._clock, self._ids = settings, owner, clock, ids
+        self._servers = servers
         self._task: str | None = None
         self._round: _Round | None = None
         self._compactor = Compactor(log, model, settings, clock, self._permit_model_call)
@@ -159,8 +162,8 @@ class TurnRunner:
             return
         streamed = _Streamed()
         try:
-            system = system_prompt(self._settings.connectors, memory=is_account(self._owner))
-            tools = offered(await self._hub.model_tools(), self._owner)
+            system = system_prompt(self._servers or self._settings.connectors, memory=is_account(self._owner))
+            tools = scope.within(offered(await self._hub.model_tools(), self._owner), self._servers)
             index = await read_index(self._hub, self._owner)
             head = with_notes(system, index)
             notes = notes_message(index) if index else None
@@ -240,11 +243,11 @@ class TurnRunner:
     async def compact(self, keep_recent_tokens: int | None = None) -> Event | None:
         """Compacts now, at the person's request: the event written, or None when nothing could be covered."""
         try:
-            tools = await self._hub.model_tools()
+            tools = scope.within(await self._hub.model_tools(), self._servers)
         except HubError, httpx.HTTPError:
             tools = []
         return await self._compactor.manual(
-            system_prompt(self._settings.connectors), tools, keep_recent_tokens
+            system_prompt(self._servers or self._settings.connectors), tools, keep_recent_tokens
         )
 
     async def _stream(
@@ -340,6 +343,9 @@ class TurnRunner:
         return ToolOutcome(server, tool, result, None)
 
     async def _call(self, call: dict[str, Any], arguments: dict[str, Any]) -> ToolOutcome:
+        if not scope.allows(call["name"], self._servers):
+            server, _, tool = call["name"].partition("__")
+            return refused(server, tool, scope.OUTSIDE)
         if is_memory_tool(call["name"]) and not is_account(self._owner):
             server, _, tool = call["name"].partition("__")
             return refused(server, tool, NOT_AN_ACCOUNT)

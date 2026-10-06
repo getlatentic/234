@@ -19,8 +19,9 @@ data through VTpass, a food merchant) that return MCP Apps cards, and each card 
 framed by a separate Worker. The connectors keep a ledger in D1 with per-visitor limits and once-only approvals.
 A signed-in person can ask it to remember a recipient, a preference or a fact: it proposes, you press Save on a card,
 and the notes are yours to see, edit, export and delete. Other agents (Claude, ChatGPT, Cursor) reach the same
-connectors through an OAuth gateway, packaged as an Agent Plugin in `plugins/234`. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
-[compaction](docs/compaction.md), [auth](docs/auth.md), [memory](docs/memory.md), [plugins](docs/plugins.md),
+connectors through an OAuth gateway, packaged as an Agent Plugin in `plugins/234`, and a person's own agent can
+talk to 234 for them over PACT on A2A. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
+[compaction](docs/compaction.md), [auth](docs/auth.md), [memory](docs/memory.md), [plugins](docs/plugins.md), [pact](docs/pact.md),
 [mcp-apps-compliance](docs/mcp-apps-compliance.md), [model-behaviour](docs/model-behaviour.md),
 [chat-ui](docs/chat-ui.md) and [brand](docs/brand.md).
 
@@ -75,7 +76,8 @@ Nothing secret is in git. Names only:
 - Untracked files at the repository root, ignored by git: `.env.local` (keys for real-model and provider test
   runs), `.env.auth.local` (`FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, see
   [docs/auth.md](docs/auth.md)) and `.env.deploy.local` (`SUBDOMAIN` and any Worker name you change).
-- Settings such as `PRODUCT_NAME`, the daily caps and the context window are variables; see the wrangler templates
+- Settings such as `PRODUCT_NAME`, the daily caps, the context window and the PACT agents and Brands
+  (`PACT_AGENTS`, `PACT_AUDIENCE`, `PACT_BRANDS`, [docs/pact.md](docs/pact.md)) are variables; see the wrangler templates
   and [docs/deploy.md](docs/deploy.md).
 
 ## Repository layout

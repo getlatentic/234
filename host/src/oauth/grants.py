@@ -11,8 +11,9 @@ import secrets
 import time
 from dataclasses import dataclass
 
+from config.sql import returning
+
 from .models import Code, Token
-from .sql import returning
 
 CODE_SECONDS = 60
 ACCESS_SECONDS = 3600

@@ -17,6 +17,8 @@ class Chat(models.Model):
     owner = models.CharField(max_length=80, db_index=True)
     title = models.CharField(max_length=80, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # The connectors this chat's model may use, comma-separated; blank is every one (pact/brands.py).
+    connectors = models.CharField(max_length=200, blank=True, default="")
 
     def __str__(self) -> str:
         return self.id

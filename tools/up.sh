@@ -14,6 +14,8 @@
 #   which only that one process reads (see conformance/paystack-rig.mjs);
 #   CONTEXT_WINDOW_TOKENS, COMPACT_AT, KEEP_RECENT_TOKENS and COMPACTION_TIMEOUT_SECONDS set when the host compacts a
 #   chat's context (defaults 32000, 0.6, 6000 and 45: docs/compaction.md); small values show it on short chats;
+#   PACT=1 registers a test personal agent (issuer and JWKS on base+18, served by conformance/pact-e2e.mjs) and
+#   two Brands, 234 and food, on the PACT endpoint /a2a/<brand>/ (docs/pact.md);
 #   REAL_MODEL=1 uses the model in LLM_BASE_URL, LLM_MODEL and (through host/.dev.vars.real) LLM_API_KEY
 #   instead of the scripted one: see tools/real-model.sh.
 set -e

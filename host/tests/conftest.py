@@ -31,6 +31,10 @@ def other_chat(db):
     return Chat.objects.create(owner="v:b")
 
 
+class D1Error(Exception):
+    """What a D1 statement that breaks a constraint raises inside the Worker (a JsException)."""
+
+
 @pytest.fixture(autouse=True)
 def like_d1(monkeypatch):
     """D1 refuses SELECT ... FOR UPDATE. Django leaves it out on SQLite; told SQLite has it, Django sends it
@@ -38,12 +42,26 @@ def like_d1(monkeypatch):
     from django.db import connection
 
     monkeypatch.setattr(connection.features, "has_select_for_update", True)
-    # D1's counts are not rows changed (oauth/sql.py): no code may lean on what update() or delete() return.
+    # D1's counts are not rows changed (config/sql.py): no code may lean on what update() or delete() return.
     from django.db.models.query import QuerySet
 
     update, delete = QuerySet.update, QuerySet.delete
     monkeypatch.setattr(QuerySet, "update", lambda self, **kw: (update(self, **kw), -1)[1])
     monkeypatch.setattr(QuerySet, "delete", lambda self: (delete(self), (-1, {}))[1])
+    # D1 reports a broken constraint as its own exception type, which Django does not map to IntegrityError.
+    import sqlite3
+
+    from django.db.backends.sqlite3.base import SQLiteCursorWrapper
+
+    execute = SQLiteCursorWrapper.execute
+
+    def like_d1_execute(self, query, params=None):
+        try:
+            return execute(self, query, params)
+        except sqlite3.IntegrityError as error:
+            raise D1Error(f"D1_ERROR: {error}") from None
+
+    monkeypatch.setattr(SQLiteCursorWrapper, "execute", like_d1_execute)
 
 
 @pytest.fixture(autouse=True)
