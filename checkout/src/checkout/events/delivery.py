@@ -22,6 +22,7 @@ MAX_ATTEMPTS = 8
 FIRST_RETRY_MS = 30_000
 LAST_RETRY_MS = 3_600_000
 LEASE_MS = 60_000
+KEEP_DONE_MS = 7 * 24 * 3600 * 1000
 
 
 def iso(at_ms: int) -> str:
@@ -130,6 +131,21 @@ class Delivery:
                 )
                 handed += 1
         return handed
+
+    async def prune(self) -> None:
+        """Rows finished a week ago, and subscriptions that have expired with nothing left to send, go."""
+        now = self._clock.now()
+        await self._db.batch(
+            [
+                ("DELETE FROM event_outbox WHERE done_at IS NOT NULL AND done_at < ?", (now - KEEP_DONE_MS,)),
+                (
+                    "DELETE FROM event_subscriptions WHERE expires_at < ? AND NOT EXISTS "
+                    "(SELECT 1 FROM event_outbox WHERE subscription_id = event_subscriptions.id "
+                    "AND done_at IS NULL)",
+                    (now,),
+                ),
+            ]
+        )
 
     async def deliver(self, event_id: str, subscription_id: str) -> None:
         """Sends one row, signed. An expired subscription's events are dropped."""

@@ -322,3 +322,25 @@ async def test_a_money_connector_offers_events_and_memory_does_not(app, connecto
         app, "POST", f"/{connector}/mcp", {"content-type": "application/json"}, json.dumps(listed).encode()
     )
     assert ("result" in json.loads(answer.body)) is offered
+
+
+async def test_the_minute_prunes_finished_rows_after_a_week_and_expired_subscriptions(stack, wired):
+    events, delivery, _ = wired
+    await events.subscribe(ALICE, "paystack-pay", params(ttlMs=3600_000))
+    await ended(stack, ALICE)
+    await delivery.drain()
+    await delivery.prune()
+    assert len(await stack.db.rows("SELECT * FROM event_outbox")) == 1, "a finished row is kept for a week"
+    stack.clock.advance(8 * 24 * 3600)
+    await delivery.prune()
+    assert await stack.db.rows("SELECT * FROM event_outbox") == []
+    assert await stack.db.rows("SELECT * FROM event_subscriptions") == []
+
+
+async def test_an_expired_subscription_with_an_event_still_owed_is_kept_until_it_is_settled(stack, wired):
+    events, delivery, _ = wired
+    await events.subscribe(ALICE, "paystack-pay", params(ttlMs=3600_000))
+    await ended(stack, ALICE)
+    stack.clock.advance(2 * 3600)
+    await delivery.prune()
+    assert len(await stack.db.rows("SELECT * FROM event_subscriptions")) == 1

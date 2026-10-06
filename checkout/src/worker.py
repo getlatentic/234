@@ -36,8 +36,11 @@ def _host_binding(env, settings: Settings):
     return BindingFetch(binding)
 
 
-def _app_for(env) -> App:
+def _app_for(entry: WorkerEntrypoint) -> App:
+    """Built once per isolate from the entry's own bindings: a scheduled or queue handler may be the first
+    thing an isolate runs, and the env argument the runtime passes those handlers lacks the secrets."""
     global _app
+    env = entry.env
     if _app is None:
         settings = Settings.from_env(_read_setting(env))
         callbacks = HostRouted(
@@ -51,7 +54,7 @@ def _app_for(env) -> App:
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         try:
-            app = _app_for(self.env)
+            app = _app_for(self)
         except ConfigError as error:
             return Response(f"Refusing to start: {error.message}", status=500)
         location = urlsplit(request.url)
@@ -63,10 +66,9 @@ class Default(WorkerEntrypoint):
             self.ctx.waitUntil(asyncio.ensure_future(app.background.delivery.drain()))
         return Response(result.body, status=result.status, headers=result.headers)
 
-    async def queue(self, batch, env, ctx):
+    async def queue(self, batch, *_):
         """PROVIDER_JOBS and EVENT_JOBS: a job that raises is retried by the Queue, then dead-lettered."""
-        del ctx
-        app = _app_for(env)
+        app = _app_for(self)
         for message in batch.messages:
             body = message.body.to_py() if hasattr(message.body, "to_py") else message.body
             try:
@@ -76,7 +78,6 @@ class Default(WorkerEntrypoint):
                 continue
             message.ack()
 
-    async def scheduled(self, controller, env, ctx):
+    async def scheduled(self, *_):
         """Every minute: pending quotes checked again, overdue ones expired, due events handed on."""
-        del controller, ctx
-        await _app_for(env).background.minute()
+        await _app_for(self).background.minute()

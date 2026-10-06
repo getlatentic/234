@@ -53,6 +53,7 @@ class Background:
         """The Cron Trigger's: pending quotes asked again, overdue ones expired, due events handed on."""
         await self.rechecks.sweep()
         await self.delivery.drain()
+        await self.delivery.prune()
 
 
 def build_background(
