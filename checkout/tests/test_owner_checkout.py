@@ -5,13 +5,10 @@ once, and the webhook names that one quote."""
 
 import re
 
-import pytest
-
 from checkout.http import handle
 from checkout.ids import new_quote_id, quote_id_of, transaction_reference
 from tests.connector_support import approve_args, key, quote_of
 from tests.support import ALICE, BOB, make_stack
-from tests.test_webhook import RecordingNotifier
 
 PAY = "paystack-pay"
 
@@ -100,33 +97,3 @@ class TestAPress:
             idempotency_key=key("bob-full"),
         )  # fmt: skip
         assert quote_of(with_bob)["limits"]["remainingToday"] == "₦100,000"
-
-
-class TestTheWebhook:
-    def stack(self):
-        stack = make_stack()
-        notifier = RecordingNotifier()
-        object.__setattr__(stack.app, "notifier", notifier)
-        return stack, notifier
-
-    async def test_names_the_one_quote_whose_transaction_was_pressed(self):
-        stack, notifier = self.stack()
-        alices, alices_ref = await approved_for(stack, ALICE)
-        bobs, bobs_ref = await approved_for(stack, BOB)
-        await press(stack, bobs_ref, "pay")
-        await press(stack, alices_ref, "decline")
-        assert notifier.moved == [bobs, alices]
-
-    @pytest.mark.parametrize("button", ["pay", "decline"])
-    async def test_is_sent_once_for_a_transaction_however_often_it_is_pressed(self, button):
-        stack, notifier = self.stack()
-        quote, reference = await approved_for(stack, ALICE)
-        for _ in range(3):
-            await press(stack, reference, button)
-        assert notifier.moved == [quote]
-
-    async def test_is_not_sent_for_a_reference_nobody_holds(self):
-        stack, notifier = self.stack()
-        await approved_for(stack, ALICE)
-        await press(stack, transaction_reference(new_quote_id(), 1), "pay")
-        assert notifier.moved == []

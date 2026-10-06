@@ -20,6 +20,7 @@ from .mcp.protocol import (
     parse_body,
 )
 from .owner import MEMORY_OWNER_HEADER, OWNER_HEADER, acting_for, is_owner_key, remembering_for
+from .provider_hooks.http import paystack_hook, paystack_keys, vtpass_hook
 from .responses import HttpResponse, json_response
 from .sim_checkout import handle_checkout
 from .testing_routes import handle_test
@@ -91,9 +92,9 @@ def _screened(message: Any, headers: dict[str, str], stateless: bool) -> HttpRes
 
 def _events_of(app: App, connector: str) -> ConnectorEvents | None:
     """Events are offered by the connectors that make quotes; memory has none."""
-    if app.events is None or connector == MEMORY_CONNECTOR:
+    if connector == MEMORY_CONNECTOR:
         return None
-    return ConnectorEvents(app.events, connector, app.ledger.owner)
+    return ConnectorEvents(app.background.events, connector, app.ledger.owner)
 
 
 async def handle_mcp(
@@ -133,6 +134,16 @@ async def handle_mcp(
     return HttpResponse(202) if response is None else json_response(response)
 
 
+async def _provider_hook(app: App, provider: str, headers: dict[str, str], raw: bytes) -> HttpResponse:
+    rechecks = app.background.rechecks
+    if provider == "paystack":
+        keys = paystack_keys(app.settings.paystack.secret_key, app.settings.approval_secret)
+        return await paystack_hook(rechecks, keys, headers, raw)
+    if provider == "vtpass":
+        return await vtpass_hook(rechecks, raw)
+    return HttpResponse(404, "Not found")
+
+
 async def handle(
     app: App, method: str, path: str, headers: dict[str, str], raw: bytes, query: str = ""
 ) -> HttpResponse:
@@ -141,6 +152,8 @@ async def handle(
         return json_response({"ok": True})
     if len(parts) == 2 and parts[1] == "mcp":
         return await handle_mcp(app, parts[0], method, headers, raw)
+    if parts[0] == "hooks" and len(parts) == 2 and method == "POST":
+        return await _provider_hook(app, parts[1], headers, raw)
     if parts[0] == "sim" and len(parts) >= 3 and parts[1] == "checkout":
         return await handle_checkout(app, method, path, headers, query)
     if parts[0] == "test" and app.settings.enable_test_routes:

@@ -23,11 +23,12 @@ from tools.mutations import (
     oauth_rules,
     owner_rules,
     payment_leg,
+    provider_hook_rules,
+    quote_event_host_rules,
     sandbox_rules,
     token_rules,
     transfer_and_food,
     vtpass_number_rules,
-    webhook_rules,
 )
 from tools.mutations.model import Mutation
 
@@ -39,7 +40,6 @@ MUTATIONS: list[Mutation] = [
     *payment_leg.MUTATIONS,
     *airtime_rules.MUTATIONS,
     *vtpass_number_rules.MUTATIONS,
-    *webhook_rules.MUTATIONS,
     *transfer_and_food.MUTATIONS,
     *model_choice_rules.MUTATIONS,
     *menu_rules.MUTATIONS,
@@ -52,4 +52,6 @@ MUTATIONS: list[Mutation] = [
     *memory_host_rules.MUTATIONS,
     *oauth_rules.MUTATIONS,
     *event_rules.MUTATIONS,
+    *provider_hook_rules.MUTATIONS,
+    *quote_event_host_rules.MUTATIONS,
 ]

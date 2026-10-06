@@ -10,6 +10,17 @@
   // The card and the simulated checkout page are text, read at startup.
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
   "python_modules": { "exclude": ["**/*.pyc", "**/*.pyi"] },
+  // Rechecks and event deliveries, as in the public deployment (local Queues, no account needed).
+  "queues": {
+    "producers": [
+      { "binding": "PROVIDER_JOBS", "queue": "provider-jobs" },
+      { "binding": "EVENT_JOBS", "queue": "event-jobs" }
+    ],
+    "consumers": [
+      { "queue": "provider-jobs", "max_batch_size": 10, "max_batch_timeout": 1, "max_retries": 5 },
+      { "queue": "event-jobs", "max_batch_size": 10, "max_batch_timeout": 1, "max_retries": 5 }
+    ]
+  },
   "d1_databases": [
     {
       "binding": "DB",
@@ -34,8 +45,7 @@
   //   (PAYSTACK_PAY_MODE, SEND_MONEY_MODE, AIRTIME_MODE, FOOD_ORDER_MODE: simulated|real), VTPASS_MODE
   //   (simulated|sandbox), CHECKOUT_WINDOW_SECONDS, PAYER_EMAIL, and for the simulators SIM_TRANSFER_OTP,
   //   SIM_PAYOUTS_REFUSED, SIM_PENDING_SECONDS, FOOD_STEP_SECONDS, SIM_VTPASS_REJECT_CREDENTIALS.
-  //   The host's payment webhook: PAYMENT_WEBHOOK_URL (its /hooks/payment) with the secret WEBHOOK_SECRET, and
-  //   PAYMENT_WEBHOOK_BINDING (a service binding, public deployment only); HOST_PUBLIC_URL is the checkout
-  //   page's way back to the chat. tools/up.sh sets them for the local stack.
+  //   HOST_PUBLIC_URL is the checkout page's way back to the chat and the origin of the host's event callbacks;
+  //   HOST_BINDING names the service binding they go through (public deployment only). tools/up.sh sets them.
   // The /sim/checkout page belongs to the simulators: drop it (and ENABLE_TEST_ROUTES) in a public deployment.
 }

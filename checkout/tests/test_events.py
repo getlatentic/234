@@ -15,6 +15,7 @@ from checkout.events.delivery import MAX_ATTEMPTS, Delivery, body_of
 from checkout.events.service import CALLBACK_ENDPOINT_ERROR, INVALID_PARAMS, EventError, Events
 from checkout.events.signing import key_of, sign
 from checkout.events.subscriptions import MAX_TTL_MS, Subscriptions
+from checkout.jobs import InlineJobs
 from checkout.owner import acting_for
 from checkout.transport import Reply, TransportError
 from tests.ledger_support import new_quote
@@ -45,6 +46,7 @@ def wired(stack):
     transport = ScriptedTransport(echo)
     events = Events(Subscriptions(stack.db), transport, stack.clock, allow_loopback=False)
     delivery = Delivery(stack.db, transport, stack.clock, Audit([stack.audit_lines.append], stack.clock))
+    delivery.jobs = InlineJobs(lambda job: delivery.deliver(job["event"], job["subscription"]))
     return events, delivery, transport
 
 
@@ -214,6 +216,7 @@ async def test_a_failure_is_tried_again_later_with_the_same_event_id_then_given_
     transport = ScriptedTransport(flaky)
     events = Events(Subscriptions(stack.db), transport, stack.clock, allow_loopback=False)
     delivery = Delivery(stack.db, transport, stack.clock, Audit([stack.audit_lines.append], stack.clock))
+    delivery.jobs = InlineJobs(lambda job: delivery.deliver(job["event"], job["subscription"]))
     await events.subscribe(ALICE, "paystack-pay", params())
     await ended(stack, ALICE)
     ids = set()
@@ -233,6 +236,7 @@ async def test_410_ends_the_subscription_and_413_drops_only_the_event(stack):
         )
         events = Events(Subscriptions(stack.db), transport, stack.clock, allow_loopback=False)
         delivery = Delivery(stack.db, transport, stack.clock, Audit([stack.audit_lines.append], stack.clock))
+        delivery.jobs = InlineJobs(lambda job, d=delivery: d.deliver(job["event"], job["subscription"]))
         await events.subscribe(
             ALICE,
             "paystack-pay",

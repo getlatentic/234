@@ -65,17 +65,6 @@ class SimulatorSettings:
 
 
 @dataclass(frozen=True)
-class PaymentWebhookSettings:
-    """Where the connector tells the chat host that a simulated payment moved. `url` is the host's
-    `/hooks/payment` and nothing else; `binding` names the service binding that reaches the host inside
-    the same account (a Worker cannot fetch another Worker of its account by its public address)."""
-
-    url: str
-    secret: str = field(repr=False)
-    binding: str | None = None
-
-
-@dataclass(frozen=True)
 class Settings:
     approval_secret: str = field(repr=False)
     per_payment_limit_kobo: int = 5_000_000
@@ -102,7 +91,7 @@ class Settings:
     needs and is given the transaction's access code. Real Paystack test mode only: the simulator has none."""
     require_owner: bool = False
     """A tool call must carry an owner (owner.py); off, a call without one acts for the default owner."""
-    payment_webhook: PaymentWebhookSettings | None = None
+    host_binding: str | None = None
     host_public_url: str | None = None
     """The chat host's public origin, so the simulated checkout page can link back to the chat."""
     memory: MemorySettings = field(default_factory=MemorySettings)
@@ -141,7 +130,7 @@ class Settings:
             if env.text("INLINE_PAYSTACK")
             else base.inline_paystack,
             require_owner=env.flag("REQUIRE_OWNER"),
-            payment_webhook=_payment_webhook_from(env),
+            host_binding=env.text("HOST_BINDING"),
             host_public_url=_origin_from(env, "HOST_PUBLIC_URL"),
             memory=MemorySettings.from_env(read),
         )
@@ -202,7 +191,6 @@ def _mcp_token_from(env: _Env) -> str | None:
     return token
 
 
-WEBHOOK_PATH = "/hooks/payment"
 _LOOPBACK = ("localhost", "127.0.0.1", "[::1]", "::1")
 
 
@@ -214,22 +202,6 @@ def _origin_from(env: _Env, name: str) -> str | None:
     if parts.scheme not in ("http", "https") or not parts.hostname or parts.path not in ("", "/"):
         raise ConfigError(f'{name} must be an origin such as https://chat.example, got "{raw}".')
     return f"{parts.scheme}://{parts.netloc}"
-
-
-def _payment_webhook_from(env: _Env) -> PaymentWebhookSettings | None:
-    """On only when the address and the secret are both set: without the secret the connector calls
-    nothing and cards update by polling. The address must be the host's payment hook over https (plain
-    http only to this machine), so a misconfiguration cannot point the signed call anywhere else."""
-    raw, secret = env.text("PAYMENT_WEBHOOK_URL"), env.text("WEBHOOK_SECRET")
-    if raw is None or secret is None:
-        return None
-    parts = urlsplit(raw)
-    local = parts.scheme == "http" and parts.hostname in _LOOPBACK
-    if not (parts.scheme == "https" or local) or parts.path != WEBHOOK_PATH:
-        raise ConfigError(f"PAYMENT_WEBHOOK_URL must be an https address ending {WEBHOOK_PATH}.")
-    if parts.query or parts.fragment or parts.username or parts.password:
-        raise ConfigError("PAYMENT_WEBHOOK_URL must not carry a query, a fragment or credentials.")
-    return PaymentWebhookSettings(raw, secret, env.text("PAYMENT_WEBHOOK_BINDING"))
 
 
 def _test_key_from(env: _Env) -> str | None:

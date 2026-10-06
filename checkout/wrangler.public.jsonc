@@ -7,15 +7,26 @@
   // On or after 2026-09-08 selects the Python 3.14 runtime.
   "compatibility_date": "2026-09-21",
   "compatibility_flags": ["python_workers"],
-  // MCP events: the outbox is sent after each request; this sends what is due again after a failed attempt.
+  // Every minute: approved quotes checked again with the provider, overdue ones expired, due events handed on.
   "triggers": { "crons": ["* * * * *"] },
   "workers_dev": true,
   "preview_urls": false,
   "observability": { "enabled": true },
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
-  // The chat host, reached through a service binding for the signed payment webhook (a Worker cannot fetch
+  // The chat host, reached through a service binding when an MCP event is for it (a Worker cannot fetch
   // another Worker of its account by the public address). The host already exists when the connectors deploy.
   "services": [{ "binding": "HOST", "service": "@HOST_WORKER@" }],
+  // Rechecks a provider webhook asks for, and event deliveries: retried by the Queue, then dead-lettered.
+  "queues": {
+    "producers": [
+      { "binding": "PROVIDER_JOBS", "queue": "@CONNECTORS_WORKER@-provider-jobs" },
+      { "binding": "EVENT_JOBS", "queue": "@CONNECTORS_WORKER@-event-jobs" }
+    ],
+    "consumers": [
+      { "queue": "@CONNECTORS_WORKER@-provider-jobs", "max_retries": 5, "dead_letter_queue": "@CONNECTORS_WORKER@-provider-jobs-dlq" },
+      { "queue": "@CONNECTORS_WORKER@-event-jobs", "max_retries": 5, "dead_letter_queue": "@CONNECTORS_WORKER@-event-jobs-dlq" }
+    ]
+  },
   "python_modules": { "exclude": ["**/*.pyc", "**/*.pyi"] },
   "d1_databases": [
     {
@@ -43,14 +54,12 @@
     // Every tool call must say whose it is (the host sends the visitor's id): the daily limit is each
     // visitor's own, and a call with no owner is refused rather than pooled with anyone's.
     "REQUIRE_OWNER": "1",
-    // When the simulated checkout records a payment, the host is told through the binding, signed with
-    // WEBHOOK_SECRET (the host's own), so open cards update at once. The card also polls: this is a courtesy.
-    "PAYMENT_WEBHOOK_URL": "https://@HOST_WORKER@.internal/hooks/payment",
-    "PAYMENT_WEBHOOK_BINDING": "HOST",
-    // Where the checkout page's "Return to the chat" link goes.
+    // The host's address: where the checkout page's "Return to the chat" link goes, and the origin of the
+    // event callbacks it subscribes with, which go through HOST_BINDING.
     "HOST_PUBLIC_URL": "https://@HOST_WORKER@.@SUBDOMAIN@.workers.dev",
+    "HOST_BINDING": "HOST",
     // /test routes reset the ledger and read inside it: never here.
     "ENABLE_TEST_ROUTES": "0"
   }
-  // Secrets (docs/deploy.md): APPROVAL_SECRET, MCP_ACCESS_TOKEN, WEBHOOK_SECRET (one value with the host's).
+  // Secrets (docs/deploy.md): APPROVAL_SECRET, MCP_ACCESS_TOKEN.
 }

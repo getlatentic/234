@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The simulated Paystack checkout page: a person's stand-in for Paystack's hosted page, served by
 the Worker at /sim/checkout/<reference>. It moves no money; a button only finishes the simulated
-transaction, and a finished payment is announced to the chat host so its open cards update at once.
+transaction, and a payment made here is announced as Paystack announces one: a signed `charge.success`
+webhook to the connectors' own /hooks/paystack, so the quote is checked again and its ending is an MCP event.
 Drop the route in production."""
 
+import json
 import re
 from datetime import UTC, datetime
 from urllib.parse import parse_qs, quote, urlsplit
@@ -12,6 +14,8 @@ from .app import App
 from .ids import quote_id_of
 from .money import format_naira
 from .paystack.sim_store import SimTransaction
+from .provider_hooks import paystack as paystack_webhook
+from .provider_hooks.http import paystack_hook
 from .responses import HTML_HEADERS, HttpResponse
 from .sim_checkout_page import POLICY, buttons, page, state
 
@@ -23,7 +27,6 @@ PAGE_HEADERS = {
 }
 CHAT_PATH = re.compile(r"/c/[0-9a-f]{32}/?")
 OUTCOMES = {"success": ("paid", "Paid"), "failed": ("declined", "Declined"), "closed": ("closed", "Closed")}
-NOTIFYING_BUTTONS = ("pay", "decline")
 
 
 def _same_origin(app: App, headers: dict[str, str]) -> bool:
@@ -62,6 +65,17 @@ async def _what_for(app: App, reference: str, transaction: SimTransaction) -> st
     return f"{held.merchant} · {description}"
 
 
+async def _announce(app: App, reference: str) -> None:
+    """The webhook Paystack sends for a successful charge, signed with the simulator's key and handled by the
+    same code a real one is."""
+    body = json.dumps(
+        {"event": "charge.success", "data": {"reference": reference, "status": "success"}}
+    ).encode()
+    key = paystack_webhook.simulated_key(app.settings.approval_secret)
+    headers = {paystack_webhook.SIGNATURE_HEADER: paystack_webhook.sign(body, key)}
+    await paystack_hook(app.background.rechecks, (key,), headers, body)
+
+
 async def handle_checkout(
     app: App, method: str, path: str, headers: dict[str, str], query: str = ""
 ) -> HttpResponse:
@@ -78,9 +92,8 @@ async def handle_checkout(
         changed = await _press(app, reference, parts[3])
         transaction = await sim.transaction(reference) or transaction
         outcome = "closed" if parts[3] == "close" else transaction.status
-        quote_id = quote_id_of(reference)
-        if changed and quote_id and parts[3] in NOTIFYING_BUTTONS:
-            await app.notifier.payment_moved(quote_id)
+        if changed and quote_id_of(reference) and parts[3] == "pay":
+            await _announce(app, reference)
     elif method == "GET":
         await sim.open_transaction(reference)
         transaction = await sim.transaction(reference) or transaction

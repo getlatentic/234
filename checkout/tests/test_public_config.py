@@ -55,10 +55,8 @@ def test_the_public_configuration_never_names_live_vtpass_and_refuses_it_when_as
             load(VTPASS_MODE="live", **keys)
 
 
-def test_the_public_deployment_tells_the_host_through_its_service_binding_when_it_has_the_secret():
-    hook = load(WEBHOOK_SECRET="s" * 32).payment_webhook
-    assert (hook.url, hook.binding) == ("https://name.internal/hooks/payment", "HOST")
-    assert load().payment_webhook is None
+def test_the_public_deployment_reaches_the_hosts_event_callbacks_through_its_service_binding():
+    assert load().host_binding == "HOST"
     assert load().host_public_url == "https://name.name.workers.dev"
     assert public_template()["services"] == [{"binding": "HOST", "service": "name"}]
 
@@ -90,3 +88,10 @@ def test_the_simulators_run_their_ordinary_paths_and_the_limits_are_the_demo_lim
     settings = load()
     assert settings.simulator.transfer_otp is False
     assert (settings.per_payment_limit_kobo, settings.daily_limit_kobo) == (5_000_000, 10_000_000)
+
+
+def test_the_public_deployment_queues_rechecks_and_deliveries_with_dead_letter_queues():
+    queues = public_template()["queues"]
+    assert {p["binding"] for p in queues["producers"]} == {"PROVIDER_JOBS", "EVENT_JOBS"}
+    assert all(c["dead_letter_queue"].endswith("-dlq") and c["max_retries"] >= 1 for c in queues["consumers"])
+    assert public_template()["triggers"] == {"crons": ["* * * * *"]}

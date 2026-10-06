@@ -15,6 +15,7 @@ from checkout.flows.food import FoodFlow
 from checkout.flows.payment import PaymentFlow
 from checkout.flows.transfer import TransferFlow
 from checkout.http import handle
+from checkout.jobs import HeldJobs
 from checkout.owner import OWNER_HEADER
 from checkout.sqlite_db import SqliteDb
 
@@ -42,6 +43,11 @@ class Stack:
     clock: FakeClock
     db: SqliteDb
     audit_lines: list[str] = field(default_factory=list)
+    jobs: HeldJobs = field(default_factory=HeldJobs)
+
+    async def run_jobs(self) -> None:
+        """The work queued after the requests so far: rechecks, then the deliveries they lead to."""
+        await self.jobs.run_all()
 
     @property
     def ledger(self):
@@ -130,15 +136,20 @@ def make_stack(**settings: Any) -> Stack:
         **settings,
     }
     db = SqliteDb()
-    app = build_app(Settings(**base), db, clock, Audit([lines.append], clock))
-    return Stack(app, clock, db, lines)
+    jobs = HeldJobs()
+    app = build_app(Settings(**base), db, clock, Audit([lines.append], clock), jobs=jobs)
+    return Stack(app, clock, db, lines, jobs)
 
 
 def reload_app(stack: Stack, **settings: Any) -> None:
     """The same database and clock under different settings, as after a redeploy."""
     base = {"approval_secret": "test-secret-not-real", "enable_test_routes": True, **settings}
     rebuilt = build_app(
-        Settings(**base), stack.db, stack.clock, Audit([stack.audit_lines.append], stack.clock)
+        Settings(**base),
+        stack.db,
+        stack.clock,
+        Audit([stack.audit_lines.append], stack.clock),
+        jobs=stack.jobs,
     )
     stack.app = rebuilt
 

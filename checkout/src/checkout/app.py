@@ -7,10 +7,12 @@ network in test/sandbox mode and over a simulator otherwise.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .audit import Audit, print_sink
+from .background import Background, build_background
 from .clock import Clock, SystemClock
 from .config import CONNECTORS, Settings
 from .connectors import airtime, food_order, pay, send_money
@@ -18,10 +20,8 @@ from .connectors import memory as memory_connector
 from .connectors.kit import CardReader
 from .db import Db
 from .errors import ConfigError
-from .events import Events
-from .events.delivery import Delivery
-from .events.subscriptions import Subscriptions
 from .flows.context import Context
+from .jobs import HeldJobs
 from .ledger import Ledger, Limits
 from .mcp.registry import Connector
 from .memory.context import MemoryContext
@@ -38,7 +38,6 @@ from .vtpass.api import VtpassApi
 from .vtpass.client import VtpassClient, VtpassCredentials
 from .vtpass.sim import VtpassSimulator
 from .vtpass.sim_store import VtpassSimStore
-from .webhook import NoNotifier, PaymentNotifier, SignedWebhook
 
 CARD_DIR = Path(__file__).parent / "card"
 MENU_FILE = "menu.html"
@@ -58,9 +57,7 @@ class App:
     paystack_sim: PaystackSimStore
     contexts: Mapping[str, Context]
     connectors: Mapping[str, Connector]
-    notifier: PaymentNotifier = field(default_factory=NoNotifier)
-    events: Events | None = None
-    delivery: Delivery | None = None
+    background: Background
 
 
 def card_reader(name: str) -> CardReader:
@@ -187,35 +184,18 @@ def build_connectors(
     return {connector.name: connector for connector in built}
 
 
-def _notifier_for(settings: Settings, audit: Audit, transport: Transport | None) -> PaymentNotifier:
-    """The signed call to the chat host, when the settings name one. `transport` is how it is sent: a
-    service binding in the public deployment, plain fetch to this machine locally."""
-    hook = settings.payment_webhook
-    if hook is None:
-        audit.log("webhook.configured", enabled=False)
-        return NoNotifier()
-    audit.log("webhook.configured", enabled=True, via_binding=hook.binding is not None)
-    return SignedWebhook(hook, transport or WorkerFetch(follow_redirects=False), audit)
-
-
-def _events_for(
-    settings: Settings, db: Db, clock: Clock, audit: Audit, transport: Transport
-) -> tuple[Events, Delivery]:
-    """MCP events: subscriptions and their delivery reach callbacks with no redirect followed; loopback
-    callbacks only where the test routes are on."""
-    events = Events(Subscriptions(db), transport, clock, allow_loopback=settings.enable_test_routes)
-    return events, Delivery(db, transport, clock, audit)
-
-
 def build_app(
     settings: Settings,
     db: Db,
     clock: Clock | None = None,
     audit: Audit | None = None,
     transport: Transport | None = None,
-    webhook_transport: Transport | None = None,
     callback_transport: Transport | None = None,
+    queues: Mapping[str, Any] | None = None,
+    jobs: HeldJobs | None = None,
 ) -> App:
+    """`callback_transport` reaches event subscribers (the chat host through its binding); `queues` are the
+    Worker's Queue bindings, absent where the work runs at once; `jobs` (tests) holds all work until run."""
     clock = clock or SystemClock()
     audit = audit or Audit([print_sink], clock)
     ledger, contexts = build_contexts(settings, db, clock, audit, transport)
@@ -227,6 +207,14 @@ def build_app(
         PaystackSimStore(db),
         contexts,
         build_connectors(settings, contexts, memory_context(settings, contexts, db, clock, audit)),
-        _notifier_for(settings, audit, webhook_transport),
-        *_events_for(settings, db, clock, audit, callback_transport or WorkerFetch(follow_redirects=False)),
+        build_background(
+            settings,
+            db,
+            clock,
+            audit,
+            contexts,
+            callback_transport or WorkerFetch(follow_redirects=False),
+            queues,
+            jobs,
+        ),
     )
