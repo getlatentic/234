@@ -48,5 +48,5 @@
     "LLM_BASE_URL": "http://127.0.0.1:9911/v1",
     "LLM_MODEL": "openai.gpt-oss-120b"
   }
-  // Secrets: DJANGO_SECRET_KEY, OPS_TOKEN, LLM_API_KEY, WEBHOOK_SECRET, A2A_TOKENS (locally dummies in .dev.vars).
+  // Secrets: DJANGO_SECRET_KEY, OPS_TOKEN, LLM_API_KEY, EVENTS_SECRET, A2A_TOKENS (locally dummies in .dev.vars).
 }

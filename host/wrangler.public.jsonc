@@ -61,7 +61,7 @@
     "MODEL_CALLS_PER_DAY": "300",
     "VISITOR_MODEL_CALLS_PER_DAY": "30"
   }
-  // Secrets (docs/deploy.md): DJANGO_SECRET_KEY, OPS_TOKEN, WEBHOOK_SECRET, CHECKOUT_MCP_TOKEN, and the
+  // Secrets (docs/deploy.md): DJANGO_SECRET_KEY, OPS_TOKEN, EVENTS_SECRET, CHECKOUT_MCP_TOKEN, and the
   // model's LLM_BASE_URL, LLM_MODEL and LLM_API_KEY. A2A_TOKENS is not set: no other agent may call.
   // Sign-in with Google (docs/auth.md): tools/deploy.sh puts FIREBASE_PROJECT_ID, FIREBASE_API_KEY and
   // FIREBASE_AUTH_DOMAIN in place of the marked line from .env.auth.local, and generates the secret ACCOUNT_KEY
