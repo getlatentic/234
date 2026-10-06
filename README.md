@@ -69,7 +69,7 @@ deployed by `tools/deploy.sh`.
 
 Nothing secret is in git. Names only:
 
-- Worker secrets: `DJANGO_SECRET_KEY`, `OPS_TOKEN`, `WEBHOOK_SECRET`, `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN`,
+- Worker secrets: `DJANGO_SECRET_KEY`, `OPS_TOKEN`, `EVENTS_SECRET`, `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN`,
   `SANDBOX_SIGNING_KEY` and `SIGNING_KEY`, `APPROVAL_SECRET`, `ACCOUNT_KEY` (only with sign-in), `A2A_TOKENS`
   (optional), and the model's `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`. `tools/deploy.sh` generates the ones it can.
 - Untracked files at the repository root, ignored by git: `.env.local` (keys for real-model and provider test

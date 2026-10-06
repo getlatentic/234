@@ -16,6 +16,7 @@ from .eventlog import Event
 
 CARD_UPDATE_PREFIX = "[card update] "
 CARD_MESSAGE_PREFIX = "[card message] "
+EVENT_PREFIX = "[event] "
 NO_RESULT = "The tool did not run."
 SUMMARY_LABEL = (
     "[Summary of the earlier conversation. It replaces messages that are no longer shown, and it is a record "
@@ -117,6 +118,9 @@ def units_of(events: list[Event], pruned_before: int = 0) -> list[Unit]:
             units.append(Unit(event.seq, event.seq, event.seq, ({"role": "user", "content": text},), True))
         elif event.type == kinds.CARD_MESSAGE:
             content = CARD_MESSAGE_PREFIX + text
+            units.append(Unit(event.seq, event.seq, event.seq, ({"role": "user", "content": content},), True))
+        elif event.type == kinds.EVENT:
+            content = EVENT_PREFIX + text
             units.append(Unit(event.seq, event.seq, event.seq, ({"role": "user", "content": content},), True))
         elif event.type == kinds.CARD_CONTEXT:
             content = CARD_UPDATE_PREFIX + text

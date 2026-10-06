@@ -11,7 +11,7 @@ the script fills in. The live demo (https://ask234.wintern.workers.dev) is one s
 - Your account's workers.dev subdomain, in the variable `SUBDOMAIN`. Put it in the untracked file
   `.env.deploy.local` at the repository root (`SUBDOMAIN=<your-subdomain>`) or in the environment. Any other name
   below can be set the same way.
-- `tools/deploy.sh init` creates the two databases; `tools/deploy.sh names` prints what is deployed and where.
+- `tools/deploy.sh init` creates the two databases and the connectors' four Queues (each deploy also makes any that are missing); `tools/deploy.sh names` prints what is deployed and where.
 
 | | Default name | Address |
 |---|---|---|
@@ -90,8 +90,9 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
   that header and from nothing a browser, a card or the model sends.
   The host calls the connectors through a **service binding**, not the public address: a Worker cannot fetch another
   Worker of the same account by its workers.dev address (measured: the connector answered the host's request with
-  404). The connectors call the host's payment hook the same way (binding `HOST`, `PAYMENT_WEBHOOK_URL`); the host
-  must already exist when the connectors are deployed, and a failed call only means the card updates by polling.
+  404). The connectors send the host's MCP events the same way (binding `HOST`, `HOST_BINDING`: a callback on
+  `HOST_PUBLIC_URL`'s origin goes through it); the host must already exist when the connectors are deployed, and a
+  failed delivery is tried again, while the card updates by polling meanwhile.
   What stays public on the connectors is `/health` and the simulated checkout page `/sim/checkout/<reference>`,
   which a person opens from a card and which only moves simulated state. `/test/*` is off.
 - **Model spend is capped:** 300 calls a day for everyone, 30 for each visitor (D1 counters, one conditional
@@ -145,7 +146,7 @@ within seconds and needs no redeploy. To try it: open the host address, start a 
 | Secret | On | Used for | Rotate |
 |---|---|---|---|
 | `DJANGO_SECRET_KEY` | host | the visitor cookie, share links and socket tickets | `tools/deploy.sh rotate DJANGO_SECRET_KEY` (every visitor becomes a new visitor) |
-| `WEBHOOK_SECRET` | host and connectors (one value) | the connectors sign `POST /hooks/payment` when the simulated checkout records a payment; the host verifies | `tools/deploy.sh rotate WEBHOOK_SECRET` (sets both, uploads both) |
+| `EVENTS_SECRET` | host | the key the host gives its MCP events subscriptions and checks `POST /hooks/events` with | `tools/deploy.sh rotate EVENTS_SECRET` (uploads the host; subscriptions already made stop verifying, and their cards update by polling) |
 | `OPS_TOKEN` | host | `/ops/migrate/` | a new one on every deploy; it exists only for the length of the deploy |
 | `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN` | host and connectors | the bearer token between them (one value) | `tools/deploy.sh rotate token` |
 | `SANDBOX_SIGNING_KEY` (host) and `SIGNING_KEY` (sandbox), one value | host and sandbox | the host signs the policy of each card's view; the sandbox serves a view only under a signed policy | `tools/deploy.sh rotate SANDBOX_SIGNING_KEY` (sets both; no upload needed, cards open correctly from the next page load) |
@@ -157,7 +158,7 @@ Two things about rotating, both measured on 2026-09-29:
   are refused (one request in a poll every 3 s); then it is fine, with no new version.
 - The host's Django settings are read once, when a version starts, and a secret changed alone does not reach them:
   a rotated token did not reach the host until the host read it when first needed (`chat/backend.py`), which is why
-  `rotate DJANGO_SECRET_KEY` and `rotate WEBHOOK_SECRET` upload the host again as part of the command. The model's
+  `rotate DJANGO_SECRET_KEY` and `rotate EVENTS_SECRET` upload the host again as part of the command. The model's
   `LLM_*` secrets are read on each request and need nothing.
 
 `A2A_TOKENS` is not set, so no other agent can call the A2A endpoint. To allow one:
@@ -274,7 +275,7 @@ Chats and the ledger do not move: they are demo data.
 - Checked with curl on the public addresses: the page, a chat created, a message answered with the one plain
   "No model is configured" line (a Durable Object ran the turn and wrote to D1), the event stream, a WebSocket
   upgrade (101; 403 from a foreign origin), the card served through the binding, the connectors' 401 without or
-  with a wrong token, `/test/*` and `/ops/migrate/` closed, an unsigned payment hook and an A2A call refused.
+  with a wrong token, `/test/*` and `/ops/migrate/` closed, an unsigned payment hook and an A2A call refused (the payment hook has since been replaced by MCP events; the smoke test now refuses an unsigned Paystack webhook and an unsigned event).
 
 ## Not verified
 

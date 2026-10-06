@@ -48,6 +48,28 @@ Tests: `host/tests/test_oauth.py` (46 cases, run with SQLite refusing `SELECT �
 
 In Claude or ChatGPT, a card whose quote ends (delivered, declined, failed, expired) sends the outcome as a `ui/message`, so the model answers at once instead of waiting to be asked. It does this only for an ending it saw happen: a press of its own button or a live status read. A reloaded conversation shows each card again from its old result. The card then asks the server once how the quote stands, and posts nothing again. In 234's own chat (host `checkout-host`), the host writes the outcome into the thread itself, so the card only updates the model's context. Checked in `conformance/card-outcome-hosts.mjs`, with hosts built on the official ext-apps `AppBridge`.
 
+## How an ending travels
+
+```
+Paystack / VTpass ──webhook──▶ connectors /hooks/paystack (signature) · /hooks/vtpass (a hint only)
+                                  │ answer at once, queue "check quote X again"       [PROVIDER_JOBS]
+                                  ▼
+                       recheck as the quote's owner: verify / requery with the provider
+                                  │ the quote ends: an UPDATE of its state
+                                  ▼
+                       trigger quote_finished → outbox row per subscription (same statement)
+                                  │ handed on after the request and every minute      [EVENT_JOBS]
+                                  ▼
+                       signed delivery (Standard Webhooks), retried with backoff, then dead-lettered
+                                  ▼
+             234's host /hooks/events · ChatGPT · any client that subscribed
+```
+
+- **A webhook carries no authority.** It names a reference; the quote it belongs to (every reference holds the quote id) is checked again with the provider's own API, only while it is approved and waiting. A forged or repeated webhook costs one such check. Paystack's must carry `x-paystack-signature` (HMAC-SHA512 of the body); VTpass's is unsigned and is answered `{"response": "success"}`, as VTpass asks. The simulated checkout announces a payment by the same signed `charge.success`, so the simulated path is the real one.
+- **The minute** (Cron Trigger) checks every quote approved more than 30 seconds ago again, expires every open quote past its time (a quote also expires when anyone reads it), and hands on due events. A lost webhook, an unread quote and a crashed delivery all end up here.
+- **234's own host is a subscriber like any other.** When a quote's card is recorded it subscribes to that quote's `quote.finished`, as the chat's owner, with `PUBLIC_BASE_URL/hooks/events` and a key derived from `EVENTS_SECRET`. An event refreshes the card and is put to the model as an `event` input, which it answers at once; one delivered again (the same event id) adds nothing. An event for a chat that is gone answers 410, which ends the subscription. Without `EVENTS_SECRET` the host subscribes to nothing and cards update by polling.
+- **Queues**: `PROVIDER_JOBS` and `EVENT_JOBS`, each retried five times and then dead-lettered. Where no queue is bound, the work runs at once; the unit tests hold it until a test runs it, as a Queue would.
+
 ## Events
 
 The four money connectors offer [MCP events](https://developers.openai.com/plugins/build/mcp-events): a client can ask to hear when a quote ends instead of asking again. Memory offers none.

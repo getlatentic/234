@@ -26,6 +26,8 @@ class Settings:
     keep_recent_tokens: int = 6000
     compaction_timeout_seconds: int = 45
     stream_usage: bool = True
+    public_base_url: str = ""
+    events_secret: str = ""
 
     @classmethod
     def from_env(cls, read: Callable[[str], str | None]) -> Settings:
@@ -62,6 +64,8 @@ class Settings:
             keep_recent_tokens=number("KEEP_RECENT_TOKENS", cls.keep_recent_tokens),
             compaction_timeout_seconds=number("COMPACTION_TIMEOUT_SECONDS", cls.compaction_timeout_seconds),
             stream_usage=text("LLM_STREAM_USAGE", "1") != "0",
+            public_base_url=text("PUBLIC_BASE_URL", ""),
+            events_secret=text("EVENTS_SECRET", ""),
         )
 
     @property

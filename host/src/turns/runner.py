@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from . import calls as call_rules
-from . import fold, kinds, messages
+from . import fold, kinds, messages, quote_events
 from .budget import take_model_call
 from .card_calls import card_ref
 from .compaction.compactor import Compactor
@@ -322,6 +322,7 @@ class TurnRunner:
                 "result": outcome.result,
             }
             await self._log.append(kinds.CARD, payload, task=self._task, ref=ref)
+            await quote_events.follow(self._hub, self._settings, outcome, ledger_owner(self._owner))
 
     async def _twin_in_reply(
         self, call: dict[str, Any], reply_calls: list[dict[str, Any]]

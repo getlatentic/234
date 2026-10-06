@@ -218,6 +218,22 @@ class ChatCore:
     async def refresh_card(self, quote_id: str) -> bool:
         return await self._cards.refresh(quote_id)
 
+    async def quote_ended(self, quote_id: str, event_id: str, text: str) -> bool:
+        """A quote.finished event: the card shows the ending, and the model is told and answers. An event
+        delivered again (the same id) adds nothing."""
+        await self._cards.refresh(quote_id)
+        known = await self._db.row(
+            "SELECT seq FROM chat_event WHERE chat_id = ? AND type = ? AND ref = ? LIMIT 1",
+            self.chat_id, kinds.EVENT, event_id,
+        )  # fmt: skip
+        if known is not None:
+            return False
+        events = await self.log.context()
+        task = fold.waiting_task(events) or new_id()
+        await self.log.append(kinds.EVENT, {"text": text}, task=task, ref=event_id)
+        await self.wake()
+        return True
+
     async def attach(self, socket: Any, since: int) -> None:
         await self._fanout.attach(socket, since)
 

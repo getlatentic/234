@@ -101,6 +101,15 @@ class FakeHub:
         self.owners: list[str] = []
         self.keys: list[str] = []
         self.keyed_tools: set[str] = set()
+        self.subscriptions: list[tuple[str, dict, str]] = []
+        self.refuse_subscriptions = False
+
+    async def subscribe(self, server: str, params: dict, owner: str) -> None:
+        from turns.hub import HubError
+
+        if self.refuse_subscriptions:
+            raise HubError("events/subscribe: the callback did not answer")
+        self.subscriptions.append((server, params, owner))
 
     async def model_tools(self):
         return [{"type": "function", "function": {"name": name, "parameters": {}}} for name in self.results]
@@ -174,6 +183,7 @@ class FakeBackend:
         self.answer: dict = {"seq": 1, "task": "t1"}
         self.card_answer: dict = {"result": {"content": [{"type": "text", "text": "ok"}]}}
         self.refreshed: list[tuple] = []
+        self.ended: list[tuple] = []
         self.erased: list[str] = []
         self.cancelled: list[str] = []
         self.cancel_answer: dict = {"cancelled": True}
@@ -210,6 +220,10 @@ class FakeBackend:
     def relay(self, server, body, headers, owner, notes):
         self.relayed.append((server, body, headers, owner, notes))
         return self.relay_answer
+
+    def quote_ended(self, chat_id, quote_id, event_id, text):
+        self.ended.append((chat_id, quote_id, event_id, text))
+        return True
 
     def refresh_card(self, chat_id, quote_id):
         self.refreshed.append((chat_id, quote_id))

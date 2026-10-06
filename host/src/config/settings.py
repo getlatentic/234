@@ -118,7 +118,8 @@ CHECKOUT_MCP_URL = runtime.get("CHECKOUT_MCP_URL", "http://localhost:8787")
 CONNECTORS = runtime.get_list("CONNECTORS", ",".join(TurnSettings.connectors))
 PUBLIC_BASE_URL = runtime.get("PUBLIC_BASE_URL", "http://localhost:8790").rstrip("/")
 OPS_TOKEN = runtime.get("OPS_TOKEN", "")
-WEBHOOK_SECRET = runtime.get("WEBHOOK_SECRET", "")
+# The key the host signs its MCP events subscriptions with (turns/quote_events.py); without it, none is made.
+EVENTS_SECRET = runtime.get("EVENTS_SECRET", "")
 
 # --- The card sandbox (ext-apps "Sandbox proxy"): docs/mcp-apps-compliance.md ------
 

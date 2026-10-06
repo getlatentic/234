@@ -8,7 +8,7 @@
 #   tools/deploy.sh init                  creates the two D1 databases when they do not exist
 #   tools/deploy.sh secret host NAME      sets one of the owner's secrets from stdin (the value is never printed)
 #   tools/deploy.sh rotate NAME           a new value for a secret made here: token (host to connectors, set on both),
-#                                         WEBHOOK_SECRET (connectors to host, set on both), SANDBOX_SIGNING_KEY (host
+#                                         EVENTS_SECRET (the host's events key), SANDBOX_SIGNING_KEY (host
 #                                         and sandbox, set on both), DJANGO_SECRET_KEY or APPROVAL_SECRET
 #   tools/deploy.sh upload host|connectors|sandbox  uploads the committed code again with no checks (a secret the host bakes in
 #                                         at startup takes effect only in a new version: `rotate` does this itself)
@@ -255,21 +255,22 @@ deploy_all() {
   local shared="" ops
   ops=$(openssl rand -hex 32)
   has_secret "$CONNECTORS_WORKER" MCP_ACCESS_TOKEN && has_secret "$HOST_WORKER" CHECKOUT_MCP_TOKEN || shared=$(openssl rand -hex 32)
-  local hook=""  # the payment webhook's secret: one value on both Workers, made again when either lacks it
-  has_secret "$CONNECTORS_WORKER" WEBHOOK_SECRET && has_secret "$HOST_WORKER" WEBHOOK_SECRET || hook=$(openssl rand -hex 32)
+  local events=""  # the key the host signs its MCP events subscriptions with: the host's own, made once
+  has_secret "$HOST_WORKER" EVENTS_SECRET || events=$(openssl rand -hex 32)
   local signing=""  # the key the host signs a view's policy with: one value on the sandbox and the host, made again when either lacks it
   has_secret "$SANDBOX_WORKER" SIGNING_KEY && has_secret "$HOST_WORKER" SANDBOX_SIGNING_KEY || signing=$(openssl rand -hex 32)
   say "deploying $SANDBOX_WORKER (the card sandbox, first: the host's setting names it)"
   { [ -z "$signing" ] || echo "SIGNING_KEY=$signing"; } | deploy_sandbox
   migrate_ledger
+  ensure_queues
   ensure_host_exists
   say "deploying $CONNECTORS_WORKER"
-  { secret_lines "$CONNECTORS_WORKER" APPROVAL_SECRET; [ -z "$shared" ] || echo "MCP_ACCESS_TOKEN=$shared"
-    [ -z "$hook" ] || echo "WEBHOOK_SECRET=$hook"; } | deploy_worker checkout
+  { secret_lines "$CONNECTORS_WORKER" APPROVAL_SECRET; [ -z "$shared" ] || echo "MCP_ACCESS_TOKEN=$shared"; } \
+    | deploy_worker checkout
   say "deploying $HOST_WORKER"
   { secret_lines "$HOST_WORKER" DJANGO_SECRET_KEY; auth_secret_lines; [ -z "$shared" ] || echo "CHECKOUT_MCP_TOKEN=$shared"
     [ -z "$signing" ] || echo "SANDBOX_SIGNING_KEY=$signing"
-    [ -z "$hook" ] || echo "WEBHOOK_SECRET=$hook"; echo "OPS_TOKEN=$ops"; } | deploy_worker host
+    [ -z "$events" ] || echo "EVENTS_SECRET=$events"; echo "OPS_TOKEN=$ops"; } | deploy_worker host
   migrate_host "$ops"
   smoke_test
 }
@@ -350,6 +351,12 @@ smoke_test() {
   check "connectors tools/list without the token" "$(http_status -X POST "$CONNECTORS_URL/paystack-pay/mcp" \
     -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
   check "connectors /test routes are off" "$(http_status "$CONNECTORS_URL/test/summary")" 404
+  check "connectors refuse a Paystack webhook without Paystack's signature" "$(http_status -X POST "$CONNECTORS_URL/hooks/paystack" \
+    -H 'content-type: application/json' -d '{"event":"charge.success","data":{"reference":"x"}}')" 401
+  check "connectors answer a VTpass webhook as VTpass asks" "$(curl -s -m 60 -X POST "$CONNECTORS_URL/hooks/vtpass" \
+    -H 'content-type: application/json' -d '{"type":"transaction-update","data":{}}' || true)" '{"response": "success"}'
+  check "the host refuses an unsigned MCP event" "$(http_status -X POST "$HOST_URL/hooks/events" \
+    -H 'content-type: application/json' -d '{"type":"verification","challenge":"x"}')" 401
   check "host page" "$(http_status "$HOST_URL/")" 200
   smoke_shell
   check "the host's page frames only the sandbox" "$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' | grep -ciE "frame-src $SANDBOX_URL( https://[a-z0-9-]+\\.firebaseapp\\.com)?;" || true)" 1
@@ -370,11 +377,23 @@ smoke_test() {
   [ "$failures" -eq 0 ] || die "$failures smoke checks failed"
 }
 
+# The connectors' Queues (wrangler.public.jsonc): rechecks a provider webhook asks for, and event deliveries,
+# each with a dead-letter queue. Made once; a deploy needs them before the connectors' consumers can bind.
+QUEUES="$CONNECTORS_WORKER-provider-jobs $CONNECTORS_WORKER-provider-jobs-dlq $CONNECTORS_WORKER-event-jobs $CONNECTORS_WORKER-event-jobs-dlq"
+
+ensure_queues() {
+  local queue
+  for queue in $QUEUES; do
+    "$wrangler" queues info "$queue" > /dev/null 2>&1 || filtered "Created|created" "$wrangler" queues create "$queue"
+  done
+}
+
 cmd_init() {
   local name
   for name in "$LEDGER_DB" "$HOST_DB"; do
     if [ -n "$(d1_id "$name")" ]; then echo "$name exists"; else filtered "Success|Created" "$wrangler" d1 create "$name"; fi
   done
+  ensure_queues
 }
 
 cmd_secret() {  # host|connectors NAME: the value comes on stdin, loses one pair of quotes, and is put without being shown
@@ -411,12 +430,11 @@ cmd_rotate() {
     token) printf %s "$value" | put_secret "$CONNECTORS_WORKER" MCP_ACCESS_TOKEN
            printf %s "$value" | put_secret "$HOST_WORKER" CHECKOUT_MCP_TOKEN ;;
     DJANGO_SECRET_KEY) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
-    WEBHOOK_SECRET) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1"
-                    printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload connectors; cmd_upload host ;;
+    EVENTS_SECRET) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     APPROVAL_SECRET) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1" ;;
     SANDBOX_SIGNING_KEY) printf %s "$value" | put_secret "$SANDBOX_WORKER" SIGNING_KEY
                          printf %s "$value" | put_secret "$HOST_WORKER" "$1" ;;
-    *) die "rotate token, DJANGO_SECRET_KEY, WEBHOOK_SECRET, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
+    *) die "rotate token, DJANGO_SECRET_KEY, EVENTS_SECRET, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
   esac
 }
 

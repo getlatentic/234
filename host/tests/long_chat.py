@@ -5,16 +5,12 @@ of compaction and by the real-model probe."""
 
 import asyncio
 import contextlib
-import hashlib
-import hmac
-import json
 from typing import Any
 
 import httpx
 
 from .worker_client import Visitor, finished, ws_events
 
-WEBHOOK_SECRET = "dummy-local-webhook-secret"
 RATE_WAITS = 40
 RATE_WAIT_SECONDS = 3
 SMALL_TALK = (
@@ -114,13 +110,6 @@ class LongChat:
         checkout = approved["structuredContent"]["quote"]["checkoutUrl"]
         async with httpx.AsyncClient() as bank:
             await bank.post(checkout.rstrip("/") + "/pay")
-            body = json.dumps({"quote_id": quote["id"]}).encode()
-            hook = await bank.post(
-                f"{self.v.base}/hooks/payment",
-                content=body,
-                headers={"X-Signature": signature(body)},
-            )
-            assert hook.json() == {"pushed": True}
         await self._until(
             lambda e: e["type"] == "card_state" and e["ref"] == quote["id"] and _phase(e) == "succeeded", 20
         )
@@ -128,10 +117,6 @@ class LongChat:
 
     def compactions(self) -> list[dict[str, Any]]:
         return [e for e in self.events if e["type"] == "compaction"]
-
-
-def signature(body: bytes) -> str:
-    return "sha256=" + hmac.new(WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
 
 
 def _phase(event: dict[str, Any]) -> str:

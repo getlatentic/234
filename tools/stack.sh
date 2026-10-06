@@ -116,6 +116,7 @@ host_vars() {  # port: what every host gets, the runner variants included
     --var "PUBLIC_BASE_URL:http://localhost:$1" --var "MODEL_CALLS_PER_DAY:${CAP:-0}" \
     --var "VISITOR_MODEL_CALLS_PER_DAY:${VISITOR_CAP:-60}" --var "WATCHDOG_SECONDS:${WATCHDOG_SECONDS:-30}" \
     --var "SANDBOX_SIGNING_KEY:$sandbox_key" --var "INLINE_PAYSTACK:${INLINE_PAYSTACK:-1}" \
+    --var "EVENTS_SECRET:dummy-local-events-secret" \
     --var "CONTEXT_WINDOW_TOKENS:${CONTEXT_WINDOW_TOKENS:-32000}" --var "COMPACT_AT:${COMPACT_AT:-0.6}" \
     --var "KEEP_RECENT_TOKENS:${KEEP_RECENT_TOKENS:-6000}" --var "COMPACTION_TIMEOUT_SECONDS:${COMPACTION_TIMEOUT_SECONDS:-45}"
 }

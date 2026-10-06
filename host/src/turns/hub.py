@@ -272,6 +272,10 @@ class Hub:
             raise HubError(f"{name} is not available to cards.")
         return await self._tool_call(server, name, arguments, owner)
 
+    async def subscribe(self, server: str, params: dict[str, Any], owner: str) -> None:
+        """An MCP events subscription made as `owner`, so its events are that owner's quotes only."""
+        await self._server(server).request("events/subscribe", params, _owner_key(owner))
+
     async def relay(
         self, server: str, body: bytes, passed_on: dict[str, str], owner: str, notes: bool
     ) -> httpx.Response:

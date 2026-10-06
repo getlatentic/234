@@ -5,7 +5,7 @@
 // opens the chat on another device, and delete removes it.
 //
 // needs the stack. usage: node conformance/chat-cards.mjs
-import { browser, cardIn, freshLedger, HOST, openHome, pause, say, seen, signedWebhook, startChat, suite, watchErrors } from "./lib.mjs";
+import { browser, cardIn, freshLedger, HOST, openHome, pause, say, seen, signedEvent, startChat, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Chat cards and sharing");
 await freshLedger();
@@ -31,7 +31,7 @@ const checkout = await popup;
 check(await seen(cardTwo.getByRole("button", { name: /Approve/ }).waitFor({ state: "detached", timeout: 8000 })), "the card in the other tab leaves 'awaiting approval' without a reload");
 check(await seen(cardTwo.getByText(/checkout/i).first().waitFor({ timeout: 8000 })), "and shows the checkout state the server holds");
 
-console.log("\na payment on the checkout page reaches the open cards by the connector's webhook");
+console.log("\na payment on the checkout page reaches the open cards by the connector's MCP event");
 const calls = [];
 for (const page of [one, two]) {
   await page.route("**/call", (route) => { calls.push(route.request().url()); return route.abort(); });
@@ -43,13 +43,15 @@ const started = Date.now();
 await checkout.click("button:has-text('Pay with a test card')");
 check(await seen(cardOne.getByText("Payment received").first().waitFor({ timeout: 8000 })), "the card shows the receipt");
 const took = Date.now() - started;
-check(took < 2500, `within ${took} ms of the press, while every relay call from the page is blocked (${calls.length} refused), so nothing was polled: the connector told the host`);
+// Paystack's (simulated) webhook, the connector's recheck and the quote.finished event each go through a local
+// Queue that batches for up to a second, so the press is a few seconds from the card, not a poll away.
+check(took < 6000, `within ${took} ms of the press, while every relay call from the page is blocked (${calls.length} refused), so nothing was polled: the connector's event told the host`);
 check(new URL(checkout.url()).searchParams.get("back") === `/c/${chat}/`, "the checkout was opened with the chat it belongs to, for its way back");
 check(checkout.isClosed() || (await seen(checkout.waitForEvent("close", { timeout: 4000 }))), "the checkout window closed itself after Paid");
 check(await seen(cardTwo.getByText("Payment received").first().waitFor({ timeout: 8000 })), "the other tab's card shows it too");
-check((await signedWebhook("qt-not-a-quote")).status === 200 && (await (await signedWebhook("qt-not-a-quote")).json()).pushed === false, "a webhook for a quote no chat holds pushes nothing");
-const forged = await fetch(`${HOST}/hooks/payment`, { method: "POST", body: JSON.stringify({ quote_id: quote }), headers: { "X-Signature": "sha256=00", "content-type": "application/json" } });
-check(forged.status === 401, "an unsigned or forged webhook is refused");
+check((await signedEvent("qt-not-a-quote")).status === 410, "an ending for a quote no chat holds ends that subscription (410)");
+const forged = await fetch(`${HOST}/hooks/events`, { method: "POST", body: JSON.stringify({ name: "quote.finished", data: { quote_id: quote } }), headers: { "webhook-id": "evt_x", "webhook-timestamp": String(Math.floor(Date.now() / 1000)), "webhook-signature": "v1,AAAA", "content-type": "application/json" } });
+check(forged.status === 401, "an unsigned or forged event is refused");
 
 console.log("\nanother device");
 await one.unroute("**/call");

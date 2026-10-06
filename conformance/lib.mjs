@@ -6,7 +6,7 @@ const port = Number(process.env.PORT_BASE ?? 8900);
 export const HOST = process.env.HOST_URL ?? `http://localhost:${port + 1}`;
 export const CHECKOUT = process.env.CHECKOUT_URL ?? `http://localhost:${port}`;
 export const MODEL = process.env.MODEL_URL ?? `http://127.0.0.1:${port + 2}`;
-export const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "dummy-local-webhook-secret";
+export const EVENTS_SECRET = process.env.EVENTS_SECRET ?? "dummy-local-events-secret";
 
 /**
  * Empties the connectors' ledger through the stack's test route, so a suite that approves payments spends from
@@ -84,11 +84,17 @@ export async function modelRequests() {
   return (await fetch(`${MODEL}/v1/_requests`)).json();
 }
 
-export async function signedWebhook(quoteId) {
+/** A quote.finished MCP event to the host's /hooks/events, signed as the connectors sign it (Standard Webhooks,
+ * with the key the host derives from EVENTS_SECRET: turns/quote_events.py). */
+export async function signedEvent(quoteId, state = "settled") {
   const { createHmac } = await import("node:crypto");
-  const body = JSON.stringify({ quote_id: quoteId });
-  const signature = `sha256=${createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex")}`;
-  return fetch(`${HOST}/hooks/payment`, { method: "POST", body, headers: { "content-type": "application/json", "X-Signature": signature } });
+  const key = createHmac("sha256", EVENTS_SECRET).update("234-mcp-events").digest();
+  const id = `evt_${quoteId}_${state}`;
+  const stamp = Math.floor(Date.now() / 1000);
+  const data = { quote_id: quoteId, connector: "paystack-pay", state, amount_kobo: 250000, description: "Lunch" };
+  const body = JSON.stringify({ eventId: id, name: "quote.finished", timestamp: new Date().toISOString(), data, cursor: null });
+  const signature = `v1,${createHmac("sha256", key).update(`${id}.${stamp}.${body}`).digest("base64")}`;
+  return fetch(`${HOST}/hooks/events`, { method: "POST", body, headers: { "content-type": "application/json", "webhook-id": id, "webhook-timestamp": String(stamp), "webhook-signature": signature } });
 }
 
 /** The colour a design token has right now on the page, as the browser computes it: "rgb(r, g, b)". */

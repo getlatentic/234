@@ -56,6 +56,11 @@ class LocalBackend(WorkerBackend):
 
         return run_sync(self._core(chat_id).refresh_card(quote_id))
 
+    def quote_ended(self, chat_id: str, quote_id: str, event_id: str, text: str) -> bool:
+        from pyodide.ffi import run_sync
+
+        return run_sync(self._core(chat_id).quote_ended(quote_id, event_id, text))
+
     def erase(self, chat_id: str) -> None:
         from pyodide.ffi import run_sync
 

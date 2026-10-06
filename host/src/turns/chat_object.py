@@ -152,6 +152,9 @@ class Chat(DurableObject):
     async def refresh_card(self, chat_id: str, quote_id: str) -> str:
         return json.dumps(await (await self._core_for(chat_id)).refresh_card(quote_id))
 
+    async def quote_ended(self, chat_id: str, quote_id: str, event_id: str, text: str) -> str:
+        return json.dumps(await (await self._core_for(chat_id)).quote_ended(quote_id, event_id, text))
+
     async def purge(self, chat_id: str) -> str:
         await (await self._core_for(chat_id)).purge()
         await self.ctx.storage.deleteAll()

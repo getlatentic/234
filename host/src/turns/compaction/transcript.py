@@ -57,6 +57,8 @@ def lines_of(event: Event) -> list[str]:
             return [f"[Card message]: {text}"]
         case kinds.CARD_CONTEXT:
             return [f"[Card update]: {text}"]
+        case kinds.EVENT:
+            return [f"[Event]: {text}"]
         case kinds.ASSISTANT:
             return _assistant(event)
         case kinds.TOOL:

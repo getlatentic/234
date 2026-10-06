@@ -5,6 +5,7 @@ and the A2A view are folds of it."""
 USER = "user"
 CARD_MESSAGE = "card_message"
 CARD_CONTEXT = "card_context"
+EVENT = "event"
 TURN_STARTED = "turn.started"
 TURN_FINISHED = "turn.finished"
 TURN_RESUMED = "turn.resumed"
@@ -17,8 +18,8 @@ NOTICE = "notice"
 ROUND_ABORTED = "round.aborted"
 COMPACTION = "compaction"
 
-INPUTS = frozenset({USER, CARD_MESSAGE})
-DRIVERS = frozenset({USER, CARD_MESSAGE, ASSISTANT, TOOL})
+INPUTS = frozenset({USER, CARD_MESSAGE, EVENT})
+DRIVERS = frozenset({USER, CARD_MESSAGE, EVENT, ASSISTANT, TOOL})
 
 COMPLETED = "completed"
 INPUT_REQUIRED = "input_required"

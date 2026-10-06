@@ -1,12 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Short-lived signed values that let one request act for another: a WebSocket ticket, a share link and
-the signature on a payment webhook. All are HMACs (Django's signing) with a salt of their own."""
+"""Short-lived signed values that let one request act for another: a WebSocket ticket and a share link.
+Both are HMACs (Django's signing) with a salt of their own."""
 
-import hashlib
-import hmac
 from typing import Any
 
-from django.conf import settings
 from django.core import signing
 
 WS_SALT = "chat.ws"
@@ -43,12 +40,3 @@ def mint_share_token(chat_id: str) -> str:
 def chat_for_share_token(token: str) -> str | None:
     value = _open(SHARE_SALT, token, SHARE_TTL_SECONDS)
     return value["chat"] if value else None
-
-
-def sign_webhook(body: bytes, secret: str | None = None) -> str:
-    key = (secret if secret is not None else settings.WEBHOOK_SECRET).encode()
-    return "sha256=" + hmac.new(key, body, hashlib.sha256).hexdigest()
-
-
-def webhook_is_genuine(body: bytes, header: str) -> bool:
-    return bool(settings.WEBHOOK_SECRET) and hmac.compare_digest(sign_webhook(body), header)

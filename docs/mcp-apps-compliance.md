@@ -95,7 +95,7 @@ Host and sandbox are different origins on different hostnames. On workers.dev th
 |---|---|
 | `ui/notifications/tool-input` | sent once after `initialized` (`{arguments: {}}`: the card's arguments are the model's and are not shown to it) |
 | `ui/notifications/tool-input-partial` | not sent; a card is mounted after the tool has run |
-| `ui/notifications/tool-result` | sent after `tool-input`, for the stored result, later states (this tab, another tab, a payment webhook) and the result of a call |
+| `ui/notifications/tool-result` | sent after `tool-input`, for the stored result, later states (this tab, another tab, a quote.finished event) and the result of a call |
 | `ui/notifications/tool-cancelled` | not sent: a card exists only for a call that returned |
 | `ui/notifications/host-context-changed` | sent for theme, display mode, frame size, orientation, once the card has initialized. The bridge replaces its context on `setHostContext`, so the host always passes the whole context (a change of display mode once dropped `availableDisplayModes`). |
 | `ui/notifications/size-changed` | received; the frame's height follows |

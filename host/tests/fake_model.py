@@ -86,6 +86,23 @@ def summary_answer(messages: list[dict]) -> dict:
     return {"text": scripted_summary.write(messages, mode, attempt), "delay": CONFIG["summary_delay"]}
 
 
+def _told(content: str) -> dict | None:
+    """The answer to what a card or an event tells the model, or None for anything else."""
+    if content.startswith("[card update]"):
+        done = "Payment received" in content
+        return {
+            "text": "Your payment went through. Thank you." if done else "Noted, I will wait for the card."
+        }
+    if content.startswith("[event]"):
+        done = "paid and done" in content
+        return {
+            "text": "It is done: your payment went through."
+            if done
+            else "The quote has ended: " + content[8:]
+        }
+    return None
+
+
 def _answer(messages: list[dict], tools: list[dict]) -> dict:
     last = messages[-1]
     if last["role"] == "tool":
@@ -98,11 +115,8 @@ def _answer(messages: list[dict], tools: list[dict]) -> dict:
     modifier = MODIFIER.match(content) if last["role"] == "user" else None
     how = modifier["how"].lower() if modifier else ""
     content = content[modifier.end() :] if modifier else content
-    if last["role"] == "user" and content.startswith("[card update]"):
-        done = "Payment received" in content
-        return {
-            "text": "Your payment went through. Thank you." if done else "Noted, I will wait for the card."
-        }
+    if last["role"] == "user" and (told := _told(content)):
+        return told
     if last["role"] == "user" and content.startswith(ECHO):
         return {"text": content[len(ECHO) :].strip().replace("\\n", "\n")}
     slow = SLOW.match(content) if last["role"] == "user" else None

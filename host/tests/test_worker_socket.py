@@ -3,17 +3,13 @@
 sleeps while the object hibernates, and a payment webhook pushed to an open card without any polling."""
 
 import asyncio
-import json
 
 import httpx
 import pytest
 
-from chat import tickets
-
 from .worker_client import HOST, Visitor, finished, reset_budget, until, ws_events
 
 pytestmark = pytest.mark.worker
-WEBHOOK_SECRET = "dummy-local-webhook-secret"
 CHECKOUT = "http://localhost:8900"
 
 
@@ -112,15 +108,7 @@ async def test_a_payment_webhook_reaches_a_socket_that_slept_through_the_objects
             await asyncio.sleep(25)  # long enough for the object to be evicted and its socket kept
             async with httpx.AsyncClient() as bank:
                 await bank.post(checkout_url.rstrip("/") + "/pay")
-            body = json.dumps({"quote_id": quote["id"]}).encode()
-            hook = await httpx.AsyncClient().post(
-                f"{HOST}/hooks/payment", content=body, headers={"X-Signature": tickets_sign(body)}
-            )
-            assert hook.json() == {"pushed": True}
-            pushed = await read_until(ws, lambda e: e["type"] == "card_state", timeout=5)
+            # The checkout's signed webhook, the connector's recheck, its quote.finished to /hooks/events.
+            pushed = await read_until(ws, lambda e: e["type"] == "card_state", timeout=15)
         phases = [e["payload"]["result"]["structuredContent"]["quote"]["phase"] for e in pushed]
         assert phases == ["succeeded"]
-
-
-def tickets_sign(body: bytes) -> str:
-    return tickets.sign_webhook(body, WEBHOOK_SECRET)

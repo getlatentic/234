@@ -27,6 +27,8 @@ class Backend(Protocol):
 
     def refresh_card(self, chat_id: str, quote_id: str) -> bool: ...
 
+    def quote_ended(self, chat_id: str, quote_id: str, event_id: str, text: str) -> bool: ...
+
     def erase(self, chat_id: str) -> None: ...
 
     def card_page(self, server: str, uri: str) -> CardPage: ...
@@ -81,6 +83,11 @@ class WorkerBackend:
         from pyodide.ffi import run_sync
 
         return json.loads(run_sync(self._stub(chat_id).refresh_card(chat_id, quote_id)))
+
+    def quote_ended(self, chat_id: str, quote_id: str, event_id: str, text: str) -> bool:
+        from pyodide.ffi import run_sync
+
+        return json.loads(run_sync(self._stub(chat_id).quote_ended(chat_id, quote_id, event_id, text)))
 
     def erase(self, chat_id: str) -> None:
         from pyodide.ffi import run_sync
