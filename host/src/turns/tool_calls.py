@@ -2,8 +2,14 @@
 """One tool call of a model's reply, run and logged: refused when its arguments are not JSON or the turn may
 not make it (permissions.py), answered from the earlier call when it repeats a quote request of the same
 reply, otherwise sent to its connector as the chat's ledger owner with a key derived from the call. A result
-that carries a card is logged as one, and the host follows its quote's events."""
+that carries a card is logged as one, and the host follows its quote's events.
 
+A call is marked `tool.started` before it leaves, and has a deadline. When a call that changes something has
+no answer, because the connector was too slow or the turn was cut off after it left, its outcome is unknown:
+it is not sent again, and the model is told to check before it repeats it. A call that only reads, or that the
+ledger remembers by its key, is safe to send again."""
+
+import asyncio
 from typing import Any
 
 import httpx
@@ -19,6 +25,12 @@ from .settings import Settings
 
 UNREACHABLE = "The connector could not be reached."
 BAD_ARGUMENTS = "The tool arguments were not valid JSON."
+TOO_SLOW = "{tool} did not answer in time."
+UNKNOWN = "{why} Whether it went through is unknown, so do not repeat it before checking: {check}."
+WHY_SLOW = "{tool} did not answer in time."
+WHY_CUT_OFF = "234 was restarted while {tool} was running."
+CHECK_WITH = "call {tools} to see how it stands"
+CHECK_WITH_PERSON = "ask the person to check"
 
 
 class ToolCalls:
@@ -32,7 +44,9 @@ class ToolCalls:
         permits: permissions.Permissions,
         owner: str,
         task: str | None,
+        started: bool = False,
     ) -> None:
+        """`started`: the log already holds this call's `tool.started` (the turn was cut off after it)."""
         arguments = call_rules.arguments_of(call)
         refusal = permits.refusal(call["name"])
         marks: dict[str, Any] = {}
@@ -42,7 +56,11 @@ class ToolCalls:
             outcome, marks = refusal.outcome, permissions.marks(permits, call["name"], refusal)
         elif twin := await self._twin_in_reply(call, reply_calls):
             outcome = await self._repeat_of(call["name"], twin)
+        elif started and not await self._hub.repeatable(call["name"]):
+            outcome = await self._unknown(call["name"], WHY_CUT_OFF)
         else:
+            if not started:
+                await self._started(call["name"], call["id"], task)
             outcome = await self._call(call, arguments, owner)
             marks = permissions.marks(permits, call["name"], None)
         payload = {
@@ -85,11 +103,30 @@ class ToolCalls:
         result = {"isError": first.payload["is_error"], "content": [{"type": "text", "text": text}]}
         return ToolOutcome(server, tool, result, None)
 
+    async def _started(self, name: str, call_id: str, task: str | None) -> None:
+        server, _, tool = name.partition("__")
+        await self._log.append(
+            kinds.TOOL_STARTED, {"call_id": call_id, "server": server, "tool": tool}, task=task
+        )
+
     async def _call(self, call: dict[str, Any], arguments: dict[str, Any], owner: str) -> ToolOutcome:
         ledger = ledger_owner(owner)
         key = derive_key(ledger, self._log.chat_id, call["id"])
+        name = call["name"]
         try:
-            return await self._hub.call_model_tool(call["name"], arguments, ledger, key, is_account(owner))
+            async with asyncio.timeout(self._settings.tool_deadline_seconds):
+                return await self._hub.call_model_tool(name, arguments, ledger, key, is_account(owner))
+        except TimeoutError:
+            if await self._hub.read_only(name):
+                server, _, tool = name.partition("__")
+                return refused(server, tool, TOO_SLOW.format(tool=tool))
+            return await self._unknown(name, WHY_SLOW)
         except HubError, httpx.HTTPError:
-            server, _, tool = call["name"].partition("__")
+            server, _, tool = name.partition("__")
             return refused(server, tool, UNREACHABLE)
+
+    async def _unknown(self, name: str, why: str) -> ToolOutcome:
+        server, _, tool = name.partition("__")
+        status = await self._hub.status_tools(server)
+        check = CHECK_WITH.format(tools=" or ".join(status)) if status else CHECK_WITH_PERSON
+        return refused(server, tool, UNKNOWN.format(why=why.format(tool=tool), check=check))

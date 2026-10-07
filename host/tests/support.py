@@ -103,6 +103,8 @@ class FakeHub:
         self.owners: list[str] = []
         self.keys: list[str] = []
         self.keyed_tools: set[str] = set()
+        self.read_only_tools: set[str] = set()
+        self.delays: dict[str, float] = {}
         self.subscriptions: list[tuple[str, dict, str]] = []
         self.refuse_subscriptions = False
 
@@ -119,6 +121,15 @@ class FakeHub:
     async def keyed(self, qualified: str) -> bool:
         return qualified in self.keyed_tools
 
+    async def read_only(self, qualified: str) -> bool:
+        return qualified in self.read_only_tools
+
+    async def repeatable(self, qualified: str) -> bool:
+        return qualified in self.keyed_tools | self.read_only_tools
+
+    async def status_tools(self, server: str) -> list[str]:
+        return sorted(t for t in self.read_only_tools if t.startswith(f"{server}__"))
+
     async def call_model_tool(
         self, qualified: str, arguments: dict, owner: str, key: str, account: bool = False
     ):
@@ -127,6 +138,10 @@ class FakeHub:
         self.calls.append((qualified, arguments))
         self.owners.append(owner)
         self.keys.append(key)
+        if qualified in self.delays:
+            import asyncio
+
+            await asyncio.sleep(self.delays[qualified])
         result = self.results[qualified]
         if isinstance(result, Exception):
             raise result
@@ -169,12 +184,19 @@ class FakeSockets:
 class FakeAlarms:
     def __init__(self) -> None:
         self.at: int | None = None
+        self.seen: int | None = None
+        self.strikes = 0
 
     async def arm(self, at_ms: int) -> None:
         self.at = at_ms
 
     async def disarm(self) -> None:
         self.at = None
+
+    async def unchanged(self, last_seq: int) -> int:
+        self.strikes = self.strikes + 1 if self.seen == last_seq else 0
+        self.seen = last_seq
+        return self.strikes
 
 
 class FakeBackend:

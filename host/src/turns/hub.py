@@ -42,6 +42,10 @@ def takes_key(tool: dict[str, Any]) -> bool:
     return KEY_FIELD in tool.get("inputSchema", {}).get("properties", {})
 
 
+def read_only(tool: dict[str, Any]) -> bool:
+    return (tool.get("annotations") or {}).get("readOnlyHint") is True
+
+
 def model_schema(tool: dict[str, Any]) -> dict[str, Any]:
     """The schema the model is shown: the connector's, without `$schema`, without the idempotency key (the
     host supplies it, see idempotency.py) and without a property the connector marks `x-model-hidden`; a
@@ -271,6 +275,32 @@ class Hub:
             return takes_key(await self._find(server, name))
         except HubError:
             return False
+
+    async def repeatable(self, qualified: str) -> bool:
+        """Whether running it again does no harm: it only reads, or the ledger remembers it by its key."""
+        server, _, name = qualified.partition(SEPARATOR)
+        try:
+            tool = await self._find(server, name)
+        except HubError:
+            return False
+        return takes_key(tool) or read_only(tool)
+
+    async def read_only(self, qualified: str) -> bool:
+        server, _, name = qualified.partition(SEPARATOR)
+        try:
+            return read_only(await self._find(server, name))
+        except HubError:
+            return False
+
+    async def status_tools(self, server: str) -> list[str]:
+        """The tools of `server` the model may call to see how things stand: model-visible, read-only."""
+        try:
+            listed = await self.tools(server)
+        except HubError, httpx.HTTPError:
+            return []
+        return [
+            f"{server}{SEPARATOR}{t['name']}" for t in listed if "model" in visibility_of(t) and read_only(t)
+        ]
 
     async def call_model_tool(
         self, qualified: str, arguments: dict[str, Any], owner: str, key: str, account: bool = False

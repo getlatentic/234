@@ -165,6 +165,22 @@ async def test_a_cards_call_reaches_the_connector_and_a_changed_quote_is_pushed_
     assert len([e for e in await c.core.log.read() if e.type == kinds.CARD_STATE]) == 1
 
 
+async def test_a_card_call_the_person_makes_has_no_tool_deadline(core):
+    hub = FakeHub({MAKE: quote_result()})
+
+    async def call_app_tool(server, name, arguments, owner):
+        await asyncio.sleep(0.05)
+        return quote_result("awaiting_checkout", token=None)
+
+    async def tools(server):
+        return LISTING[server]
+
+    hub.call_app_tool, hub.tools = call_app_tool, tools
+    c = await card_chat(lambda model, hub: core(model, hub, tool_deadline_seconds=0.01), hub)
+    result = await c.core.card_call("s", "approve_quote", {"quote_id": "qt-1"})
+    assert result["structuredContent"]["quote"]["phase"] == "awaiting_checkout"
+
+
 async def test_a_card_can_only_act_on_a_quote_of_this_chat_and_the_server_that_made_it(core):
     c = await card_chat(core)
     with pytest.raises(HubError, match="no card"):
@@ -244,21 +260,6 @@ async def test_the_watchdog_leaves_an_idle_chat_alone_and_only_rearms_a_live_loo
     before = len(await c.types())
     await c.core.on_alarm()
     assert len(await c.types()) == before
-
-
-async def test_a_turn_that_keeps_being_interrupted_is_given_up(core):
-    c = core(ScriptedModel(), max_resumes=1)
-    await interrupt_after_streaming(c, None)
-    await c.core.log.append(kinds.TURN_RESUMED, {"task": "t1"}, task="t1")
-    await c.core.on_alarm()
-    await c.settle()
-    finished = [e for e in await c.core.log.read() if e.type == kinds.TURN_FINISHED]
-    assert finished[0].payload["reason"] == kinds.FAILED
-    assert (
-        c.core.log
-        and "interrupted"
-        in next(e for e in await c.core.log.read() if e.type == kinds.NOTICE).payload["text"]
-    )
 
 
 async def test_purge_erases_the_log_and_stops_the_turn(core):

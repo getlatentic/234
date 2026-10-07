@@ -20,7 +20,14 @@ class Settings:
     visitor_model_calls_per_day: int = 0
     flush_seconds: float = 0.15
     watchdog_seconds: int = 30
-    max_resumes: int = 2
+    max_idle_resumes: int = 3
+    """Resumes in a row that a turn may take without a reply or a tool result in between."""
+    resume_window_seconds: int = 30
+    """Resumes this close together count as one."""
+    no_progress_seconds: int = 300
+    max_alarm_strikes: int = 3
+    """Watchdog alarms in a row that find the log unchanged and no loop running, before the alarm stops."""
+    tool_deadline_seconds: float = 45
     context_window_tokens: int = 32000
     compact_at: float = 0.6
     keep_recent_tokens: int = 6000
@@ -57,6 +64,7 @@ class Settings:
             reasoning_effort=text("LLM_REASONING_EFFORT", cls.reasoning_effort),
             llm_timeout_seconds=number("LLM_TIMEOUT_SECONDS", cls.llm_timeout_seconds),
             round_deadline_seconds=number("LLM_ROUND_DEADLINE_SECONDS", cls.round_deadline_seconds),
+            tool_deadline_seconds=fraction("TOOL_DEADLINE_SECONDS", cls.tool_deadline_seconds),
             max_tool_rounds=number("MAX_TOOL_ROUNDS", cls.max_tool_rounds),
             model_calls_per_day=number("MODEL_CALLS_PER_DAY", 0),
             visitor_model_calls_per_day=number("VISITOR_MODEL_CALLS_PER_DAY", 0),

@@ -47,6 +47,9 @@ class NoAlarms:
     async def disarm(self) -> None:
         return None
 
+    async def unchanged(self, last_seq: int) -> int:
+        return 0
+
 
 def local_core(env: Any, chat_id: str, starter: Starter | None = None) -> ChatCore:
     return build_core(env, chat_id, NoSockets(), NoAlarms(), starter)

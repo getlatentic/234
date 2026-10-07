@@ -74,6 +74,13 @@ class StorageAlarms:
     async def disarm(self) -> None:
         await self._storage.deleteAlarm()
 
+    async def unchanged(self, last_seq: int) -> int:
+        seen = await self._storage.get("alarm_seen")
+        strikes = int(await self._storage.get("alarm_strikes") or 0) + 1 if seen == last_seq else 0
+        await self._storage.put("alarm_seen", last_seq)
+        await self._storage.put("alarm_strikes", strikes)
+        return strikes
+
 
 class Chat(DurableObject):
     def __init__(self, ctx: Any, env: Any) -> None:

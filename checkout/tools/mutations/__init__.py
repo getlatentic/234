@@ -31,6 +31,7 @@ from tools.mutations import (
     sandbox_rules,
     token_rules,
     transfer_and_food,
+    turn_resilience_rules,
     vtpass_number_rules,
 )
 from tools.mutations.model import Mutation
@@ -58,6 +59,7 @@ MUTATIONS: list[Mutation] = [
     *provider_hook_rules.MUTATIONS,
     *quote_event_host_rules.MUTATIONS,
     *pact_rules.MUTATIONS,
+    *turn_resilience_rules.MUTATIONS,
     *connected_rules.MUTATIONS,
     *reach_rules.MUTATIONS,
 ]

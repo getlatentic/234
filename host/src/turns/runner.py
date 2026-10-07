@@ -108,10 +108,12 @@ class TurnRunner:
                     await self._model_round(events)
                 case fold.ToolRound(assistant, calls):
                     assert turn is not None
+                    started = {e.payload["call_id"] for e in events if e.type == kinds.TOOL_STARTED}
                     for call in calls:
                         await self._tools.run(
-                            call, assistant.payload["tool_calls"], self._permits, self._owner, self._task
-                        )
+                            call, assistant.payload["tool_calls"], self._permits, self._owner, self._task,
+                            started=call["id"] in started,
+                        )  # fmt: skip
 
     async def _start(self, driver: Event) -> Event:
         self._task = driver.task or self._ids()
@@ -123,20 +125,38 @@ class TurnRunner:
         return sum(1 for e in events if e.type == kinds.ASSISTANT and e.task == self._task)
 
     async def _resume(self) -> bool:
-        """False when the turn has failed too often to try again; otherwise it is marked resumed."""
+        """False when the turn has stopped getting anywhere; otherwise it is marked resumed."""
         events = await self._log.context()
         turn = fold.open_turn(events)
         if turn is None:
             return not isinstance(fold.next_action(events), fold.Idle)
         self._task = turn.payload["task"]
-        resumes = sum(1 for e in events if e.type == kinds.TURN_RESUMED and e.task == self._task)
-        if resumes >= self._settings.max_resumes:
+        if cause := self._stalled(events, turn):
             await self._log.append(kinds.NOTICE, {"level": "error", "text": INTERRUPTED}, task=self._task)
-            await self._close(events, turn, kinds.FAILED)
+            await self._stop_calls(INTERRUPTED)
+            upto = await self._log.last_seq()
+            await self._close(await self._log.context(), turn, kinds.FAILED, cause=cause, upto=upto)
             return False
         await self._abort_open_messages(turn)
         await self._log.append(kinds.TURN_RESUMED, {"task": self._task}, task=self._task)
         return True
+
+    def _stalled(self, events: list[Event], turn: Event) -> str | None:
+        """Why the turn is given up, or None. Progress is a reply or a tool result; resumes count from the
+        last of them, and resumes closer together than the window count once."""
+        mine = [e for e in events if e.task == self._task and e.seq >= turn.seq]
+        progress = max(
+            (e for e in mine if e.type in (kinds.ASSISTANT, kinds.TOOL)), key=lambda e: e.seq, default=turn
+        )
+        counted, last_at = 0, None
+        for resumed in (e for e in mine if e.type == kinds.TURN_RESUMED and e.seq > progress.seq):
+            if last_at is None or resumed.at - last_at >= self._settings.resume_window_seconds * 1000:
+                counted, last_at = counted + 1, resumed.at
+        if counted >= self._settings.max_idle_resumes:
+            return kinds.RESUMES_EXHAUSTED
+        if self._clock() - progress.at > self._settings.no_progress_seconds * 1000:
+            return kinds.NO_PROGRESS
+        return None
 
     async def _abort_open_messages(self, turn: Event) -> None:
         since = await self._log.read(after=turn.seq, limit=5000)
@@ -337,7 +357,7 @@ class TurnRunner:
             turn = await self._start(driver)
         self._task = turn.payload["task"]
         await self._settle_round(turn)
-        await self._stop_calls()
+        await self._stop_calls(STOPPED_TOOL)
         await self._close(await self._log.context(), turn, kinds.CANCELLED, upto=upto)
         return True
 
@@ -350,7 +370,8 @@ class TurnRunner:
         if stopped.message not in answered:
             await self._reply(stopped.message, stopped.streamed.text, [], STOPPED_REPLY, stopped.upto)
 
-    async def _stop_calls(self) -> None:
+    async def _stop_calls(self, why: str) -> None:
+        """Gives every call that has no result one that says it was stopped, and why."""
         while isinstance(action := fold.next_action(await self._log.context()), fold.ToolRound):
             for call in action.calls:
                 server, _, tool = call["name"].partition("__")
@@ -359,7 +380,7 @@ class TurnRunner:
                     "server": server,
                     "tool": tool,
                     "arguments": call_rules.arguments_of(call) or {},
-                    "result_text": STOPPED_TOOL,
+                    "result_text": why,
                     "is_error": True,
                     "cancelled": True,
                 }

@@ -80,7 +80,8 @@ async def test_a_tool_call_makes_a_card_and_the_turn_waits_for_the_person(rig):
     await r.say("pay 1")
     await r.runner.run()
     assert await r.types() == [
-        "user", "turn.started", "assistant", "tool", "card", "text", "assistant", "turn.finished",
+        "user", "turn.started", "assistant", "tool.started", "tool", "card", "text", "assistant",
+        "turn.finished",
     ]  # fmt: skip
     card = (await r.of("card"))[0]
     assert card.ref == "qt-1" and card.payload["result"]["_meta"]["approvalToken"] == "tok-secret"

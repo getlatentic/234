@@ -34,6 +34,11 @@ class Alarms(Protocol):
 
     async def disarm(self) -> None: ...
 
+    async def unchanged(self, last_seq: int) -> int:
+        """Records the log's end at this alarm; how many alarms in a row, this one included, found it
+        unchanged since the one before (0 when it moved)."""
+        ...
+
 
 class ChatCore:
     def __init__(
@@ -205,11 +210,18 @@ class ChatCore:
         return self._driver is not None and not self._driver.done()
 
     async def on_alarm(self) -> None:
-        """The watchdog. While the loop lives it only rearms; a loop that is gone is started again."""
+        """The watchdog. While the loop lives it only rearms; a loop that is gone is started again. An alarm
+        that keeps finding the log where the last one left it, with no loop running (a recovery that fails
+        or raises each time), stops after a few, so it does not fire forever."""
         if self.running:
             await self._alarms.arm(self._clock() + self._settings.watchdog_seconds * 1000)
-        else:
-            await self.recover()
+            return
+        if await self._alarms.unchanged(await self.log.last_seq()) >= self._settings.max_alarm_strikes:
+            log.error("The watchdog of chat %s found nothing changed %s times; it stops", self.chat_id,
+                      self._settings.max_alarm_strikes)  # fmt: skip
+            await self._alarms.disarm()
+            return
+        await self.recover()
 
     async def recover(self) -> None:
         """Continues a turn the previous instance of this object left half-done (it was restarted mid-turn):
