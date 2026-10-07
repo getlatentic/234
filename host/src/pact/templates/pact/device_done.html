@@ -1,0 +1,12 @@
+{% extends "chat/base.html" %}
+{% load static %}
+{% block title %}{% if outcome == "approved" %}Agent connected{% elif outcome == "denied" %}Not allowed{% else %}Code expired{% endif %}{% endblock %}
+{% block content %}
+<main class="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-4 py-10" data-slot="device-done" data-outcome="{{ outcome }}">
+  <img src="{% static 'chat/brand/icon.svg' %}" alt="{{ product_name }}" width="48" height="48" class="size-12 rounded-xl">
+  <div class="flex flex-col gap-2">
+    <h1 class="m-0 text-balance text-2xl font-semibold text-ink" data-slot="title">{% if outcome == "approved" %}Done. Go back to your agent.{% elif outcome == "denied" %}Nothing was allowed.{% else %}That code has expired.{% endif %}</h1>
+    {% if outcome == "expired" %}<p class="m-0 text-base text-ink-2">Ask your agent for a new one.</p>{% endif %}
+  </div>
+</main>
+{% endblock %}

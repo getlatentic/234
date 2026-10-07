@@ -8,13 +8,11 @@ import time
 
 import pytest
 
-from chat.models import Chat, Event
-from pact import agents, brands
+from chat.models import Chat
 from pact.identity import Caller
 from pact.models import Context
-from turns import kinds
 
-from .pact_support import AUDIENCE, ISSUER, Agent
+from .pact_support import ISSUER, Agent, call, envelope, message, pact_installed
 
 pytestmark = pytest.mark.django_db
 BRANDS = json.dumps({
@@ -30,69 +28,8 @@ def agent():
 
 @pytest.fixture(autouse=True)
 def pact_on(settings, monkeypatch, agent, backend):
-    settings.PACT_AUDIENCE = AUDIENCE
-    settings.PACT_BRANDS = BRANDS
-    settings.PACT_AGENTS = json.dumps([
-        {"issuer": ISSUER, "jwks_uri": "https://pa.example/jwks.json"},
-        {"issuer": f"{ISSUER}/disabled-pa", "jwks_uri": "https://pa.example/jwks.json", "enabled": False},
-    ])  # fmt: skip
-    for cached in (agents.registry, agents.keys_of, brands.brands):
-        cached.cache_clear()
-    monkeypatch.setattr(
-        "pact.agents.fetch", lambda url: (200, {"cache-control": "max-age=600"}, agent.jwks())
-    )
-
-    def submit(chat_id, kind, text, task=None):
-        task = f"t{Event.objects.filter(chat_id=chat_id).count()}"
-        seq = Event.objects.filter(chat_id=chat_id).count()
-        for offset, (kind_, payload) in enumerate([
-            (kinds.USER, {"text": text}),
-            (kinds.TURN_STARTED, {"task": task}),
-            (kinds.ASSISTANT, {"message": f"m{seq}", "text": f"You said: {text}"}),
-            (kinds.TURN_FINISHED, {"task": task, "reason": kinds.COMPLETED}),
-        ]):  # fmt: skip
-            Event.objects.create(
-                chat_id=chat_id, seq=seq + offset + 1, type=kind_, task=task, payload=payload, created_at=0
-            )
-        backend.submitted.append((chat_id, kind, text, task))
-        return {"seq": seq + 1, "task": task}
-
-    backend.submit = submit
-    yield
-    for cached in (agents.registry, agents.keys_of, brands.brands):
-        cached.cache_clear()
-
-
-def call(client, agent, route, method="POST", body=None, token="default", brand="234", **headers):
-    if token == "default":
-        token = agent.token()
-    if token:
-        headers["HTTP_AUTHORIZATION"] = f"Bearer {token}"
-    data = body if isinstance(body, str) else json.dumps(body) if body is not None else ""
-    return client.generic(method, f"/a2a/{brand}/{route}", data, content_type="application/json", **headers)
-
-
-def message(text="hi", **fields):
-    return {
-        "message": {
-            "messageId": fields.pop("messageId", f"m-{time.time_ns()}"),
-            "role": "ROLE_USER",
-            "parts": [{"text": text}],
-            **fields,
-        }
-    }
-
-
-def envelope(answer, http, status, reason):
-    body = answer.json()
-    assert answer.status_code == http and answer["Content-Type"] == "application/a2a+json"
-    assert body["error"]["code"] == http and body["error"]["status"] == status
-    assert body["error"]["details"][0] == {
-        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
-        "reason": reason,
-        "domain": "a2a-protocol.org",
-    }
-    return body["error"]["message"]
+    with pact_installed(settings, monkeypatch, agent, backend, BRANDS):
+        yield
 
 
 def test_the_card_names_the_interface_and_the_personal_agent_jwt(client):

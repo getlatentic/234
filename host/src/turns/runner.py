@@ -16,20 +16,18 @@ from typing import Any
 import httpx
 
 from . import calls as call_rules
-from . import fold, kinds, messages, quote_events, scope
+from . import fold, kinds, messages, permissions, scope
 from .budget import take_model_call
-from .card_calls import card_ref
 from .compaction.compactor import Compactor
 from .db import Db
 from .eventlog import Event, EventLog
-from .hub import Hub, HubError, ToolOutcome, refused
-from .idempotency import derive_key
-from .ledger_owner import is_account, ledger_owner
-from .memory import NOT_AN_ACCOUNT, is_memory_tool, notes_message, offered, read_index, with_notes
+from .hub import Hub, HubError
+from .memory import notes_message, read_index, with_notes
 from .model import ContextTooLong, Finished, Model, ModelError, TextDelta
 from .prompt import system_prompt
 from .settings import Settings
 from .tokens import request_tokens
+from .tool_calls import UNREACHABLE, ToolCalls
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +38,6 @@ BUDGET_NOTICES = {
 TOO_SLOW = "The model took too long to answer."
 LENGTH_NOTICE = "The model ran out of room before it finished its reply."
 ROUNDS_NOTICE = "The assistant stopped after too many tool calls in one turn."
-UNREACHABLE = "The connector could not be reached."
-BAD_ARGUMENTS = "The tool arguments were not valid JSON."
 INTERRUPTED = "The assistant was interrupted and could not continue."
 STOPPED_TOOL = "Stopped by the person before it finished."
 FAILED_REPLIES = ("error", "budget")
@@ -84,9 +80,11 @@ class TurnRunner:
         self._log, self._db, self._model, self._hub = log, db, model, hub
         self._settings, self._owner, self._clock, self._ids = settings, owner, clock, ids
         self._servers = servers
+        self._permits = permissions.Permissions(owner, servers)
         self._task: str | None = None
         self._round: _Round | None = None
         self._compactor = Compactor(log, model, settings, clock, self._permit_model_call)
+        self._tools = ToolCalls(log, hub, settings)
 
     async def run(self, resumed: bool = False) -> None:
         """Runs until the log has nothing left for the runner to do."""
@@ -96,6 +94,7 @@ class TurnRunner:
             events = await self._log.context()
             turn = fold.open_turn(events)
             self._task = turn.payload["task"] if turn else None
+            self._permits = permissions.of(self._owner, self._servers, events)
             match fold.next_action(events):
                 case fold.Idle():
                     if turn:
@@ -110,7 +109,9 @@ class TurnRunner:
                 case fold.ToolRound(assistant, calls):
                     assert turn is not None
                     for call in calls:
-                        await self._run_tool(call, assistant.payload["tool_calls"])
+                        await self._tools.run(
+                            call, assistant.payload["tool_calls"], self._permits, self._owner, self._task
+                        )
 
     async def _start(self, driver: Event) -> Event:
         self._task = driver.task or self._ids()
@@ -162,9 +163,12 @@ class TurnRunner:
             return
         streamed = _Streamed()
         try:
-            system = system_prompt(self._servers or self._settings.connectors, memory=is_account(self._owner))
-            tools = scope.within(offered(await self._hub.model_tools(), self._owner), self._servers)
-            index = await read_index(self._hub, self._owner)
+            permits = self._permits
+            system = system_prompt(
+                self._servers or self._settings.connectors, permits.reads_notes, permits.memory_tools
+            )
+            tools = permits.tools(await self._hub.model_tools())
+            index = await read_index(self._hub, self._owner) if permits.reads_notes else ""
             head = with_notes(system, index)
             notes = notes_message(index) if index else None
             events = await self._compacted(events, head, tools)
@@ -295,67 +299,6 @@ class TurnRunner:
         await self._log.append(kinds.ASSISTANT, payload, task=self._task)
         if self._round and self._round.message == message:
             self._round = None
-
-    async def _run_tool(self, call: dict[str, Any], reply_calls: list[dict[str, Any]]) -> None:
-        arguments = call_rules.arguments_of(call)
-        if arguments is None:
-            outcome = refused("", call["name"], BAD_ARGUMENTS)
-        elif twin := await self._twin_in_reply(call, reply_calls):
-            outcome = await self._repeat_of(call["name"], twin)
-        else:
-            outcome = await self._call(call, arguments)
-        await self._log.append(
-            kinds.TOOL,
-            {
-                "call_id": call["id"],
-                "server": outcome.server,
-                "tool": outcome.tool,
-                "arguments": arguments or {},
-                "result_text": outcome.text,
-                "is_error": outcome.is_error,
-            },
-            task=self._task,
-        )
-        ref = card_ref(outcome.result)
-        if outcome.card_uri and not outcome.is_error and ref:
-            payload = {
-                "server": outcome.server,
-                "tool": outcome.tool,
-                "resource_uri": outcome.card_uri,
-                "result": outcome.result,
-            }
-            await self._log.append(kinds.CARD, payload, task=self._task, ref=ref)
-            await quote_events.follow(self._hub, self._settings, outcome, ledger_owner(self._owner))
-
-    async def _twin_in_reply(
-        self, call: dict[str, Any], reply_calls: list[dict[str, Any]]
-    ) -> dict[str, Any] | None:
-        """The earlier call of this reply that made the same quote request, when this one repeats it."""
-        twin = call_rules.earlier_twin(reply_calls, call)
-        return twin if twin and await self._hub.keyed(call["name"]) else None
-
-    async def _repeat_of(self, name: str, twin: dict[str, Any]) -> ToolOutcome:
-        events = await self._log.context()
-        first = next(e for e in events if e.type == kinds.TOOL and e.payload["call_id"] == twin["id"])
-        server, _, tool = name.partition("__")
-        text = call_rules.REPEATED + first.payload["result_text"]
-        result = {"isError": first.payload["is_error"], "content": [{"type": "text", "text": text}]}
-        return ToolOutcome(server, tool, result, None)
-
-    async def _call(self, call: dict[str, Any], arguments: dict[str, Any]) -> ToolOutcome:
-        if not scope.allows(call["name"], self._servers):
-            server, _, tool = call["name"].partition("__")
-            return refused(server, tool, scope.OUTSIDE)
-        if is_memory_tool(call["name"]) and not is_account(self._owner):
-            server, _, tool = call["name"].partition("__")
-            return refused(server, tool, NOT_AN_ACCOUNT)
-        owner = ledger_owner(self._owner)
-        key = derive_key(owner, self._log.chat_id, call["id"])
-        try:
-            return await self._hub.call_model_tool(call["name"], arguments, owner, key)
-        except HubError, httpx.HTTPError:
-            server, _, tool = call["name"].partition("__")
-            return refused(server, tool, UNREACHABLE)
 
     async def _stop_at_limit(self, events: list[Event], turn: Event) -> None:
         await self._log.append(kinds.NOTICE, {"level": "info", "text": ROUNDS_NOTICE}, task=self._task)

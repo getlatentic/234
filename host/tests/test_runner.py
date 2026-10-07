@@ -9,8 +9,9 @@ from turns.budget import GLOBAL_SCOPE, day_of
 from turns.eventlog import EventLog
 from turns.hub import HubError
 from turns.model import ModelError
-from turns.runner import BAD_ARGUMENTS, UNREACHABLE, TurnRunner
+from turns.runner import TurnRunner
 from turns.settings import Settings
+from turns.tool_calls import BAD_ARGUMENTS, UNREACHABLE
 
 from .support import FakeHub, ScriptedModel, quote_result, tool_call
 

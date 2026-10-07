@@ -12,7 +12,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
-from . import fold, kinds, scope
+from . import fold, kinds, permissions, scope
 from .card_calls import CardCalls
 from .db import Db
 from .eventlog import Event, EventLog
@@ -79,8 +79,11 @@ class ChatCore:
     async def _has_memory(self) -> bool:
         return is_account(await self._owner_of_chat())
 
-    async def submit(self, kind: str, text: str, task: str | None = None) -> dict[str, Any]:
-        """Records what the person (or a card, or an A2A caller) said and makes sure a turn answers it."""
+    async def submit(
+        self, kind: str, text: str, task: str | None = None, scopes: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Records what the person (or a card, or an A2A caller) said and makes sure a turn answers it.
+        `scopes`: what a personal agent's message may do as the person's account (turns/permissions.py)."""
         try:
             text = clean_text(text)
         except InputRefused as refused:
@@ -91,7 +94,8 @@ class ChatCore:
             fold.waiting_task(events) if kind == kinds.CARD_MESSAGE else None
         )
         task = task or continuing or new_id()
-        event = await self.log.append(kind, {"text": text}, task=task)
+        payload = {"text": text} if scopes is None else {"text": text, permissions.SCOPES_FIELD: scopes}
+        event = await self.log.append(kind, payload, task=task)
         await self.wake()
         return {"seq": event.seq, "task": task}
 

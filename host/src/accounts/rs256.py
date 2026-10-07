@@ -29,6 +29,10 @@ def verify(message: bytes, signature: bytes, modulus: int, exponent: int) -> boo
     if number >= modulus:
         return False
     block = pow(number, exponent, modulus).to_bytes(size, "big")
+    return hmac.compare_digest(block, padded(message, size))
+
+
+def padded(message: bytes, size: int) -> bytes:
+    """EMSA-PKCS1-v1_5 of the message's SHA-256 digest, `size` bytes long (RFC 8017 §9.2)."""
     tail = SHA256_DIGEST_INFO + hashlib.sha256(message).digest()
-    expected = b"\x00\x01" + b"\xff" * (size - len(tail) - 3) + b"\x00" + tail
-    return hmac.compare_digest(block, expected)
+    return b"\x00\x01" + b"\xff" * (size - len(tail) - 3) + b"\x00" + tail

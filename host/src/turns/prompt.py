@@ -53,13 +53,28 @@ MEMORY = (
 )
 
 
-def system_prompt(connectors: tuple[str, ...], memory: bool = False) -> str:
-    """`memory`: the person is signed in, so the prompt says how to use their notes."""
+MEMORY_BY_PERMISSION = (
+    "This person's saved notes (recipients, preferences, facts) need their permission first. When a request "
+    "needs one, call recall, or remember to save one: if they have not allowed it, the tool says so and they "
+    "are asked. Then say in one sentence what you need it for."
+)
+
+
+def system_prompt(
+    connectors: tuple[str, ...], memory: bool = False, memory_by_permission: bool = False
+) -> str:
+    """`memory`: the person is signed in, so the prompt says how to use their notes. `memory_by_permission`:
+    the memory tools are offered but the notes are not shown, because a personal agent has not been allowed
+    to read them (turns/permissions.py)."""
     offered = [CAPABILITIES[name] for name in connectors if name in CAPABILITIES]
     can = ", ".join(c.does for c in offered)
     needs = "; ".join(c.needs for c in offered)
     base = _base(can, needs)
-    return f"{base} {MEMORY}" if memory and "memory" in connectors else base
+    if "memory" not in connectors:
+        return base
+    if memory:
+        return f"{base} {MEMORY}"
+    return f"{base} {MEMORY_BY_PERMISSION}" if memory_by_permission else base
 
 
 def _base(can: str, needs: str) -> str:

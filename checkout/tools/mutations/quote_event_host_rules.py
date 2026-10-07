@@ -28,8 +28,8 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "a quote card is followed as the chat's own ledger owner",
-        "turns/runner.py",
-        "await quote_events.follow(self._hub, self._settings, outcome, ledger_owner(self._owner))",
+        "turns/tool_calls.py",
+        "await quote_events.follow(self._hub, self._settings, outcome, ledger_owner(owner))",
         'await quote_events.follow(self._hub, self._settings, outcome, "0" * 32)',
         FOLLOW,
     ),

@@ -108,12 +108,14 @@ done
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8960 ENGINE=webkit node "$root/conformance/sandbox-proxy.mjs"
 PORT_BASE=8960 "$root/tools/down.sh" quiet
 
-echo "== stack with sign-in against the Firebase Auth emulator on ports 8980-8999: what 234 remembers"
-PORT_BASE=8980 AUTH=1 VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the sign-in stack did not come up"; exit 1; }
+echo "== stack with sign-in against the Firebase Auth emulator on ports 8980-8999: what 234 remembers, PACT Delegated"
+PORT_BASE=8980 AUTH=1 PACT=1 VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the sign-in stack did not come up"; exit 1; }
+limit 900 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-auth.mjs"
 limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-memory.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-shell.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-sidebar.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/mcp-oauth.mjs"
+limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/pact-delegated.mjs"
 inside host 300 env AUTH=1 CHECKOUT_URL=http://localhost:8980 HOST_URL=http://localhost:8981 MODEL_URL=http://127.0.0.1:8982 \
   uv run pytest -m worker -q tests/test_worker_auth.py
 PORT_BASE=8980 "$root/tools/down.sh" quiet

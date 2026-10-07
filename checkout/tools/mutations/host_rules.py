@@ -127,9 +127,9 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "the model's calls are made for the chat's owner",
-        "turns/runner.py",
-        "owner = ledger_owner(self._owner)\n",
-        'owner = "0" * 32\n',
+        "turns/tool_calls.py",
+        "ledger = ledger_owner(owner)\n",
+        'ledger = "0" * 32\n',
         OWNER,
     ),
     host(
@@ -197,9 +197,9 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "the runner derives the key from the chat and the call's own id",
-        "turns/runner.py",
-        'key = derive_key(owner, self._log.chat_id, call["id"])',
-        'key = derive_key(owner, self._log.chat_id, call["name"])',
+        "turns/tool_calls.py",
+        'key = derive_key(ledger, self._log.chat_id, call["id"])',
+        'key = derive_key(ledger, self._log.chat_id, call["name"])',
         KEYS,
     ),
     host(
@@ -211,14 +211,14 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "a quote request repeated inside one reply is made once",
-        "turns/runner.py",
+        "turns/tool_calls.py",
         "elif twin := await self._twin_in_reply(call, reply_calls):",
         "elif False:",
         KEYS,
     ),
     host(
         "only a tool that takes a key has its repeat held back",
-        "turns/runner.py",
+        "turns/tool_calls.py",
         'return twin if twin and await self._hub.keyed(call["name"]) else None',
         "return twin",
         KEYS,

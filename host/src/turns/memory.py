@@ -35,17 +35,23 @@ def offered(tools: list[dict[str, Any]], chat_owner: str) -> list[dict[str, Any]
     saved recipient instead of an account number and a bank. Anyone else gets neither: no memory tool, and a
     transfer tool that asks for the account number and the bank as it always did."""
     account = is_account(chat_owner)
-    shown = []
+    return shown(tools, memory_tools=account, saved_recipients=account)
+
+
+def shown(tools: list[dict[str, Any]], memory_tools: bool, saved_recipients: bool) -> list[dict[str, Any]]:
+    """The tools with or without the memory ones, and the transfer tool in the shape that takes a saved
+    recipient or the one that takes an account number and a bank."""
+    kept = []
     for tool in tools:
         name = tool["function"]["name"]
         if is_memory_tool(name):
-            if account:
-                shown.append(tool)
+            if memory_tools:
+                kept.append(tool)
         elif name == TRANSFER_TOOL:
-            shown.append(_transfer_tool(tool, account))
+            kept.append(_transfer_tool(tool, saved_recipients))
         else:
-            shown.append(tool)
-    return shown
+            kept.append(tool)
+    return kept
 
 
 def _transfer_tool(tool: dict[str, Any], account: bool) -> dict[str, Any]:

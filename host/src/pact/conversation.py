@@ -1,31 +1,34 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""PACT §4: one message in, the agent's reply out. A message without a contextId starts a chat for this Brand
-and User; one with a contextId continues it only if it is theirs. The turn runs as it does for the chat page,
-and the reply is what the assistant said, with the link where the person approves a payment when one waits.
-A messageId seen before in the context gets the reply stored for it."""
+"""PACT §4 and §5.5: one message in, the agent's reply out. A message without a contextId starts a chat for
+this Brand and User; one with a contextId continues it only if it is theirs. Under a delegation token the
+turn runs as the person's 234 account, within the token's scopes (turns/permissions.py), in a chat of that
+account. A context begun without one moves, on its first delegated message, to a new chat of the account:
+the first chat keeps its owner, so a link handed out for it never opens the account's chat. Once a context
+runs as an account, it needs a token for that account. A messageId seen before in the context gets the reply
+stored for it."""
 
-import time
 from dataclasses import dataclass
 from typing import Any
 
 from django.urls import reverse
 
-from a2a import wire
-from chat import pacing, tickets
+from chat import tickets
 from chat.backend import get_backend
-from chat.models import Chat, Event
+from chat.models import Chat
 from config.sql import returning
-from turns import fold, kinds
+from turns import kinds
 
+from . import answers
 from .brands import Brand
+from .delegation import Delegation
 from .errors import A2AError
 from .identity import Caller
 from .models import Context, Reply
 
-WAIT_SECONDS = 100
 TITLE_CHARS = 60
-STILL_WORKING = "Still working on it. Send another message in a moment to hear the result."
-APPROVE = "The person approves this payment here: {link}"
+UNKNOWN_CONTEXT = "Unknown contextId"
+NEEDS_DELEGATION = "This conversation runs as a 234 account: send it with that account's delegation token."
+OTHER_ACCOUNT = "This conversation runs as another 234 account."
 
 
 @dataclass(frozen=True)
@@ -66,69 +69,78 @@ def read(body: Any) -> Incoming:
     return Incoming(message_id, text, context_id)
 
 
-def _context(brand: Brand, caller: Caller, incoming: Incoming) -> Context:
+def _chat(brand: Brand, owner: str) -> Chat:
+    return Chat.objects.create(owner=owner, connectors=",".join(brand.connectors))
+
+
+def _moved_to_account(found: Context, brand: Brand, account: str) -> Context:
+    chat = _chat(brand, account)
+    claimed = returning(
+        "UPDATE pact_context SET account = %s, delegated_chat_id = %s WHERE chat_id = %s AND account = '' "
+        "RETURNING chat_id",
+        [account, chat.id, found.chat_id],
+    )
+    if not claimed:
+        chat.delete()
+    found.refresh_from_db()
+    if found.account != account:
+        raise A2AError("INVALID_PARAMS", OTHER_ACCOUNT)
+    return found
+
+
+def _context(brand: Brand, caller: Caller, incoming: Incoming, delegation: Delegation | None) -> Context:
+    account = delegation.account if delegation else ""
     if incoming.context_id is None:
-        chat = Chat.objects.create(owner=caller.owner, connectors=",".join(brand.connectors))
-        return Context.objects.create(chat=chat, brand=brand.id, owner=caller.owner)
+        chat = _chat(brand, account or caller.owner)
+        return Context.objects.create(chat=chat, brand=brand.id, owner=caller.owner, account=account)
     found = Context.objects.filter(chat_id=incoming.context_id, brand=brand.id, owner=caller.owner).first()
     if found is None:
-        raise A2AError("INVALID_PARAMS", "Unknown contextId")
-    return found
+        raise A2AError("INVALID_PARAMS", UNKNOWN_CONTEXT)
+    if found.account == account:
+        return found
+    if found.account:
+        raise A2AError("INVALID_PARAMS", OTHER_ACCOUNT if account else NEEDS_DELEGATION)
+    return _moved_to_account(found, brand, account)
 
 
 def _claim(context: Context, message_id: str) -> Reply | None:
     """The stored reply for a repeated messageId, or None when this message is new (now recorded). One
     statement decides it: on D1 a losing insert raises its own exception type, not IntegrityError."""
     recorded = returning(
-        f"INSERT INTO {Reply._meta.db_table} (context_id, message_id, message) VALUES (%s, %s, NULL)"
+        f"INSERT INTO {Reply._meta.db_table} (context_id, message_id, answer) VALUES (%s, %s, NULL)"
         " ON CONFLICT (context_id, message_id) DO NOTHING RETURNING id",
         [context.pk, message_id],
     )
     if recorded:
         return None
     seen = Reply.objects.get(context=context, message_id=message_id)
-    if seen.message is None:
+    if seen.answer is None:
         raise A2AError("INVALID_PARAMS", "That message has no reply yet.")
     return seen
 
 
-def _answer(chat: Chat, task: str, handoff: str) -> str:
-    started = last = time.monotonic()
-    while time.monotonic() - started < WAIT_SECONDS:
-        events = [row.as_logged() for row in Event.objects.filter(chat_id=chat.id, task=task)]
-        state = fold.task_state(events)
-        if state in wire.STOPS_STREAM:
-            said = "\n\n".join(
-                a["parts"][0]["text"] for a in wire.artifacts(events) if a["parts"][0].get("text")
-            )
-            if state == "failed":
-                return said or wire.last_error(events)
-            if state == "input_required":
-                return f"{said}\n\n{APPROVE.format(link=handoff)}".strip()
-            return said or wire.FAILED_TEXT
-        pacing.wait(pacing.poll_interval(time.monotonic() - last))
-    return STILL_WORKING
+def _handoff(request, context: Context) -> str:
+    """An account's chat opens for that account when it signs in; any other chat by a share link."""
+    if context.account:
+        return request.build_absolute_uri(reverse("chat:page", args=[context.running_chat_id]))
+    return request.build_absolute_uri(reverse("chat:join", args=[tickets.mint_share_token(context.chat_id)]))
 
 
-def reply(request, brand: Brand, caller: Caller, incoming: Incoming) -> dict[str, Any]:
-    context = _context(brand, caller, incoming)
+def reply(
+    request, brand: Brand, caller: Caller, incoming: Incoming, delegation: Delegation | None
+) -> dict[str, Any]:
+    """The reply body: {"message": …} or, for a step-up, {"task": …}."""
+    context = _context(brand, caller, incoming, delegation)
     if (seen := _claim(context, incoming.message_id)) is not None:
-        return seen.message
-    answer = get_backend().submit(context.chat_id, kinds.USER, incoming.text)
+        return seen.answer
+    chat_id = context.running_chat_id
+    scopes = sorted(delegation.scopes) if delegation else []
+    answer = get_backend().submit(chat_id, kinds.USER, incoming.text, scopes=scopes)
     if "error" in answer:
         Reply.objects.filter(context=context, message_id=incoming.message_id).delete()
         raise A2AError("INVALID_PARAMS", answer["message"])
-    chat = context.chat
-    if not chat.title:
-        chat.title = incoming.text[:TITLE_CHARS]
-        chat.save(update_fields=["title"])
-    handoff = request.build_absolute_uri(reverse("chat:join", args=[tickets.mint_share_token(chat.id)]))
-    text = _answer(chat, answer["task"], handoff)
-    message = {
-        "messageId": f"r-{answer['task']}",
-        "contextId": chat.id,
-        "role": "ROLE_AGENT",
-        "parts": [{"text": text}],
-    }
-    Reply.objects.filter(context=context, message_id=incoming.message_id).update(message=message)
-    return message
+    Chat.objects.filter(pk=chat_id, title="").update(title=incoming.text[:TITLE_CHARS])
+    turn = answers.Turn(context.chat_id, answer["task"], _handoff(request, context))
+    body = answers.body(turn, answers.settled(chat_id, turn.task), brand, caller, delegation)
+    Reply.objects.filter(context=context, message_id=incoming.message_id).update(answer=body)
+    return body

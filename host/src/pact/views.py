@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""PACT 1.0 (Identity profile) on A2A 1.0 HTTP+JSON, under /a2a/{brandId}/. Routing comes first: an unknown
-Brand or a path that is not an A2A operation is 404 or 405 with no A2A body. Then the personal-agent JWT
-(401 with no body), then the operation, whose errors use the A2A envelope."""
+"""PACT 1.0 on A2A 1.0 HTTP+JSON, under /a2a/{brandId}/. Routing comes first: an unknown Brand or a path that
+is not an A2A operation is 404 or 405 with no A2A body. Then the personal-agent JWT (401 with no body), then
+a delegation token if one is sent (401 with error="invalid_token"), then the operation, whose errors use the
+A2A envelope. The Delegated profile's OAuth endpoints are in oauth_views.py."""
 
 import json
 import logging
@@ -15,7 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from chat.backend import get_backend
 
-from . import card
+from . import card, delegation
 from .brands import brands
 from .conversation import read, reply
 from .errors import A2AError, a2a_json, error_response, no_route, rate_limited, unauthenticated
@@ -47,13 +48,20 @@ def _list(request: HttpRequest, *_: object) -> HttpResponse:
 
 
 def _send(request: HttpRequest, brand_id: str, caller: Caller, _: str | None) -> HttpResponse:
+    brand = brands()[brand_id]
+    header = request.headers.get(delegation.HEADER)
+    try:
+        delegated = None if header is None else delegation.delegation_of(header, brand, caller, time.time())
+    except delegation.Rejected as rejected:
+        log.info("pact delegation refused: %s", rejected)
+        return unauthenticated("invalid_token")
     if not get_backend().rate_ok(f"pact:{caller.owner}"):
         return rate_limited()
     try:
         body = json.loads(request.body or b"null")
     except ValueError as invalid:
         raise A2AError("INVALID_PARAMS", "The body is not JSON.") from invalid
-    return a2a_json({"message": reply(request, brands()[brand_id], caller, read(body))})
+    return a2a_json(reply(request, brand, caller, read(body), delegated))
 
 
 def _no_task(request: HttpRequest, brand_id: str, caller: Caller, task: str | None) -> HttpResponse:

@@ -15,7 +15,9 @@ from turns.ledger_owner import ledger_owner
 
 
 class Backend(Protocol):
-    def submit(self, chat_id: str, kind: str, text: str, task: str | None = None) -> dict[str, Any]: ...
+    def submit(
+        self, chat_id: str, kind: str, text: str, task: str | None = None, scopes: list[str] | None = None
+    ) -> dict[str, Any]: ...
 
     def cancel(self, chat_id: str) -> dict[str, Any]: ...
 
@@ -55,10 +57,13 @@ class WorkerBackend:
     def _stub(self, chat_id: str) -> Any:
         return self._env().CHAT.getByName(chat_id)
 
-    def submit(self, chat_id: str, kind: str, text: str, task: str | None = None) -> dict[str, Any]:
+    def submit(
+        self, chat_id: str, kind: str, text: str, task: str | None = None, scopes: list[str] | None = None
+    ) -> dict[str, Any]:
         from pyodide.ffi import run_sync
 
-        return json.loads(run_sync(self._stub(chat_id).submit(chat_id, kind, text, task or "")))
+        listed = "" if scopes is None else json.dumps(scopes)
+        return json.loads(run_sync(self._stub(chat_id).submit(chat_id, kind, text, task or "", listed)))
 
     def cancel(self, chat_id: str) -> dict[str, Any]:
         from pyodide.ffi import run_sync

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""PACT §6: A2A errors in the AIP-193 envelope, and the answers that carry no A2A body (401, 404, 405,
-429)."""
+"""PACT §6: A2A errors in the AIP-193 envelope, the answers that carry no A2A body (401, 404, 405, 429), and
+the OAuth errors of the Delegated endpoints (RFC 6749 §5.2, RFC 8628 §3.5)."""
 
 from django.http import HttpResponse, JsonResponse
 
@@ -51,3 +51,23 @@ def no_route(allowed: tuple[str, ...] = ()) -> HttpResponse:
 
 def rate_limited() -> HttpResponse:
     return HttpResponse(status=429, headers={"Retry-After": "60"})
+
+
+class RateLimited(Exception):
+    """Answered with 429 and Retry-After (§6)."""
+
+
+class OAuthRefused(Exception):
+    def __init__(self, error: str, description: str = "", status: int = 400) -> None:
+        super().__init__(description or error)
+        self.error, self.description, self.status = error, description, status
+
+
+NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
+
+
+def oauth_error(refused: OAuthRefused) -> JsonResponse:
+    body = {"error": refused.error}
+    if refused.description:
+        body["error_description"] = refused.description
+    return JsonResponse(body, status=refused.status, headers=NO_STORE)

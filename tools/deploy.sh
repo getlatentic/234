@@ -8,8 +8,10 @@
 #   tools/deploy.sh init                  creates the two D1 databases when they do not exist
 #   tools/deploy.sh secret host NAME      sets one of the owner's secrets from stdin (the value is never printed)
 #   tools/deploy.sh rotate NAME           a new value for a secret made here: token (host to connectors, set on both),
-#                                         EVENTS_SECRET (the host's events key), SANDBOX_SIGNING_KEY (host
-#                                         and sandbox, set on both), DJANGO_SECRET_KEY or APPROVAL_SECRET
+#                                         EVENTS_SECRET (the host's events key), PACT_SIGNING_KEY (the host's
+#                                         PACT Delegated key: tokens and receipts it signed stop verifying),
+#                                         SANDBOX_SIGNING_KEY (host and sandbox, set on both), DJANGO_SECRET_KEY
+#                                         or APPROVAL_SECRET
 #   tools/deploy.sh upload host|connectors|sandbox  uploads the committed code again with no checks (a secret the host bakes in
 #                                         at startup takes effect only in a new version: `rotate` does this itself)
 #   tools/deploy.sh versions|rollback|tail host|connectors|sandbox
@@ -257,6 +259,8 @@ deploy_all() {
   has_secret "$CONNECTORS_WORKER" MCP_ACCESS_TOKEN && has_secret "$HOST_WORKER" CHECKOUT_MCP_TOKEN || shared=$(openssl rand -hex 32)
   local events=""  # the key the host signs its MCP events subscriptions with: the host's own, made once
   has_secret "$HOST_WORKER" EVENTS_SECRET || events=$(openssl rand -hex 32)
+  local pact=""  # the RSA key the host signs PACT delegation tokens and receipts with: the host's own, made once
+  has_secret "$HOST_WORKER" PACT_SIGNING_KEY || pact=$(node "$root/tools/pact-key.mjs")
   local signing=""  # the key the host signs a view's policy with: one value on the sandbox and the host, made again when either lacks it
   has_secret "$SANDBOX_WORKER" SIGNING_KEY && has_secret "$HOST_WORKER" SANDBOX_SIGNING_KEY || signing=$(openssl rand -hex 32)
   say "deploying $SANDBOX_WORKER (the card sandbox, first: the host's setting names it)"
@@ -270,7 +274,8 @@ deploy_all() {
   say "deploying $HOST_WORKER"
   { secret_lines "$HOST_WORKER" DJANGO_SECRET_KEY; auth_secret_lines; [ -z "$shared" ] || echo "CHECKOUT_MCP_TOKEN=$shared"
     [ -z "$signing" ] || echo "SANDBOX_SIGNING_KEY=$signing"
-    [ -z "$events" ] || echo "EVENTS_SECRET=$events"; echo "OPS_TOKEN=$ops"; } | deploy_worker host
+    [ -z "$events" ] || echo "EVENTS_SECRET=$events"; [ -z "$pact" ] || echo "PACT_SIGNING_KEY='$pact'"
+    echo "OPS_TOKEN=$ops"; } | deploy_worker host
   migrate_host "$ops"
   smoke_test
 }
@@ -295,6 +300,10 @@ smoke_auth() {  # cookie-jar csrf-token: sign-in is on exactly when .env.auth.lo
       -H "origin: $HOST_URL" -H 'content-type: application/json' -d '{"idToken":"garbage"}' || true)" 403
     check "sign-in: the popup keeps its link to the page (COOP)" "$(grep -ci '^cross-origin-opener-policy: same-origin-allow-popups' <<< "$headers" || true)" 1
     check "sign-in: only apis.google.com is added to script-src" "$(grep -ci "script-src 'self' https://apis.google.com;" <<< "$headers" || true)" 1
+    check "pact: the card offers delegation" "$(curl -s -m 30 "$HOST_URL/a2a/234/.well-known/agent-card.json" | grep -c '"userDelegation"' || true)" 1
+    check "pact: the delegation key is published, the public half only" "$(curl -s -m 30 "$HOST_URL/a2a/234/oauth/jwks.json" | grep -c '"kty": "RSA"' || true)$(curl -s -m 30 "$HOST_URL/a2a/234/oauth/jwks.json" | grep -c '"d":' || true)" 10
+    check "pact: device authorization needs the agent's token" "$(http_status -X POST "$HOST_URL/a2a/234/oauth/device_authorization" \
+      -H 'content-type: application/x-www-form-urlencoded' -d 'client_id=https://x.example&scope=payments')" 401
   else
     check "sign-in is off: no account part on the page" "$(grep -c '<chat-account' <<< "$page" || true)" 0
     check "sign-in is off: /api/me names no Firebase app" "$(grep -c '"signIn": null' <<< "$me" || true)" 1
@@ -431,10 +440,11 @@ cmd_rotate() {
            printf %s "$value" | put_secret "$HOST_WORKER" CHECKOUT_MCP_TOKEN ;;
     DJANGO_SECRET_KEY) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     EVENTS_SECRET) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
+    PACT_SIGNING_KEY) node "$root/tools/pact-key.mjs" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     APPROVAL_SECRET) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1" ;;
     SANDBOX_SIGNING_KEY) printf %s "$value" | put_secret "$SANDBOX_WORKER" SIGNING_KEY
                          printf %s "$value" | put_secret "$HOST_WORKER" "$1" ;;
-    *) die "rotate token, DJANGO_SECRET_KEY, EVENTS_SECRET, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
+    *) die "rotate token, DJANGO_SECRET_KEY, EVENTS_SECRET, PACT_SIGNING_KEY, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
   esac
 }
 

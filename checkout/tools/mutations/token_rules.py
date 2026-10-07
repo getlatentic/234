@@ -86,8 +86,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "a signature's padding is rebuilt and compared whole, not parsed",
         "accounts/rs256.py",
-        "return hmac.compare_digest(block, expected)",
-        "return block.endswith(tail)",
+        "return hmac.compare_digest(block, padded(message, size))",
+        "return block.endswith(hashlib.sha256(message).digest())",
         TOKEN,
     ),
     host(

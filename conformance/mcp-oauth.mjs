@@ -11,7 +11,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { Client, StreamableHTTPClientTransport, UnauthorizedError } from "@modelcontextprotocol/client";
 import { chromium } from "playwright";
-import { freshLedger, HOST, suite, watchErrors } from "./lib.mjs";
+import { chooseGoogleAccount, freshLedger, HOST, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("MCP clients sign in with OAuth");
 await freshLedger();
@@ -49,20 +49,6 @@ function provider(onRedirect) {
   };
 }
 
-/** What a person does in the emulator's "Google" window. */
-async function chooseAccount(where, email) {
-  await where.locator("#accounts-list").waitFor({ state: "visible", timeout: 15000 });
-  const existing = where.locator("li.js-reuse-account", { hasText: email });
-  if (await existing.count()) return existing.click();
-  await where.locator("#add-account-button button").click();
-  await where.locator("#email-input").fill(email);
-  // The emulator's form now and then drops a click made right after the fill: press until the window closes.
-  for (let tries = 0; tries < 3 && !where.isClosed(); tries += 1) {
-    await where.locator("#sign-in").click().catch(() => {});
-    await where.waitForEvent("close", { timeout: 5000 }).catch(() => {});
-  }
-}
-
 /** The person opens the authorization URL, signs in, presses Allow; the callback URL the browser was sent to. */
 async function approve(url, email, decision = "Allow") {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -77,7 +63,7 @@ async function approve(url, email, decision = "Allow") {
   const popup = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Continue with Google" }).click();
   const window = await popup;
-  await chooseAccount(window, email);
+  await chooseGoogleAccount(window, email);
   await page.getByRole("button", { name: "Allow" }).waitFor({ timeout: 25000 }).catch(async (problem) => {
     const state = { url: page.url().slice(0, 80), popupClosed: window.isClosed(), note: await page.locator('[data-slot="note"]').innerText().catch(() => "?") };
     throw new Error(`sign-in did not finish: ${JSON.stringify(state)} ${warnings.slice(-3)} ${errors.slice(-3)}`, { cause: problem });

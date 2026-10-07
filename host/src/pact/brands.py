@@ -11,6 +11,8 @@ from functools import cache
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from turns.permissions import scopes_of
+
 BRAND_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 DEFAULT = {
     "234": {
@@ -27,6 +29,11 @@ class Brand:
     name: str
     description: str
     connectors: tuple[str, ...]
+
+    @property
+    def scopes(self) -> dict[str, str]:
+        """What a personal agent may ask to do as the person's account here, and the words consent shows."""
+        return scopes_of(self.connectors)
 
 
 @cache

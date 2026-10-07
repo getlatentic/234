@@ -11,10 +11,12 @@ was never really tested, and the guardrail is reported MISSED.
 """
 
 import os
+import queue
 import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from tools.mutations import MUTATIONS
@@ -27,6 +29,7 @@ PROJECTS = {
     "host": (HOST_ROOT, ("src", "tests", "pyproject.toml", "uv.lock", "wrangler.public.jsonc")),
 }
 TIMEOUT_SECONDS = 180
+WORKERS = max(1, min(6, (os.cpu_count() or 2) // 2))
 
 
 def copy_project(project: str) -> Path:
@@ -99,18 +102,32 @@ def check(directory: Path, mutation: Mutation) -> bool:
 
 
 def check_project(project: str, chosen: list[Mutation]) -> int:
-    """How many of these mutations no test noticed, in a throwaway copy of the project."""
-    directory = copy_project(project)
+    """How many of these mutations no test noticed. Each worker undoes one guardrail at a time in a throwaway
+    copy of its own, so the mutations run side by side without seeing each other."""
+    directories = [copy_project(project) for _ in range(min(WORKERS, len(chosen)))]
     try:
         every_test = sorted({t for m in chosen for t in m.tests})
-        baseline = run_tests(directory, every_test, project)
+        baseline = run_tests(directories[0], every_test, project)
         if baseline.returncode != 0:
             print(f"The {project} tests fail before any guardrail is undone:")
             print(baseline.stdout + baseline.stderr)
             return -1
-        return sum(0 if check(directory, m) else 1 for m in chosen)
+        free: queue.Queue[Path] = queue.Queue()
+        for directory in directories:
+            free.put(directory)
+
+        def one(mutation: Mutation) -> bool:
+            directory = free.get()
+            try:
+                return check(directory, mutation)
+            finally:
+                free.put(directory)
+
+        with ThreadPoolExecutor(len(directories)) as pool:
+            return list(pool.map(one, chosen)).count(False)
     finally:
-        shutil.rmtree(directory.parent, ignore_errors=True)
+        for directory in directories:
+            shutil.rmtree(directory.parent, ignore_errors=True)
 
 
 def main(argv: list[str]) -> int:

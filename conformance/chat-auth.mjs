@@ -12,7 +12,7 @@ import { createSign, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { contrastReport } from "./card-checks.mjs";
-import { cardIn, freshLedger, HOST, openHome, suite, tokenColor, watchErrors } from "./lib.mjs";
+import { cardIn, chooseGoogleAccount, freshLedger, HOST, openHome, suite, tokenColor, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Sign in with Google");
 const base = Number(process.env.PORT_BASE ?? 8900);
@@ -51,16 +51,6 @@ async function openChats(page) {
   await atRest(page);
 }
 
-/** What a person does in the emulator's "Google" window: pick the account if it exists, else add it. */
-async function chooseAccount(where, email) {
-  await where.locator("#accounts-list").waitFor({ state: "visible", timeout: 15000 });
-  const existing = where.locator("li.js-reuse-account", { hasText: email });
-  if (await existing.count()) return existing.click();
-  await where.locator("#add-account-button button").click();
-  await where.locator("#email-input").fill(email);
-  await where.locator("#sign-in").click();
-}
-
 // Sign-ins are limited to 12 a minute for one address and each takes seconds to reach the server, so the suite spends at most 6 in any minute of its own.
 const spent = [];
 async function pace() {
@@ -75,7 +65,7 @@ async function googleSignIn(page, email) {
   const popup = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Continue with Google" }).click();
   const window = await popup;
-  await chooseAccount(window, email);
+  await chooseGoogleAccount(window, email);
   await becomesSignedIn(page, window);
 }
 
@@ -251,10 +241,10 @@ console.log("an approval card still open when the visitor signs in");
   await googleSignIn(page, emailOf("carol"));
   await page.goto(`${HOST}${chat}`);
   const again = cardIn(page);
-  await again.getByRole("button", { name: "Approve" }).click({ timeout: 25000 });
-  await again.getByText("No longer available").waitFor({ timeout: 15000 });
+  // A card shown again asks once how its quote stands, so it learns this without a press.
+  await again.getByText("No longer available").waitFor({ timeout: 25000 });
   const text = await again.locator("body").innerText();
-  check(!/QUOTE_NOT_FOUND|There is no quote/.test(text) && (await again.getByRole("button").count()) === 0, "after adoption the quote is not the account's: the card says \"No longer available\", not an error, and nothing more can be pressed");
+  check(!/QUOTE_NOT_FOUND|There is no quote/.test(text) && (await again.getByRole("button").count()) === 0, "after adoption the quote is not the account's: the card, shown again, says \"No longer available\", not an error, and nothing can be pressed");
   await page.screenshot({ path: `${screens}auth-adopted-card-no-longer-available.png` });
   await context.close();
 }
@@ -282,7 +272,7 @@ console.log("the popup is blocked: one quiet line, then the redirect");
   await pace();
   await page.getByRole("button", { name: "Continue with Google" }).click();
   await page.waitForURL(/emulator\/auth\/handler/, { timeout: 15000 });
-  await chooseAccount(page, emailOf("linus"));
+  await chooseGoogleAccount(page, emailOf("linus"));
   await becomesSignedIn(page);
   check((await page.evaluate(() => sessionStorage.getItem("said"))) === "Opening Google in this tab.", 'one quiet line said "Opening Google in this tab." before the page went to Google');
   check((await signedIn(page).innerText()) === emailOf("linus"), "the redirect comes back and the person is signed in");
@@ -297,7 +287,7 @@ console.log("a refused sign-in says so once");
   await pace();
   const popup = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Continue with Google" }).click();
-  await chooseAccount(await popup, emailOf("nobody"));
+  await chooseGoogleAccount(await popup, emailOf("nobody"));
   await page.locator('chat-account [data-slot="note"]', { hasText: "Sign-in did not work. Try again." }).waitFor({ timeout: 25000 });
   check((await page.getByRole("button", { name: "Continue with Google" }).isEnabled()), "a refusal leaves one line and the button usable again");
   check(!(await cookieOf(context, "session")), "and no session");

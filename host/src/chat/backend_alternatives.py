@@ -24,11 +24,15 @@ class LocalBackend(WorkerBackend):
         starter = runners.start_with_wait_until if self._runner == "waituntil" else runners.queue_starter(env)
         return runners.local_core(env, chat_id, starter)
 
-    def submit(self, chat_id: str, kind: str, text: str, task: str | None = None) -> dict[str, Any]:
+    def submit(
+        self, chat_id: str, kind: str, text: str, task: str | None = None, scopes: list[str] | None = None
+    ) -> dict[str, Any]:
         from pyodide.ffi import run_sync
 
         core = self._core(chat_id)
-        return run_sync(core.note(text) if kind == kinds.CARD_CONTEXT else core.submit(kind, text, task))
+        if kind == kinds.CARD_CONTEXT:
+            return run_sync(core.note(text))
+        return run_sync(core.submit(kind, text, task, scopes))
 
     def cancel(self, chat_id: str) -> dict[str, Any]:
         """The measured alternatives keep no loop of their own to stop: only the Durable Object runner can."""

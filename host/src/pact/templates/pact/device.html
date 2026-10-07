@@ -1,0 +1,45 @@
+{% extends "chat/base.html" %}
+{% load static %}
+{% block title %}{% if found and account %}Allow {{ agent }}{% else %}Connect an agent{% endif %}{% endblock %}
+{% block head %}<script type="module" src="{% static 'chat/account.js' %}"></script>{% endblock %}
+{% block content %}
+<main class="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 px-4 py-10" data-slot="device">
+  <img src="{% static 'chat/brand/icon.svg' %}" alt="{{ product_name }}" width="48" height="48" class="size-12 rounded-xl">
+  {% if not account %}
+  <div class="flex flex-col gap-2">
+    <h1 class="m-0 text-balance text-2xl font-semibold text-ink" data-slot="title">Sign in to connect your agent</h1>
+    {% if code %}<p class="m-0 text-base text-ink-2" data-slot="code">Code <span class="whitespace-nowrap font-semibold text-ink">{{ code }}</span></p>{% endif %}
+  </div>
+  {% include "accounts/_account.html" %}
+  {% elif found %}
+  <div class="flex flex-col gap-2">
+    <h1 class="m-0 text-balance text-2xl font-semibold text-ink" data-slot="title">Allow {{ agent }} to act for you at {{ brand.name }}?</h1>
+    <p class="m-0 text-base text-ink-2" data-slot="code">Check that your agent shows the code <span class="whitespace-nowrap font-semibold text-ink">{{ code }}</span>.</p>
+  </div>
+  <form method="post" class="flex flex-col gap-3" data-slot="decision">
+    {% csrf_token %}
+    <input type="hidden" name="user_code" value="{{ code }}">
+    <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
+      <legend class="sr-only">What {{ agent }} may do</legend>
+      {% for id, description in asked %}
+      <label class="flex min-h-11 cursor-pointer items-start gap-3 text-base text-ink">
+        <input type="checkbox" name="scope" value="{{ id }}" checked class="focus-ring mt-1 size-5 shrink-0 accent-ink">
+        <span>{{ description }}</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+    <button type="submit" name="decision" value="allow" class="btn-primary">Allow</button>
+    <button type="submit" name="decision" value="deny" class="btn-secondary">Don't allow</button>
+    <p class="m-0 text-center text-sm text-ink-3" data-slot="account">{{ account.email }}</p>
+  </form>
+  {% else %}
+  <form method="get" class="flex flex-col gap-3" data-slot="enter">
+    <h1 class="m-0 text-balance text-2xl font-semibold text-ink" data-slot="title">{% if code %}That code has expired{% else %}Enter the code your agent shows{% endif %}</h1>
+    <label class="flex flex-col gap-2 text-sm text-ink-2">Code
+      <input name="user_code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required class="focus-ring min-h-11 rounded-control border border-line bg-raised px-3 text-base tracking-wide text-ink">
+    </label>
+    <button type="submit" class="btn-primary">Continue</button>
+  </form>
+  {% endif %}
+</main>
+{% endblock %}

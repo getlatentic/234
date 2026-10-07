@@ -20,7 +20,7 @@ framed by a separate Worker. The connectors keep a ledger in D1 with per-visitor
 A signed-in person can ask it to remember a recipient, a preference or a fact: it proposes, you press Save on a card,
 and the notes are yours to see, edit, export and delete. Other agents (Claude, ChatGPT, Cursor) reach the same
 connectors through an OAuth gateway, packaged as an Agent Plugin in `plugins/234`, and a person's own agent can
-talk to 234 for them over PACT on A2A. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
+talk to 234 for them over PACT on A2A, as their 234 account once they allow it. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
 [compaction](docs/compaction.md), [auth](docs/auth.md), [memory](docs/memory.md), [plugins](docs/plugins.md), [pact](docs/pact.md),
 [mcp-apps-compliance](docs/mcp-apps-compliance.md), [model-behaviour](docs/model-behaviour.md),
 [chat-ui](docs/chat-ui.md) and [brand](docs/brand.md).
@@ -70,7 +70,7 @@ deployed by `tools/deploy.sh`.
 
 Nothing secret is in git. Names only:
 
-- Worker secrets: `DJANGO_SECRET_KEY`, `OPS_TOKEN`, `EVENTS_SECRET`, `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN`,
+- Worker secrets: `DJANGO_SECRET_KEY`, `OPS_TOKEN`, `EVENTS_SECRET`, `PACT_SIGNING_KEY`, `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN`,
   `SANDBOX_SIGNING_KEY` and `SIGNING_KEY`, `APPROVAL_SECRET`, `ACCOUNT_KEY` (only with sign-in), `A2A_TOKENS`
   (optional), and the model's `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`. `tools/deploy.sh` generates the ones it can.
 - Untracked files at the repository root, ignored by git: `.env.local` (keys for real-model and provider test

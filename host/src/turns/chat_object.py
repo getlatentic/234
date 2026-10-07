@@ -123,11 +123,12 @@ class Chat(DurableObject):
     async def alarm(self) -> None:
         await (await self._core_for()).on_alarm()
 
-    async def submit(self, chat_id: str, kind: str, text: str, task: str) -> str:
+    async def submit(self, chat_id: str, kind: str, text: str, task: str, scopes: str = "") -> str:
+        """`scopes`: a JSON list, or empty for a message no personal agent sent."""
         core = await self._core_for(chat_id)
         if kind == kinds.CARD_CONTEXT:
             return json.dumps(await core.note(text))
-        return json.dumps(await core.submit(kind, text, task or None))
+        return json.dumps(await core.submit(kind, text, task or None, json.loads(scopes) if scopes else None))
 
     async def cancel(self, chat_id: str) -> str:
         return json.dumps(await (await self._core_for(chat_id)).cancel())

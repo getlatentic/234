@@ -16,8 +16,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "only an account is offered the memory tools",
         "turns/memory.py",
-        "            if account:\n                shown.append(tool)",
-        "            shown.append(tool)",
+        "            if memory_tools:\n                kept.append(tool)",
+        "            kept.append(tool)",
         TURN,
     ),
     host(
@@ -29,8 +29,8 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "a memory tool called without an account is refused before it leaves the host",
-        "turns/runner.py",
-        'if is_memory_tool(call["name"]) and not is_account(self._owner):',
+        "turns/permissions.py",
+        "if is_memory_tool(qualified) and not self.account:",
         "if False:",
         TURN,
     ),

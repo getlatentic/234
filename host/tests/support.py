@@ -180,6 +180,7 @@ class FakeBackend:
 
     def __init__(self) -> None:
         self.submitted: list[tuple] = []
+        self.scopes: list[list[str] | None] = []
         self.allow = True
         self.rate_keys: list[str] = []
         self.answer: dict = {"seq": 1, "task": "t1"}
@@ -203,8 +204,9 @@ class FakeBackend:
             b"{}",
         )
 
-    def submit(self, chat_id, kind, text, task=None):
+    def submit(self, chat_id, kind, text, task=None, scopes=None):
         self.submitted.append((chat_id, kind, text, task))
+        self.scopes.append(scopes)
         return self.answer
 
     def cancel(self, chat_id):

@@ -126,3 +126,28 @@ export async function openDrawer(page) {
   await dialog.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
   await page.waitForTimeout(50);
 }
+
+/** What a person does in the Firebase Auth emulator's "Google" page, a popup or the tab itself: pick the account
+ * if it exists, else add it. The emulator's form now and then drops a click: each press is repeated until the
+ * popup closes or the tab leaves the emulator. */
+export async function chooseGoogleAccount(where, email) {
+  const handler = /\/emulator\/auth\/handler/;
+  const there = () => !where.isClosed() && handler.test(where.url());
+  const pressUntilGone = async (target) => {
+    for (let tries = 0; tries < 3 && there(); tries += 1) {
+      await target.click({ timeout: 5000 }).catch(() => {});
+      const left = where.waitForURL((url) => !handler.test(url.href), { timeout: 5000 });
+      await Promise.race([where.waitForEvent("close", { timeout: 5000 }), left]).catch(() => {});
+    }
+  };
+  await where.locator("#accounts-list").waitFor({ state: "visible", timeout: 15000 });
+  const existing = where.locator("li.js-reuse-account", { hasText: email });
+  if (await existing.count()) return pressUntilGone(existing);
+  const field = where.locator("#email-input");
+  for (let tries = 0; tries < 3 && !(await field.isVisible()); tries += 1) {
+    await where.locator("#add-account-button button").click();
+    await field.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
+  }
+  await field.fill(email);
+  await pressUntilGone(where.locator("#sign-in"));
+}

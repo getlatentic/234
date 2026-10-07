@@ -124,6 +124,9 @@ OPS_TOKEN = runtime.get("OPS_TOKEN", "")
 PACT_AGENTS = runtime.get("PACT_AGENTS", "")
 PACT_AUDIENCE = runtime.get("PACT_AUDIENCE", "")
 PACT_BRANDS = runtime.get("PACT_BRANDS", "")
+# The RSA private JWK that signs PACT delegation tokens and receipts; with it and sign-in, the Brands offer
+# PACT Delegated (pact/signing.py, docs/pact.md).
+PACT_SIGNING_KEY = runtime.get("PACT_SIGNING_KEY", "")
 
 # The key the host signs its MCP events subscriptions with (turns/quote_events.py); without it, none is made.
 EVENTS_SECRET = runtime.get("EVENTS_SECRET", "")

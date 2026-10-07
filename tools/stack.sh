@@ -105,10 +105,12 @@ build_shell() {  # the static assets and the home page, as a deploy builds them
     env WORKERS_CI=1 $(shell_settings) uv run python src/manage.py build_shell > /dev/null)
 }
 
-pact_vars() {  # PACT=1: a test personal agent whose JWKS conformance/pact-e2e.mjs serves on base+18, and two Brands
+pact_vars() {  # PACT=1: a test personal agent whose JWKS conformance/pact-suite.mjs serves on base+18, two Brands,
+  # and a signing key of the stack's own, so that with sign-in (AUTH=1) the Brands offer PACT Delegated too
   [ "${PACT:-}" = "1" ] || return 0
-  local pa="http://127.0.0.1:$((base + 18))"
-  echo --var "PACT_AUDIENCE:234-local-pact" \
+  local pa="http://127.0.0.1:$((base + 18))" key="$state/pact-signing-key.json"
+  [ -s "$key" ] || node "$root/tools/pact-key.mjs" > "$key"
+  echo --var "PACT_AUDIENCE:234-local-pact" --var "PACT_SIGNING_KEY:$(cat "$key")" \
     --var "PACT_AGENTS:[{\"issuer\":\"$pa\",\"jwks_uri\":\"$pa/jwks.json\"},{\"issuer\":\"$pa/disabled-pa\",\"jwks_uri\":\"$pa/jwks.json\",\"enabled\":false}]" \
     --var 'PACT_BRANDS:{"234":{"name":"234","description":"Everything"},"food":{"name":"Mama_Put","description":"Food","connectors":["food-order"]}}'
 }
