@@ -5,6 +5,7 @@ urlpatterns = [
     path("ops/", include("ops.urls")),
     path("", include("a2a.urls")),
     path("", include("pact.urls")),
+    path("", include("reach.urls")),
     path("", include("oauth.urls")),
     path("", include("accounts.urls")),
     path("", include("chat.urls")),

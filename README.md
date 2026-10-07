@@ -20,7 +20,8 @@ framed by a separate Worker. The connectors keep a ledger in D1 with per-visitor
 A signed-in person can ask it to remember a recipient, a preference or a fact: it proposes, you press Save on a card,
 and the notes are yours to see, edit, export and delete. Other agents (Claude, ChatGPT, Cursor) reach the same
 connectors through an OAuth gateway, packaged as an Agent Plugin in `plugins/234`, and a person's own agent can
-talk to 234 for them over PACT on A2A, as their 234 account once they allow it. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
+talk to 234 for them over PACT on A2A, as their 234 account once they allow it. 234 is also an agent itself:
+it talks to other Brands' own assistants for the person, as their account there once they sign in. Design notes are in [docs](docs/): [durable-chat](docs/durable-chat.md),
 [compaction](docs/compaction.md), [auth](docs/auth.md), [memory](docs/memory.md), [plugins](docs/plugins.md), [pact](docs/pact.md),
 [mcp-apps-compliance](docs/mcp-apps-compliance.md), [model-behaviour](docs/model-behaviour.md),
 [chat-ui](docs/chat-ui.md) and [brand](docs/brand.md).
@@ -70,14 +71,14 @@ deployed by `tools/deploy.sh`.
 
 Nothing secret is in git. Names only:
 
-- Worker secrets: `DJANGO_SECRET_KEY`, `OPS_TOKEN`, `EVENTS_SECRET`, `PACT_SIGNING_KEY`, `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN`,
+- Worker secrets: `DJANGO_SECRET_KEY`, `OPS_TOKEN`, `EVENTS_SECRET`, `PACT_SIGNING_KEY`, `PACT_AGENT_KEY`, `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN`,
   `SANDBOX_SIGNING_KEY` and `SIGNING_KEY`, `APPROVAL_SECRET`, `ACCOUNT_KEY` (only with sign-in), `A2A_TOKENS`
   (optional), and the model's `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`. `tools/deploy.sh` generates the ones it can.
 - Untracked files at the repository root, ignored by git: `.env.local` (keys for real-model and provider test
   runs), `.env.auth.local` (`FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, see
   [docs/auth.md](docs/auth.md)) and `.env.deploy.local` (`SUBDOMAIN` and any Worker name you change).
 - Settings such as `PRODUCT_NAME`, the daily caps, the context window and the PACT agents and Brands
-  (`PACT_AGENTS`, `PACT_AUDIENCE`, `PACT_BRANDS`, [docs/pact.md](docs/pact.md)) are variables; see the wrangler templates
+  (`PACT_AGENTS`, `PACT_AUDIENCE`, `PACT_BRANDS`, `PACT_REACH`, [docs/pact.md](docs/pact.md)) are variables; see the wrangler templates
   and [docs/deploy.md](docs/deploy.md).
 
 ## Repository layout

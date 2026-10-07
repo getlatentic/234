@@ -28,6 +28,8 @@ class Settings:
     stream_usage: bool = True
     public_base_url: str = ""
     events_secret: str = ""
+    pact_agent_key: str = ""
+    pact_reach: str = ""
 
     @classmethod
     def from_env(cls, read: Callable[[str], str | None]) -> Settings:
@@ -66,7 +68,19 @@ class Settings:
             stream_usage=text("LLM_STREAM_USAGE", "1") != "0",
             public_base_url=text("PUBLIC_BASE_URL", ""),
             events_secret=text("EVENTS_SECRET", ""),
+            pact_agent_key=text("PACT_AGENT_KEY", ""),
+            pact_reach=text("PACT_REACH", ""),
         )
+
+    @property
+    def reaches(self) -> bool:
+        """Whether 234 acts for people at other Brands (turns/reach/): its key and their list are set."""
+        return bool(self.public_base_url and self.pact_agent_key and self.pact_reach)
+
+    @property
+    def offered_connectors(self) -> tuple[str, ...]:
+        """The connectors the model is told about: the remote ones, and `brands` when 234 reaches others."""
+        return (*self.connectors, "brands") if self.reaches else self.connectors
 
     @property
     def compact_threshold_tokens(self) -> int:

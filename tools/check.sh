@@ -95,10 +95,11 @@ limit 300 node "$root/conformance/chat-compaction.mjs"
 inside host 600 env $compaction_window uv run python -u -m tests.crash_probe_compaction --expect-finished
 "$root/tools/down.sh" quiet
 
-echo "== stack with the probe card and a PACT personal agent on ports 8940-8959"
-PORT_BASE=8940 PACT=1 timeout --kill-after=10 600 "$root/tools/up.sh" probe || { echo "!! the probe stack did not come up"; exit 1; }
+echo "== stack with the probe card, a PACT personal agent, and 234 as an agent at PACT's reference Skyline Brand on ports 8940-8959"
+PORT_BASE=8940 PACT=1 REACH=1 timeout --kill-after=10 600 "$root/tools/up.sh" probe || { echo "!! the probe stack did not come up"; exit 1; }
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8940 node "$root/conformance/chat-probe.mjs"
 limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8940 node "$root/conformance/pact-e2e.mjs"
+limit 900 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8940 node "$root/conformance/pact-reach.mjs"
 
 echo "== stack with the Paystack stand-in on ports 8960-8979: the sandbox proxy, the popup, other hosts"
 PORT_BASE=8960 PAYSTACK_RIG=fake timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the rig stack did not come up"; exit 1; }

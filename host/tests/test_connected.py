@@ -103,3 +103,28 @@ def test_nobody_ends_another_persons_connections(person, key):
     person.post("/connected/end", {"kind": "app", "id": "https://claude.example/cimd"})
     theirs.refresh_from_db()
     assert not theirs.revoked and oauth_grants.access_of(token) is not None
+
+
+def a_brand(owner: str, brand: str = "skyline-airways") -> None:
+    from reach.models import Conversation, Delegation
+    from turns.ledger_owner import ledger_owner
+
+    key = ledger_owner(owner)
+    Delegation.objects.create(
+        owner=key, brand=brand, brand_name="Skyline Airways", access_token="at",
+        scopes="flights:upcoming:read", expires_at=2_000_000_000, updated_at=1_791_400_000,
+    )  # fmt: skip
+    Conversation.objects.create(owner=key, brand=brand, context_id="ctx", updated_at=1_791_400_000)
+
+
+def test_the_brands_234_acts_at_are_listed_and_disconnecting_one_forgets_its_tokens(person):
+    from reach.models import Conversation, Delegation
+
+    owner = account_of(person)
+    a_brand(owner)
+    a_brand("u:" + "f" * 32)
+    (shown,) = listing(person)
+    assert shown["kind"] == "brand" and shown["name"] == "Skyline Airways"
+    assert shown["uses"] == "234 acts for you there. Since 7 Oct 2026"
+    person.post("/connected/end", {"kind": "brand", "id": "skyline-airways"})
+    assert listing(person) == [] and Delegation.objects.count() == 1 and Conversation.objects.count() == 1

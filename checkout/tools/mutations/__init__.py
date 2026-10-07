@@ -27,6 +27,7 @@ from tools.mutations import (
     payment_leg,
     provider_hook_rules,
     quote_event_host_rules,
+    reach_rules,
     sandbox_rules,
     token_rules,
     transfer_and_food,
@@ -58,4 +59,5 @@ MUTATIONS: list[Mutation] = [
     *quote_event_host_rules.MUTATIONS,
     *pact_rules.MUTATIONS,
     *connected_rules.MUTATIONS,
+    *reach_rules.MUTATIONS,
 ]

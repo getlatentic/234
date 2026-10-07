@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import json
 
-from pact.jwks import REFETCH_SECONDS, KeySet
+from signatures.jwks import REFETCH_SECONDS, KeySet
 
 
 def document(*kids: str) -> bytes:
@@ -21,7 +21,7 @@ class Agent:
 def test_a_rotated_key_is_fetched_once_the_cooldown_has_passed_and_not_before():
     now = [1000.0]
     agent = Agent("old")
-    keys = KeySet("https://pa.example/jwks.json", agent.fetch, lambda: now[0])
+    keys = KeySet(url="https://pa.example/jwks.json", fetch=agent.fetch, clock=lambda: now[0])
     assert keys.get("old") is not None and agent.fetches == 1
     agent.kids = ("new",)
     now[0] += REFETCH_SECONDS - 1
@@ -33,7 +33,7 @@ def test_a_rotated_key_is_fetched_once_the_cooldown_has_passed_and_not_before():
 def test_random_key_ids_make_at_most_one_fetch_per_cooldown():
     now = [1000.0]
     agent = Agent("k1")
-    keys = KeySet("https://pa.example/jwks.json", agent.fetch, lambda: now[0])
+    keys = KeySet(url="https://pa.example/jwks.json", fetch=agent.fetch, clock=lambda: now[0])
     keys.get("k1")
     now[0] += REFETCH_SECONDS
     for n in range(50):
@@ -44,8 +44,25 @@ def test_random_key_ids_make_at_most_one_fetch_per_cooldown():
 def test_keys_are_fetched_again_when_their_cache_life_ends():
     now = [1000.0]
     agent = Agent("k1")
-    keys = KeySet("https://pa.example/jwks.json", agent.fetch, lambda: now[0])
+    keys = KeySet(url="https://pa.example/jwks.json", fetch=agent.fetch, clock=lambda: now[0])
     keys.get("k1")
     now[0] += 3600
     keys.get("k1")
     assert agent.fetches == 2
+
+
+async def test_the_async_key_set_keeps_the_same_rules():
+    from signatures.jwks import AsyncKeySet
+
+    now = [1000.0]
+    agent = Agent("old")
+
+    async def fetch(url):
+        return agent.fetch(url)
+
+    keys = AsyncKeySet(url="https://pa.example/jwks.json", fetch=fetch, clock=lambda: now[0])
+    assert await keys.get("old") is not None and agent.fetches == 1
+    agent.kids = ("new",)
+    assert await keys.get("new") is None and agent.fetches == 1
+    now[0] += REFETCH_SECONDS
+    assert await keys.get("new") is not None and agent.fetches == 2

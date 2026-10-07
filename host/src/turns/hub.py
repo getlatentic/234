@@ -5,7 +5,7 @@ each call goes. A tool is never in both hands unless its server said so."""
 import base64
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 
@@ -189,12 +189,34 @@ def _ui_meta(item: dict[str, Any]) -> dict[str, Any]:
     return ui if isinstance(ui, dict) else {}
 
 
+class Server(Protocol):
+    """What the hub asks of a connector: a remote one over Streamable HTTP (McpHttp), or one the host serves
+    itself (turns/reach/server.py)."""
+
+    async def request(
+        self, method: str, params: dict[str, Any] | None = None, owner: str | None = None, notes: bool = False
+    ) -> dict[str, Any]: ...
+
+    async def relay(
+        self, body: bytes, passed_on: dict[str, str], owner: str, notes: bool
+    ) -> httpx.Response: ...
+
+
 class Hub:
-    def __init__(self, endpoints: dict[str, str], client: httpx.AsyncClient, token: str = "") -> None:
-        self._servers = {name: McpHttp(url, client, token) for name, url in endpoints.items()}
+    def __init__(
+        self,
+        endpoints: dict[str, str],
+        client: httpx.AsyncClient,
+        token: str = "",
+        local: dict[str, Server] | None = None,
+    ) -> None:
+        """`local`: connectors the host serves itself, by name, offered after the remote ones."""
+        remote = {name: McpHttp(url, client, token) for name, url in endpoints.items()}
+        self._servers: dict[str, Server] = dict(remote)
+        self._servers.update(local or {})
         self._tools: dict[str, list[dict[str, Any]]] = {}
 
-    def _server(self, name: str) -> McpHttp:
+    def _server(self, name: str) -> Server:
         if name not in self._servers:
             raise HubError(f"There is no connector {name}.")
         return self._servers[name]
@@ -299,5 +321,11 @@ class Hub:
         return CardPage(_html_of(content), _ui_meta(content) or _ui_meta(listed[uri]))
 
 
-def build_hub(mcp_url: str, connectors: tuple[str, ...], client: httpx.AsyncClient, token: str = "") -> Hub:
-    return Hub({name: f"{mcp_url}/{name}/mcp" for name in connectors}, client, token)
+def build_hub(
+    mcp_url: str,
+    connectors: tuple[str, ...],
+    client: httpx.AsyncClient,
+    token: str = "",
+    local: dict[str, Server] | None = None,
+) -> Hub:
+    return Hub({name: f"{mcp_url}/{name}/mcp" for name in connectors}, client, token, local)

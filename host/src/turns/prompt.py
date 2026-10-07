@@ -31,6 +31,12 @@ CAPABILITIES = {
         "food needs only a dish: call search_menu with it straight away, "
         "never quote food yourself, the menu card takes the order",
     ),
+    "brands": Capability(
+        "talk to other companies' own assistants for the person, the ones list_brands names",
+        "a request for one of those companies goes to it with message_brand, in the person's words; report "
+        "only what its reply says; if it needs the person's permission, tell them to sign in on the card and "
+        "wait until they say they did, then send the request again",
+    ),
     "paystack-pay": Capability(
         "pay a merchant",
         'a payment needs the merchant and the amount, and its description is "Payment" unless they say more',

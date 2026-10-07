@@ -18,20 +18,20 @@ MUTATIONS: list[Mutation] = [
     host(
         "pact: a token whose signature does not verify is refused",
         "pact/identity.py",
-        "    if not good:\n",
-        "    if good is None:\n",
+        "    if not jws.signed_by(found, key):\n",
+        "    if False:\n",
         PACT,
     ),
     host(
         "pact: an ES256 signature is checked against its message and key",
-        "pact/es256.py",
+        "signatures/es256.py",
         "return point[0] * zinv * zinv % P % N == r",
         "return True",
         PACT,
     ),
     host(
         "pact: an ES256 key off the curve is refused",
-        "pact/es256.py",
+        "signatures/es256.py",
         "if len(signature) != 64 or not on_curve(x, y):",
         "if len(signature) != 64:",
         PACT,
@@ -87,9 +87,9 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "pact: an unknown key id refetches the agent's keys at most once per cooldown",
-        "pact/jwks.py",
-        "if found is None and self.clock() - self._fetched >= REFETCH_SECONDS:",
-        "if found is None:",
+        "signatures/jwks.py",
+        "return kid not in self._keys and self.clock() - self._fetched >= REFETCH_SECONDS",
+        "return kid not in self._keys",
         PACT,
     ),
     host(
@@ -109,8 +109,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "pact delegated: a delegation token's signature is verified with the host's key",
         "pact/signing.py",
-        'if not rs256.verify(f"{parts[0]}.{parts[1]}".encode(), signature, found.n, found.e):',
-        "if False:",
+        'return found.claims if jws.signed_by(found, Key("RS256", mine.n, mine.e)) else None',
+        "return found.claims",
         DELEGATED,
     ),
     host(

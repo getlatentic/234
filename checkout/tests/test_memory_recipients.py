@@ -128,3 +128,14 @@ async def test_two_nicknames_for_one_account_are_two_notes():
     await saved(stack, ALICE, **MUM)
     await saved(stack, ALICE, **{**MUM, "title": "Mummy"})
     assert await entry_count(stack) == 2
+
+
+def test_a_memory_id_is_never_digits_alone(monkeypatch):
+    """An all-digit id starting like a card and passing Luhn would have the card guard withhold its result."""
+    from checkout import ids
+    from checkout.card_guard import contains_card_number
+
+    assert contains_card_number('"id": "4111111111111111"')
+    draws = iter(["4111111111111111", "4111a11111111111"])
+    monkeypatch.setattr(ids.secrets, "token_hex", lambda n: next(draws))
+    assert ids.new_memory_id() == "4111a11111111111"

@@ -4,7 +4,8 @@ inlined, so the card is one self-contained HTML document with no network.
 
 usage: uv run --project ../checkout python card/build.py [out] [--client hand|official] [--card menu|memory]
        (needs `npm install` at the repo root). The default card is the approval card; `--card menu` is
-       the menu card and `--card memory` the memory card. The hand client is mcp-app.js; the official one
+       the menu card, `--card memory` the memory card and `--card brands` the sign-in card of 234's own
+       `brands` connector, written into the host (turns/reach/card.html). The hand client is mcp-app.js; the official one
        is the ext-apps App class, bundled with esbuild into the same McpApp surface.
 """
 
@@ -22,6 +23,8 @@ CARD_DIR = ROOT / "checkout" / "src" / "checkout" / "card"
 DEFAULT_OUT = CARD_DIR / "card.html"
 MENU = HERE / "menu"
 MEMORY = HERE / "memory"
+BRANDS = HERE / "brands"
+BRANDS_OUT = ROOT / "host" / "src" / "turns" / "reach" / "card.html"
 
 
 def design_tokens() -> None:
@@ -54,7 +57,7 @@ def official_client() -> str:
 
 def _engine():
     if not settings.configured:
-        dirs = [str(HERE / "templates"), str(MENU / "templates"), str(MEMORY / "templates")]
+        dirs = [str(HERE / "templates"), str(MENU / "templates"), str(MEMORY / "templates"), str(BRANDS / "templates")]
         settings.configure(
             TEMPLATES=[{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": dirs}],
         )
@@ -103,6 +106,16 @@ def render_memory() -> str:
     )
 
 
+def render_brands() -> str:
+    return _engine().get_template("brands.html").render(
+        {
+            "css": tailwind_css(BRANDS / "brands.css"),
+            "mcp_app_js": (HERE / "static" / "mcp-app.js").read_text(),
+            "brands_js": bundle(BRANDS / "src" / "main.js"),
+        }
+    )
+
+
 def option(name: str, default: str) -> str:
     flag = f"--{name}"
     return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else default
@@ -112,8 +125,10 @@ if __name__ == "__main__":
     client, kind = option("client", "hand"), option("card", "approval")
     values = {option("client", ""), option("card", "")}
     args = [a for a in sys.argv[1:] if not a.startswith("--") and a not in values]
-    default = {"menu": CARD_DIR / "menu.html", "memory": CARD_DIR / "memory.html"}.get(kind, DEFAULT_OUT)
+    default = {"menu": CARD_DIR / "menu.html", "memory": CARD_DIR / "memory.html", "brands": BRANDS_OUT}.get(
+        kind, DEFAULT_OUT
+    )
     out = Path(args[0]) if args else default
-    html = {"menu": render_menu, "memory": render_memory}.get(kind, lambda: render(client))()
+    html = {"menu": render_menu, "memory": render_memory, "brands": render_brands}.get(kind, lambda: render(client))()
     out.write_text(html)
     print(f"{out}: {len(html.encode()):,} bytes")

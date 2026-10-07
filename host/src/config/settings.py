@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "a2a",
     "oauth",
     "pact",
+    "reach",
     "ops",
 ]
 
@@ -128,6 +129,10 @@ PACT_BRANDS = runtime.get("PACT_BRANDS", "")
 # The RSA private JWK that signs PACT delegation tokens and receipts; with it and sign-in, the Brands offer
 # PACT Delegated (pact/signing.py, docs/pact.md).
 PACT_SIGNING_KEY = runtime.get("PACT_SIGNING_KEY", "")
+# 234 as people's own agent at other Brands (turns/reach/, docs/pact.md): its RSA private JWK, whose public
+# half is served at /.well-known/jwks.json, and the Brands it may reach as JSON [{"card", "audience"}].
+PACT_AGENT_KEY = runtime.get("PACT_AGENT_KEY", "")
+PACT_REACH = runtime.get("PACT_REACH", "")
 
 # The key the host signs its MCP events subscriptions with (turns/quote_events.py); without it, none is made.
 EVENTS_SECRET = runtime.get("EVENTS_SECRET", "")

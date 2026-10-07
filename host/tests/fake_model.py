@@ -21,7 +21,7 @@ Every streamed reply ends with the usage of the request (prompt tokens counted a
 when the request asks for it, as the real endpoint does.
 The suggestions on the empty home and what follows them are in scripted_intents.py; what it does with the
 person's saved notes (remember, save a recipient, forget, recall, send to a saved recipient) is in
-scripted_memory.py.
+scripted_memory.py; what it asks other Brands through 234's own agent is in scripted_brands.py.
 """
 
 import hashlib
@@ -31,6 +31,7 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import scripted_brands
 import scripted_intents
 import scripted_memory
 import scripted_recall
@@ -75,6 +76,8 @@ def answer(messages: list[dict], tools: list[dict] | None = None) -> dict:
         return {"text": recalled}
     if remembered := scripted_memory.answer(messages, tools or []):
         return remembered
+    if reached := scripted_brands.answer(messages, tools or []):
+        return reached
     return scripted_intents.answer(messages, tools or []) or _answer(messages, tools or [])
 
 

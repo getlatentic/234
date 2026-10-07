@@ -1,4 +1,4 @@
-# 234 for personal agents (PACT)
+# 234 and personal agents (PACT)
 
 A person's own agent (on their phone, in their assistant) can talk to 234 for them over [PACT 1.0](https://openpactprotocol.org/spec), the Personal Agent Consent and Trust Protocol, on A2A 1.0's HTTP+JSON binding. 234 is the Provider and implements both profiles:
 
@@ -79,3 +79,36 @@ Tests:
 **Seeing and ending them.** A signed-in person opens Connected apps in the chats drawer. It lists every personal agent they allowed: its host, the Brand, what it can do, and the date. It also lists every MCP client, such as Claude or ChatGPT, with the connectors it opens. Disconnect ends either at once. An agent's delegation token is refused from its next message, and its refresh token from its next refresh. A client's tokens are deleted (`accounts/connected.py`, `tests/test_connected.py`, `checkout/tools/mutations/connected_rules.py`). A grant also ends after 30 days, or when its refresh token is used twice. `conformance/pact-delegated.mjs` disconnects an agent in the browser and captures the sheet as `docs/screens/connected-apps-{light,dark}.png`.
 
 The specification's text calls the security scheme `paJwt`, and the suite and the reference Provider use `platformJwt`, so the card names both for the same JWT. Reported as [openpactprotocol/openpactprotocol#42](https://github.com/openpactprotocol/openpactprotocol/issues/42).
+
+## 234 as a person's agent at other Brands
+
+234 also plays the other part: it is a personal agent itself, and talks to other Brands' own assistants for the person. The owner chooses which Brands it can reach (`PACT_REACH`), as the marketplace is the owner's. People see them; they don't add them. The model gets a connector of 234's own, `brands`, which the host serves itself (`host/src/turns/reach/`):
+
+- `list_brands` shows each Brand's name, what it does (from its Agent Card), and what the person has let 234 do there.
+- `message_brand` sends one request, in the person's words, and returns the Brand's reply. Each person keeps one conversation per Brand.
+
+**Who 234 is to a Brand.** Every message carries a JWT that 234 signs with its own P-256 key (`PACT_AGENT_KEY`). The issuer is 234's address, and the public key is at `/.well-known/jwks.json`. The `sub` is a digest of the Brand's card and the person's ledger key. It is stable for that person, different at every Brand, and tells the Brand nothing about who they are. 234 registers with a Provider once: PACT's reference Provider takes a JWT signed by the same key at `POST /api/platforms`. That Provider registers ES256 agents only, which is why the key is P-256 while the host's own Delegated key is RSA.
+
+**When a Brand needs the person's permission.** The Brand answers `TASK_STATE_AUTH_REQUIRED` with the scopes it needs. 234 starts the device flow for them, and the model shows a card: a title naming the Brand, and a button that opens the Brand's own sign-in page. The Brand shows what it asks for on its own consent page, where the person can untick any of it. 234 never sees the person's password, and the card never sees a token. The card asks how the sign-in stands, at the Brand's interval. When the Brand issues the token, the card says "I've signed in with …" in the chat, once, and the model sends the request again. 234 keeps the token for that person and that Brand, refreshes it before it runs out, and drops it when the Brand refuses it.
+
+**Receipts.** 234 checks every receipt as PACT's own client does. The Brand's key, from the JWKS its metadata names, must have signed it. The signed payload must equal the claims shown, and the receipt must name 234 and that Brand. Only then is it kept, and the person is told it checked out. A receipt that fails is not kept, and the person is told why.
+
+**Ending it.** Connected apps lists the Brands where 234 acts for the person. Disconnect forgets 234's tokens and the conversation there. PACT gives an agent no call to revoke a delegation at the Brand. The Brand's token lives at most an hour and works only with 234's own signed JWT, so once 234 has forgotten it, nobody can use it.
+
+| Rule | Where |
+|---|---|
+| A person's `sub` names both the Brand and the person, and nothing that identifies them | `turns/reach/agent.py` |
+| A conversation, a delegation and a sign-in card belong to one person: every statement names their ledger key | `turns/reach/store.py` |
+| The Brand's token endpoint is asked no faster than its interval. Two cards polling at once settle a sign-in once, and only the one that settled it tells the chat. | `turns/reach/signing_in.py`, `store.settle` |
+| A delegation token the Brand refuses is dropped, and the request is sent again without it | `turns/reach/server.py` |
+| A receipt is kept only when it holds | `turns/reach/receipts.py` |
+| ES256 signatures use RFC 6979 nonces (the RFC's own test vector passes), a Montgomery ladder, and a check against the public key before they leave | `host/src/signatures/ec_key.py` |
+| `brands` is offered only to the host's own chats. It is not on the OAuth gateway, and not in a PACT Brand's chat, so an agent calling 234 never makes 234 call other Brands. | `turns/settings.py`, `turns/scope.py` |
+
+Tests:
+
+- **Unit tests:** `host/tests/test_reach.py` runs the connector against a fake Brand's Provider (`tests/reach_support.py`), with receipts signed ES256 as the reference Provider signs them. `test_signatures.py` covers the ES256 key, including RFC 6979's test vector and a check with `cryptography`.
+- **End to end:** `conformance/pact-reach.mjs` (a stack with `REACH=1`) starts PACT's own reference Provider, its database and its Skyline Brand app from the pinned suite, and registers 234 there. A person in 234's chat asks Skyline about a flight (Identity), then about their upcoming flights. They sign in at Skyline's own login page and allow one scope. 234 asks again, gets the answer with a receipt it checks, and rebooking then steps up for the scope left out. Screenshots: `docs/screens/reach-sign-in-card-{light,dark}.png`.
+- **Mutation rules:** `checkout/tools/mutations/reach_rules.py`.
+
+**Not done:** Brands no Provider has registered 234 at cannot be reached: registration is per Provider, by the owner. A person who is not signed in can still use a Brand, keyed to their visitor cookie, but has no Connected apps page to end it. Their tokens expire with the Brand's.

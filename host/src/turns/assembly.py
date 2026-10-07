@@ -13,6 +13,7 @@ from .db import D1
 from .fanout import SocketPool
 from .hub import build_hub
 from .model import OpenAICompatible
+from .reach.server import local_servers
 from .settings import Settings
 
 _client: httpx.AsyncClient | None = None
@@ -38,9 +39,10 @@ def build_core(
 ) -> ChatCore:
     settings = Settings.from_env(env_reader(env))
     client = http_client()
+    db = D1(env.DB)
     return ChatCore(
         chat_id,
-        D1(env.DB),
+        db,
         settings,
         OpenAICompatible(settings, client),
         build_hub(
@@ -48,6 +50,7 @@ def build_core(
             settings.connectors,
             connector_client(env, settings.mcp_binding, client),
             settings.mcp_token,
+            local_servers(settings, db, client),
         ),
         pool,
         alarms,

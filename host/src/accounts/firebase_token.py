@@ -22,7 +22,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from . import rs256
+from signatures import rs256
+
 from .keys import GoogleKeys
 
 MAX_TOKEN_CHARS = 8192

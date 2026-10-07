@@ -11,7 +11,8 @@ from urllib.parse import urlsplit
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
-from .jwks import KeySet
+from signatures.jwks import KeySet
+
 from .transport import fetch
 
 
@@ -45,4 +46,4 @@ def registry() -> dict[str, Agent]:
 @cache
 def keys_of(issuer: str) -> KeySet:
     """One key cache per agent and isolate."""
-    return KeySet(registry()[issuer].jwks_uri, fetch)
+    return KeySet(url=registry()[issuer].jwks_uri, fetch=fetch)

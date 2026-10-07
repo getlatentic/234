@@ -148,6 +148,7 @@ within seconds and needs no redeploy. To try it: open the host address, start a 
 | `DJANGO_SECRET_KEY` | host | the visitor cookie, share links and socket tickets | `tools/deploy.sh rotate DJANGO_SECRET_KEY` (every visitor becomes a new visitor) |
 | `EVENTS_SECRET` | host | the key the host gives its MCP events subscriptions and checks `POST /hooks/events` with | `tools/deploy.sh rotate EVENTS_SECRET` (uploads the host; subscriptions already made stop verifying, and their cards update by polling) |
 | `PACT_SIGNING_KEY` | host | the RSA key (a JWK) the host signs PACT delegation tokens and receipts with, made by `tools/pact-key.mjs` ([pact.md](pact.md)) | `tools/deploy.sh rotate PACT_SIGNING_KEY` (uploads the host; delegation tokens and receipts already issued stop verifying, and agents ask the person again) |
+| `PACT_AGENT_KEY` | host | 234's own P-256 key (a JWK) as a personal agent at other Brands, made by `tools/pact-key.mjs --ec`; its public half is served at `/.well-known/jwks.json` once `PACT_REACH` lists a Brand ([pact.md](pact.md)) | `tools/deploy.sh rotate PACT_AGENT_KEY` (uploads the host; the new key id is fetched by each Provider on its own, and a Provider that pinned the key needs 234 registered again) |
 | `OPS_TOKEN` | host | `/ops/migrate/` | a new one on every deploy; it exists only for the length of the deploy |
 | `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN` | host and connectors | the bearer token between them (one value) | `tools/deploy.sh rotate token` |
 | `SANDBOX_SIGNING_KEY` (host) and `SIGNING_KEY` (sandbox), one value | host and sandbox | the host signs the policy of each card's view; the sandbox serves a view only under a signed policy | `tools/deploy.sh rotate SANDBOX_SIGNING_KEY` (sets both; no upload needed, cards open correctly from the next page load) |
@@ -159,7 +160,7 @@ Two things about rotating, both measured on 2026-09-29:
   are refused (one request in a poll every 3 s); then it is fine, with no new version.
 - The host's Django settings are read once, when a version starts, and a secret changed alone does not reach them:
   a rotated token did not reach the host until the host read it when first needed (`chat/backend.py`), which is why
-  `rotate DJANGO_SECRET_KEY`, `rotate EVENTS_SECRET` and `rotate PACT_SIGNING_KEY` upload the host again as part of the command. The model's
+  `rotate DJANGO_SECRET_KEY`, `rotate EVENTS_SECRET`, `rotate PACT_SIGNING_KEY` and `rotate PACT_AGENT_KEY` upload the host again as part of the command. The model's
   `LLM_*` secrets are read on each request and need nothing.
 
 `A2A_TOKENS` is not set, so no other agent can call the A2A endpoint. To allow one:

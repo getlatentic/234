@@ -79,7 +79,10 @@ check(!/approvalToken|approval_token|structuredContent|_meta|resource_uri|sim\/c
 const task = await client.getTask({ tenant: "", id: pay[0].payload.value.id, historyLength: 0 });
 check(task.status.state === TaskState.TASK_STATE_INPUT_REQUIRED, "tasks/get agrees");
 
-const stream = client.sendMessageStream(request("slow:60@0.1"));
+// Long enough (about 20 s) that the task is still working when the client comes back, however busy the
+// machine is when the first chunks arrive.
+const WORDS = 200;
+const stream = client.sendMessageStream(request(`slow:${WORDS}@0.1`));
 const seen = [];
 for await (const item of stream) {
   seen.push(item);
@@ -92,7 +95,7 @@ const resumed = await collect(client.resubscribeTask({ tenant: "", id: taskId })
 check(stateOf(resumed[0]) === TaskState.TASK_STATE_WORKING, "after a dropped stream, resubscribing gives the working task");
 check(stateOf(resumed.at(-1)) === TaskState.TASK_STATE_COMPLETED, "and follows it to the end");
 const words = joined(resumed).split(/\s+/);
-check(words.join(" ") === [...Array(60).keys()].map((i) => `word${i}`).concat("END").join(" "), "snapshot and chunks join into the whole answer, no gaps or repeats");
+check(words.join(" ") === [...Array(WORDS).keys()].map((i) => `word${i}`).concat("END").join(" "), "snapshot and chunks join into the whole answer, no gaps or repeats");
 
 let refused;
 try { await collect((await connect("not-a-real-token-at-all")).sendMessageStream(request("hello"))); } catch (error) { refused = error; }

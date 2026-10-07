@@ -116,7 +116,7 @@ const SOURCES = [
   ...files(`${root}card`, (p) => /\.(html|js|css|py)$/.test(p)),
   ...files(`${root}checkout/src`, (p) => /\.py$/.test(p)),
   `${root}design/components.css`,
-].filter((p) => !p.endsWith("palette.py") && !p.endsWith("tokens_css.py") && !p.endsWith("host-styles.js") && !/checkout\/src\/checkout\/card\//.test(p));
+].filter((p) => !p.endsWith("palette.py") && !p.endsWith("tokens_css.py") && !p.endsWith("host-styles.js") && !/checkout\/src\/checkout\/card\//.test(p) && !p.endsWith("turns/reach/card.html"));
 const rel = (p) => relative(root, p);
 
 test("no source writes a colour: colours come from the tokens", () => {
@@ -173,6 +173,8 @@ test("every colour in a built stylesheet is a token's", () => {
     `${root}host/build/app.css`,
     `${root}checkout/src/checkout/card/card.html`,
     `${root}checkout/src/checkout/card/menu.html`,
+    `${root}checkout/src/checkout/card/memory.html`,
+    `${root}host/src/turns/reach/card.html`,
     `${root}checkout/src/checkout/tokens_css.py`,
   ];
   if (!existsSync(built[0])) execFileSync("node", [`${root}host/build.mjs`], { stdio: "pipe" });

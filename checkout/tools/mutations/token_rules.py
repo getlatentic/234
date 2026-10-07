@@ -85,14 +85,14 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "a signature's padding is rebuilt and compared whole, not parsed",
-        "accounts/rs256.py",
+        "signatures/rs256.py",
         "return hmac.compare_digest(block, padded(message, size))",
         "return block.endswith(hashlib.sha256(message).digest())",
         TOKEN,
     ),
     host(
         "a public key under 2048 bits is refused",
-        "accounts/rs256.py",
+        "signatures/rs256.py",
         "modulus.bit_length() < MIN_MODULUS_BITS",
         "False",
         TOKEN,

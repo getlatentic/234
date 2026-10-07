@@ -10,6 +10,7 @@
 #   tools/deploy.sh rotate NAME           a new value for a secret made here: token (host to connectors, set on both),
 #                                         EVENTS_SECRET (the host's events key), PACT_SIGNING_KEY (the host's
 #                                         PACT Delegated key: tokens and receipts it signed stop verifying),
+#                                         PACT_AGENT_KEY (234's key as an agent at other Brands: re-register it),
 #                                         SANDBOX_SIGNING_KEY (host and sandbox, set on both), DJANGO_SECRET_KEY
 #                                         or APPROVAL_SECRET
 #   tools/deploy.sh upload host|connectors|sandbox  uploads the committed code again with no checks (a secret the host bakes in
@@ -261,6 +262,8 @@ deploy_all() {
   has_secret "$HOST_WORKER" EVENTS_SECRET || events=$(openssl rand -hex 32)
   local pact=""  # the RSA key the host signs PACT delegation tokens and receipts with: the host's own, made once
   has_secret "$HOST_WORKER" PACT_SIGNING_KEY || pact=$(node "$root/tools/pact-key.mjs")
+  local agent=""  # 234's own P-256 key as a personal agent at other Brands: the host's own, made once
+  has_secret "$HOST_WORKER" PACT_AGENT_KEY || agent=$(node "$root/tools/pact-key.mjs" --ec)
   local signing=""  # the key the host signs a view's policy with: one value on the sandbox and the host, made again when either lacks it
   has_secret "$SANDBOX_WORKER" SIGNING_KEY && has_secret "$HOST_WORKER" SANDBOX_SIGNING_KEY || signing=$(openssl rand -hex 32)
   say "deploying $SANDBOX_WORKER (the card sandbox, first: the host's setting names it)"
@@ -275,6 +278,7 @@ deploy_all() {
   { secret_lines "$HOST_WORKER" DJANGO_SECRET_KEY; auth_secret_lines; [ -z "$shared" ] || echo "CHECKOUT_MCP_TOKEN=$shared"
     [ -z "$signing" ] || echo "SANDBOX_SIGNING_KEY=$signing"
     [ -z "$events" ] || echo "EVENTS_SECRET=$events"; [ -z "$pact" ] || echo "PACT_SIGNING_KEY='$pact'"
+    [ -z "$agent" ] || echo "PACT_AGENT_KEY='$agent'"
     echo "OPS_TOKEN=$ops"; } | deploy_worker host
   migrate_host "$ops"
   smoke_test
@@ -441,10 +445,11 @@ cmd_rotate() {
     DJANGO_SECRET_KEY) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     EVENTS_SECRET) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     PACT_SIGNING_KEY) node "$root/tools/pact-key.mjs" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
+    PACT_AGENT_KEY) node "$root/tools/pact-key.mjs" --ec | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     APPROVAL_SECRET) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1" ;;
     SANDBOX_SIGNING_KEY) printf %s "$value" | put_secret "$SANDBOX_WORKER" SIGNING_KEY
                          printf %s "$value" | put_secret "$HOST_WORKER" "$1" ;;
-    *) die "rotate token, DJANGO_SECRET_KEY, EVENTS_SECRET, PACT_SIGNING_KEY, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
+    *) die "rotate token, DJANGO_SECRET_KEY, EVENTS_SECRET, PACT_SIGNING_KEY, PACT_AGENT_KEY, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
   esac
 }
 

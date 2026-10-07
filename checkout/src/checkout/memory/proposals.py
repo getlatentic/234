@@ -9,12 +9,12 @@ the owner and the proposal id: the card is given it in `_meta`, and the model ne
 import hashlib
 import hmac
 import json
-import secrets
 from dataclasses import dataclass
 from typing import Any
 
 from ..clock import Clock
 from ..db import Db
+from ..ids import new_memory_id
 from .settings import MemorySettings
 
 REMEMBER, UPDATE, FORGET = "remember", "update", "forget"
@@ -102,7 +102,7 @@ class Proposals:
         if state == PENDING:
             await self._make_room(owner, now)
         ttl = self._settings.retention_ms if op == FORGET else self._settings.proposal_ttl_seconds * 1000
-        proposal_id = secrets.token_hex(8)
+        proposal_id = new_memory_id()
         await self._db.execute(
             "INSERT INTO memory_proposal (id, owner, op, target_id, payload, state, created_at, expires_at, "
             "decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",

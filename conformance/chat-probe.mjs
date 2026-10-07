@@ -12,8 +12,6 @@ const chromium = await browser();
 const context = await chromium.newContext();
 const page = await context.newPage();
 const errors = watchErrors(page);
-const popups = [];
-context.on("page", (p) => popups.push(p.url()));
 
 await startChat(page, "Pay ₦2,500 to Demo Kitchen for lunch");
 await page.getByText("I have prepared this for you").waitFor({ timeout: 20000 });
@@ -41,8 +39,11 @@ r = await last();
 check(!r.ok, `the host refused an unknown tool (${r.error})`);
 
 await probe("openLink", "https://example.com/pay");
-await page.waitForTimeout(500);
-check(popups.some((u) => u.startsWith("https://example.com")), "ui/open-link opened a web link in a new tab");
+// A new tab starts at about:blank and shows the link once its navigation commits, which takes as long as the
+// network does: the check waits for that, up to five seconds.
+const opened = () => context.pages().some((p) => p.url().startsWith("https://example.com"));
+for (let i = 0; i < 50 && !opened(); i += 1) await page.waitForTimeout(100);
+check(opened(), "ui/open-link opened a web link in a new tab");
 await probe("openLink", "javascript:alert(1)");
 r = await last();
 check(r.ok && r.value.isError === true, "ui/open-link refused a non-web link");

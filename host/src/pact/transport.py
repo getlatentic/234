@@ -4,8 +4,7 @@
 import httpx
 
 from config import runtime
-
-from .jwks import KeysUnavailable
+from signatures.jwks import KeysUnavailable
 
 TIMEOUT_SECONDS = 5
 

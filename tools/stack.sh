@@ -115,6 +115,16 @@ pact_vars() {  # PACT=1: a test personal agent whose JWKS conformance/pact-suite
     --var 'PACT_BRANDS:{"234":{"name":"234","description":"Everything"},"food":{"name":"Mama_Put","description":"Food","connectors":["food-order"]}}'
 }
 
+reach_vars() {  # REACH=1: 234 acts for people at the Skyline Brand of PACT's reference Provider, which
+  # conformance/pact-reach.mjs runs on base+12 (its Brand app on base+13, its database on base+14); the agent's
+  # key is the stack's own
+  [ "${REACH:-}" = "1" ] || return 0
+  local key="$state/pact-agent-key.json" provider="http://localhost:$((base + 12))"
+  [ -s "$key" ] || node "$root/tools/pact-key.mjs" --ec > "$key"
+  echo --var "PACT_AGENT_KEY:$(cat "$key")" \
+    --var "PACT_REACH:[{\"card\":\"$provider/a2a/01M3R53Q5SZQ6FQSMSDBSSREAA/.well-known/agent-card.json\",\"audience\":\"$provider/a2a\"}]"
+}
+
 host_vars() {  # port: what every host gets, the runner variants included
   local model="--var LLM_BASE_URL:http://127.0.0.1:$model_port/v1"
   [ "${REAL_MODEL:-}" = "1" ] && model="--env real --var LLM_BASE_URL:$LLM_BASE_URL --var LLM_MODEL:$LLM_MODEL"
@@ -126,7 +136,7 @@ host_vars() {  # port: what every host gets, the runner variants included
     --var "PUBLIC_BASE_URL:http://localhost:$1" --var "MODEL_CALLS_PER_DAY:${CAP:-0}" \
     --var "VISITOR_MODEL_CALLS_PER_DAY:${VISITOR_CAP:-60}" --var "WATCHDOG_SECONDS:${WATCHDOG_SECONDS:-30}" \
     --var "SANDBOX_SIGNING_KEY:$sandbox_key" --var "INLINE_PAYSTACK:${INLINE_PAYSTACK:-1}" \
-    --var "EVENTS_SECRET:dummy-local-events-secret" $(pact_vars) \
+    --var "EVENTS_SECRET:dummy-local-events-secret" $(pact_vars) $(reach_vars) \
     --var "CONTEXT_WINDOW_TOKENS:${CONTEXT_WINDOW_TOKENS:-32000}" --var "COMPACT_AT:${COMPACT_AT:-0.6}" \
     --var "KEEP_RECENT_TOKENS:${KEEP_RECENT_TOKENS:-6000}" --var "COMPACTION_TIMEOUT_SECONDS:${COMPACTION_TIMEOUT_SECONDS:-45}"
 }

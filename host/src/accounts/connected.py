@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The person's own view of what can act for them, in the chats drawer: the apps they connected through the
-OAuth gateway (Claude, ChatGPT, …) and the personal agents they allowed to act as their account over PACT,
-each with what it can use and a way to end it at once. Only a signed-in account has any of it: for anyone
-else both addresses are 404."""
+OAuth gateway (Claude, ChatGPT, …), the personal agents they allowed to act as their account over PACT, and
+the Brands where they let 234 act for them (turns/reach/), each with what it can use and a way to end it at
+once. Only a signed-in account has any of it: for anyone else both addresses are 404."""
 
 import time
 from datetime import UTC, datetime
@@ -16,8 +16,10 @@ from oauth import grants as oauth_grants
 from oauth.resources import name_of
 from pact import brands
 from pact import grants as pact_grants
+from reach.models import Conversation, Delegation
+from turns.ledger_owner import ledger_owner
 
-APP, AGENT = "app", "agent"
+APP, AGENT, BRAND = "app", "agent", "brand"
 SCOPE_WORDS = {
     "memory:read": "read your notes",
     "memory:write": "change your notes",
@@ -44,16 +46,42 @@ def _agents(owner: str) -> list[dict[str, str]]:
     for grant in pact_grants.of_account(owner, int(time.time())):
         brand = brands.brands().get(grant.brand)
         words = ", ".join(SCOPE_WORDS.get(s, s) for s in grant.scopes.split())
-        made = datetime.fromtimestamp(grant.created_at, UTC)
-        since = f"{made.day} {made:%b %Y}"
+        since = _day(grant.created_at)
         at = f"At {brand.name}: " if brand else ""
         name = urlsplit(grant.pa_issuer).netloc or grant.pa_issuer
         found.append({"kind": AGENT, "id": grant.id, "name": name, "uses": f"{at}{words}. Since {since}"})
     return found
 
 
+def _brands(owner: str) -> list[dict[str, str]]:
+    """Ending one forgets 234's tokens there; PACT gives an agent no call to revoke them at the Brand, and
+    without 234's own key they are no use to anyone."""
+    held = Delegation.objects.filter(owner=ledger_owner(owner)).order_by("brand_name")
+    return [
+        {
+            "kind": BRAND,
+            "id": d.brand,
+            "name": d.brand_name,
+            "uses": f"234 acts for you there. Since {_day(d.updated_at)}",
+        }
+        for d in held
+    ]
+
+
+def _day(at: int) -> str:
+    made = datetime.fromtimestamp(at, UTC)
+    return f"{made.day} {made:%b %Y}"
+
+
+def _end_brand(owner: str, brand: str) -> None:
+    key = ledger_owner(owner)
+    Delegation.objects.filter(owner=key, brand=brand).delete()
+    Conversation.objects.filter(owner=key, brand=brand).delete()
+
+
 def _listing(owner: str) -> JsonResponse:
-    return JsonResponse({"connections": _apps(owner) + _agents(owner)}, headers={"Cache-Control": "no-store"})
+    found = _apps(owner) + _agents(owner) + _brands(owner)
+    return JsonResponse({"connections": found}, headers={"Cache-Control": "no-store"})
 
 
 @require_GET
@@ -70,6 +98,8 @@ def end(request: HttpRequest) -> JsonResponse:
         oauth_grants.end_client(owner, found)
     elif kind == AGENT:
         pact_grants.end(owner, found)
+    elif kind == BRAND:
+        _end_brand(owner, found)
     else:
         return JsonResponse({"error": "Say which connection to end."}, status=400)
     return _listing(owner)

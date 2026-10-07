@@ -8,7 +8,7 @@ import base64
 import json
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 Fetch = Callable[[str], tuple[int, dict[str, str], bytes]]
@@ -67,27 +67,63 @@ def _max_age(headers: dict[str, str]) -> int:
 
 
 @dataclass
-class KeySet:
-    url: str
-    fetch: Fetch
+class _Cached:
+    """The keys of one JWKS and when to read it again: when its cache life ends, or for a key id it lacks,
+    once the cooldown since the last read has passed."""
+
     clock: Callable[[], float] = time.time
     _keys: dict[str, Key] = field(default_factory=dict)
     _expires: float = 0.0
     _fetched: float = float("-inf")
 
-    def _load(self) -> None:
-        status, headers, body = self.fetch(self.url)
+    def _stale(self) -> bool:
+        return self.clock() >= self._expires
+
+    def _worth_refetch(self, kid: str) -> bool:
+        return kid not in self._keys and self.clock() - self._fetched >= REFETCH_SECONDS
+
+    def _keep(self, status: int, headers: dict[str, str], body: bytes) -> None:
         if status != 200:
             raise KeysUnavailable(f"The JWKS answered {status}.")
         self._keys = parse(body)
         self._fetched = self.clock()
         self._expires = self._fetched + _max_age(headers)
 
+
+@dataclass
+class KeySet(_Cached):
+    url: str = ""
+    fetch: Fetch | None = None
+
+    def _load(self) -> None:
+        assert self.fetch is not None
+        self._keep(*self.fetch(self.url))
+
     def get(self, kid: str) -> Key | None:
-        if self.clock() >= self._expires:
+        if self._stale():
             self._load()
-        found = self._keys.get(kid)
-        if found is None and self.clock() - self._fetched >= REFETCH_SECONDS:
+        if self._worth_refetch(kid):
             self._load()
-            found = self._keys.get(kid)
-        return found
+        return self._keys.get(kid)
+
+
+AsyncFetch = Callable[[str], Awaitable[tuple[int, dict[str, str], bytes]]]
+
+
+@dataclass
+class AsyncKeySet(_Cached):
+    """The same cache for a caller that fetches asynchronously (the turn runner)."""
+
+    url: str = ""
+    fetch: AsyncFetch | None = None
+
+    async def _load(self) -> None:
+        assert self.fetch is not None
+        self._keep(*(await self.fetch(self.url)))
+
+    async def get(self, kid: str) -> Key | None:
+        if self._stale():
+            await self._load()
+        if self._worth_refetch(kid):
+            await self._load()
+        return self._keys.get(kid)

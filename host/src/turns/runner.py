@@ -165,7 +165,7 @@ class TurnRunner:
         try:
             permits = self._permits
             system = system_prompt(
-                self._servers or self._settings.connectors, permits.reads_notes, permits.memory_tools
+                self._servers or self._settings.offered_connectors, permits.reads_notes, permits.memory_tools
             )
             tools = permits.tools(await self._hub.model_tools())
             index = await read_index(self._hub, self._owner) if permits.reads_notes else ""
@@ -251,7 +251,7 @@ class TurnRunner:
         except HubError, httpx.HTTPError:
             tools = []
         return await self._compactor.manual(
-            system_prompt(self._servers or self._settings.connectors), tools, keep_recent_tokens
+            system_prompt(self._servers or self._settings.offered_connectors), tools, keep_recent_tokens
         )
 
     async def _stream(

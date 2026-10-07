@@ -105,13 +105,19 @@ class WorkerBackend:
         if self._hub is None:
             import httpx
 
+            from turns.db import D1
+            from turns.reach.server import local_servers
+            from turns.settings import Settings
+
+            client = httpx.AsyncClient(timeout=30)
+            turn = Settings.from_env(runtime.get)
+            local = local_servers(turn, D1(self._env().DB), client) if turn.reaches else {}
             self._hub = build_hub(
                 settings.CHECKOUT_MCP_URL.rstrip("/"),
                 tuple(settings.CONNECTORS),
-                connector_client(
-                    self._env(), runtime.get("CHECKOUT_MCP_BINDING", ""), httpx.AsyncClient(timeout=30)
-                ),
+                connector_client(self._env(), runtime.get("CHECKOUT_MCP_BINDING", ""), client),
                 runtime.get("CHECKOUT_MCP_TOKEN", ""),
+                local,
             )
         return self._hub
 

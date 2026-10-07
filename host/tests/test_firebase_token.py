@@ -7,8 +7,8 @@ import hashlib
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from accounts import rs256
 from accounts.firebase_token import InvalidToken, verify_id_token
+from signatures import rs256
 
 from .firebase_support import NOW, PROJECT, Google, SigningKey, b64, claims, token
 

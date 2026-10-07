@@ -28,6 +28,12 @@ export function installSuite() {
   });
 }
 
+/** The reference Provider and its Skyline Brand app, with what they need to run. */
+export function installReference() {
+  const filters = ["@openpactprotocol/provider...", "@openpactprotocol/brand..."].flatMap((f) => ["--filter", f]);
+  execFileSync("npx", [...PNPM, "install", "--silent", "--frozen-lockfile", ...filters], { cwd: SUITE_DIR, stdio: "inherit" });
+}
+
 /** The suite's client and its Delegated half, as one ES module. */
 export async function suiteClient() {
   const outfile = `${SUITE_DIR}/.bundle/client.mjs`;
