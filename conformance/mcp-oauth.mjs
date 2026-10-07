@@ -11,7 +11,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { Client, StreamableHTTPClientTransport, UnauthorizedError } from "@modelcontextprotocol/client";
 import { chromium } from "playwright";
-import { chooseGoogleAccount, freshLedger, HOST, suite, watchErrors } from "./lib.mjs";
+import { chooseGoogleAccount, freshLedger, HOST, popupWhenRelayReady, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("MCP clients sign in with OAuth");
 await freshLedger();
@@ -60,9 +60,7 @@ async function approve(url, email, decision = "Allow") {
   await page.goto(url.href);
   const title = await page.locator('[data-slot="title"]').innerText();
   check(title === "Sign in to connect Conformance agent", `a signed-out person is asked to sign in first ("${title}")`);
-  const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "Continue with Google" }).click();
-  const window = await popup;
+  const window = await popupWhenRelayReady(page, () => page.getByRole("button", { name: "Continue with Google" }).click());
   await chooseGoogleAccount(window, email);
   await page.getByRole("button", { name: "Allow" }).waitFor({ timeout: 25000 }).catch(async (problem) => {
     const state = { url: page.url().slice(0, 80), popupClosed: window.isClosed(), note: await page.locator('[data-slot="note"]').innerText().catch(() => "?") };

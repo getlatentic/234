@@ -12,7 +12,7 @@ import { createSign, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { contrastReport } from "./card-checks.mjs";
-import { cardIn, chooseGoogleAccount, freshLedger, HOST, openHome, suite, tokenColor, watchErrors } from "./lib.mjs";
+import { cardIn, chooseGoogleAccount, freshLedger, HOST, openHome, popupWhenRelayReady, suite, tokenColor, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("Sign in with Google");
 const base = Number(process.env.PORT_BASE ?? 8900);
@@ -62,9 +62,8 @@ const signedIn = (page) => page.locator('chat-account [data-slot="email"]');
 async function googleSignIn(page, email) {
   if (!(await drawer(page).isVisible())) await openChats(page);
   await pace();
-  const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "Continue with Google" }).click();
-  const window = await popup;
+  const press = () => page.getByRole("button", { name: "Continue with Google" }).click();
+  const window = await popupWhenRelayReady(page, press, () => openChats(page));
   await chooseGoogleAccount(window, email);
   await becomesSignedIn(page, window);
 }
@@ -282,12 +281,12 @@ console.log("the popup is blocked: one quiet line, then the redirect");
 console.log("a refused sign-in says so once");
 {
   const { page, context } = await device();
-  await page.evaluate((path) => { window.__refuse = true; const original = window.fetch; window.fetch = (input, init) => (String(input).includes("/auth/session") ? Promise.resolve(new Response("{}", { status: 401 })) : original(input, init)); }, "/auth/session");
+  const refuse = () => page.evaluate(() => { const original = window.fetch; window.fetch = (input, init) => (String(input).includes("/auth/session") ? Promise.resolve(new Response("{}", { status: 401 })) : original(input, init)); });
+  await refuse();
   await openChats(page);
   await pace();
-  const popup = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "Continue with Google" }).click();
-  await chooseGoogleAccount(await popup, emailOf("nobody"));
+  const press = () => page.getByRole("button", { name: "Continue with Google" }).click();
+  await chooseGoogleAccount(await popupWhenRelayReady(page, press, async () => { await refuse(); await openChats(page); }), emailOf("nobody"));
   await page.locator('chat-account [data-slot="note"]', { hasText: "Sign-in did not work. Try again." }).waitFor({ timeout: 25000 });
   check((await page.getByRole("button", { name: "Continue with Google" }).isEnabled()), "a refusal leaves one line and the button usable again");
   check(!(await cookieOf(context, "session")), "and no session");

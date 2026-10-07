@@ -1,0 +1,26 @@
+<chat-connected class="block" data-url="{% url 'accounts:connected' %}" data-end-url="{% url 'accounts:connected-end' %}">
+  <dialog aria-labelledby="connected-title" class="m-auto max-h-[calc(100dvh-2rem)] w-[min(calc(100%-2rem),28rem)] overflow-hidden rounded-card border border-line bg-raised p-0 text-ink shadow-soft backdrop:bg-scrim">
+    <div class="flex max-h-[calc(100dvh-2rem)] flex-col">
+      <div class="flex items-center justify-between gap-2 border-b border-line py-1 pl-4 pr-1">
+        <h2 id="connected-title" class="m-0 text-base font-semibold">Connected apps</h2>
+        <button type="button" data-action="close-connected" aria-label="Close" title="Close" class="focus-ring grid size-11 shrink-0 cursor-pointer place-items-center rounded-control text-ink-2 hover:text-ink">
+          <svg viewBox="0 0 20 20" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+        <p data-slot="status" role="status" class="m-0 px-2 pb-1 text-sm text-bad empty:hidden"></p>
+        <p data-slot="empty" class="m-0 px-2 py-8 text-center text-ink-3" hidden>Nothing is connected.</p>
+        <ul data-slot="rows" class="m-0 flex list-none flex-col p-0"></ul>
+      </div>
+    </div>
+  </dialog>
+  <template data-kind="row">
+    <li class="flex items-center gap-2 rounded-control px-2 py-1" data-slot="row">
+      <div class="min-w-0 flex-1 py-2">
+        <p class="m-0 text-base wrap-anywhere" data-slot="name"></p>
+        <p class="m-0 text-sm text-ink-3 wrap-anywhere" data-slot="uses"></p>
+      </div>
+      <button type="button" data-action="end" class="focus-ring min-h-11 shrink-0 cursor-pointer rounded-control px-3 text-sm text-bad hover:bg-sunken disabled:cursor-default disabled:opacity-50">Disconnect</button>
+    </li>
+  </template>
+</chat-connected>

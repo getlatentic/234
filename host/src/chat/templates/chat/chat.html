@@ -68,7 +68,7 @@
   </div>
 
   {% include "chat/_sheet.html" %}
-  {% if shell %}{% if sign_in_enabled %}<template data-kind="memory">{% include "chat/_memory.html" %}</template>{% endif %}{% elif account %}{% include "chat/_memory.html" %}{% endif %}
+  {% if shell %}{% if sign_in_enabled %}<template data-kind="memory">{% include "chat/_memory.html" %}{% include "chat/_connected.html" %}</template>{% endif %}{% elif account %}{% include "chat/_memory.html" %}{% include "chat/_connected.html" %}{% endif %}
 
   <template data-kind="user">{% include "chat/_item.html#user" %}</template>
   <template data-kind="assistant">{% include "chat/_item.html#assistant" %}</template>

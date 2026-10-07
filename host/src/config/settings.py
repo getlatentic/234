@@ -120,9 +120,10 @@ CONNECTORS = runtime.get_list("CONNECTORS", ",".join(TurnSettings.connectors))
 PUBLIC_BASE_URL = runtime.get("PUBLIC_BASE_URL", "http://localhost:8790").rstrip("/")
 OPS_TOKEN = runtime.get("OPS_TOKEN", "")
 # PACT (pact/): the personal agents this host accepts, as a JSON list of {issuer, jwks_uri, enabled}; the one
-# audience it assigns them; and the Brands it serves, as JSON (default: 234 with every connector).
+# audience it assigns them (by default its A2A address, as PACT's reference Provider does); and the Brands it
+# serves, as JSON (default: 234 with every connector).
 PACT_AGENTS = runtime.get("PACT_AGENTS", "")
-PACT_AUDIENCE = runtime.get("PACT_AUDIENCE", "")
+PACT_AUDIENCE = runtime.get("PACT_AUDIENCE", f"{PUBLIC_BASE_URL}/a2a")
 PACT_BRANDS = runtime.get("PACT_BRANDS", "")
 # The RSA private JWK that signs PACT delegation tokens and receipts; with it and sign-in, the Brands offer
 # PACT Delegated (pact/signing.py, docs/pact.md).

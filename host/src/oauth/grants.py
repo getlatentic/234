@@ -13,7 +13,8 @@ from dataclasses import dataclass
 
 from config.sql import returning
 
-from .models import Code, Token
+from .models import Client, Code, Token
+from .resources import connector_of
 
 CODE_SECONDS = 60
 ACCESS_SECONDS = 3600
@@ -163,3 +164,30 @@ def access_of(token: str, now: float | None = None) -> Access | None:
     if found is None or found.expires_at < _now(now):
         return None
     return Access(found.owner, found.client_id, found.resource, found.scope)
+
+
+@dataclass(frozen=True)
+class Connected:
+    """A client the person allowed, with the connectors its live tokens open."""
+
+    client_id: str
+    name: str
+    connectors: tuple[str, ...]
+
+
+def clients_of(owner: str, now: float | None = None) -> list[Connected]:
+    live = Token.objects.filter(owner=owner, expires_at__gte=_now(now)).values_list("client_id", "resource")
+    opened: dict[str, set[str]] = {}
+    for client_id, resource in live:
+        opened.setdefault(client_id, set()).add(connector_of(resource) or resource)
+    names = dict(Client.objects.filter(client_id__in=opened).values_list("client_id", "name"))
+    return [
+        Connected(client_id, names.get(client_id, client_id), tuple(sorted(connectors)))
+        for client_id, connectors in sorted(opened.items(), key=lambda item: names.get(item[0], item[0]))
+    ]
+
+
+def end_client(owner: str, client_id: str) -> None:
+    """Ends every grant the person made to this client: its tokens stop working at once."""
+    Token.objects.filter(owner=owner, client_id=client_id).delete()
+    Code.objects.filter(owner=owner, client_id=client_id).delete()

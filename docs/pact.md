@@ -43,11 +43,11 @@ A Brand offers the scopes of its connectors: `memory:*` with the memory connecto
 | Variable | What it holds |
 |---|---|
 | `PACT_AGENTS` | The agents 234 accepts, as JSON: `[{"issuer", "jwks_uri", "enabled"}]`. A `jwks_uri` is HTTPS (loopback HTTP only with `DJANGO_DEBUG`). Empty: no agent is accepted. |
-| `PACT_AUDIENCE` | The one `aud` 234 accepts. Empty: every token is refused. |
+| `PACT_AUDIENCE` | The one `aud` 234 accepts and tells each agent it registers. Default: the host's A2A address, `https://234.getlatentic.com/a2a` in the public deployment, as PACT's reference Provider does. |
 | `PACT_BRANDS` | The Brands, as JSON: `{"<id>": {"name", "description", "connectors"}}`. Default: `234` with every connector. |
 | `PACT_SIGNING_KEY` (secret) | The RSA private JWK that signs delegation tokens and receipts. `tools/pact-key.mjs` makes one; `tools/deploy.sh` makes it once and `rotate PACT_SIGNING_KEY` replaces it, after which tokens and receipts signed with the old key stop verifying. |
 
-With neither agents nor an audience set, as in the public deployment, the cards are readable and every call is `401`.
+Agents are registered by the owner only: there is no self-registration endpoint like the reference Provider's `POST /api/platforms`, so a JWKS URL is never one a stranger chose. With no agents listed, as in the public deployment, the cards are readable and every call is `401`.
 
 ## The rules the server enforces
 
@@ -76,4 +76,6 @@ Tests:
 - **Delegated, end to end:** the suite's own Delegated test is written for its reference Brand. So `conformance/pact-delegated.mjs` takes its steps with the suite's own client library (`DeviceCodeClient`, `DelegatedA2AClient`, `verifyReceipt`) on a stack with `AUTH=1 PACT=1`, and a real browser signs in through the Firebase Auth emulator and unticks a scope. It captures the consent page as `docs/screens/pact-consent-{light,dark}.png`.
 - **Mutation rules:** `checkout/tools/mutations/pact_rules.py` undoes each rule above and checks that a test fails.
 
-**Not done:** there is no page where the person sees and ends the grants they made. A grant ends after 30 days, or when its refresh token is used twice. The specification's text calls the security scheme `paJwt` and the suite looks for `platformJwt`, so the card names both, for the same JWT.
+**Seeing and ending them.** A signed-in person opens Connected apps in the chats drawer. It lists every personal agent they allowed: its host, the Brand, what it can do, and the date. It also lists every MCP client, such as Claude or ChatGPT, with the connectors it opens. Disconnect ends either at once. An agent's delegation token is refused from its next message, and its refresh token from its next refresh. A client's tokens are deleted (`accounts/connected.py`, `tests/test_connected.py`, `checkout/tools/mutations/connected_rules.py`). A grant also ends after 30 days, or when its refresh token is used twice. `conformance/pact-delegated.mjs` disconnects an agent in the browser and captures the sheet as `docs/screens/connected-apps-{light,dark}.png`.
+
+The specification's text calls the security scheme `paJwt`, and the suite and the reference Provider use `platformJwt`, so the card names both for the same JWT. Reported as [openpactprotocol/openpactprotocol#42](https://github.com/openpactprotocol/openpactprotocol/issues/42).

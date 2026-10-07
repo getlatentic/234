@@ -42,7 +42,9 @@ The package holds no secret. Each server asks the client to sign in the first ti
 
 Tests: `host/tests/test_oauth.py` (46 cases, run with SQLite refusing `SELECT … FOR UPDATE` as D1 does). `conformance/mcp-oauth.mjs` runs the whole flow with the official TypeScript MCP client and a real browser against the Firebase Auth emulator. Two accounts each approve a client, and one account cannot see the other's quote.
 
-**Not done:** custom URI schemes for native apps (`cursor://…`) are refused, because the MCP authorization spec allows only HTTPS and loopback redirects. There is no page that lists the clients a person has allowed. A grant ends when the client revokes it or after 30 days without a refresh.
+A person sees the clients they allowed under Connected apps in the chats drawer, with the connectors each opens, and Disconnect deletes every token that client holds for them ([pact.md](pact.md#delegated-acting-as-the-persons-account)). A grant also ends when the client revokes it or after 30 days without a refresh.
+
+**Not done:** custom URI schemes for native apps (`cursor://…`) are refused, because the MCP authorization spec allows only HTTPS and loopback redirects.
 
 ## The outcome in the conversation
 

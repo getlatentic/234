@@ -16,6 +16,18 @@ WHAT_IT_CAN_DO = {
     MEMORY_SERVER: "It can read and change what 234 remembers for you.",
 }
 
+NAMES = {
+    "paystack-pay": "Merchant payments",
+    "send-money": "Transfers",
+    "airtime": "Airtime and data",
+    "food-order": "Food",
+    MEMORY_SERVER: "Memory",
+}
+
+
+def name_of(connector: str) -> str:
+    return NAMES.get(connector, connector)
+
 
 def connectors() -> tuple[str, ...]:
     return tuple(settings.CONNECTORS)

@@ -102,6 +102,7 @@ async def test_a_payment_webhook_reaches_a_socket_that_slept_through_the_objects
                 },
             },
         )
+        assert approved.status_code == 200, f"the approval was refused: {approved.text}"
         checkout_url = approved.json()["structuredContent"]["quote"]["checkoutUrl"]
         last_seq = (await v.log(chat))[-1]["seq"]
         async with v.socket(chat, since=last_seq) as ws:

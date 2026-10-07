@@ -7,6 +7,7 @@ import "./card-frame.js";
 import "./compaction-note.js";
 import "./composer.js";
 import "./memory.js";
+import "./connected.js";
 import "./sheet.js";
 import "./starters.js";
 import "./tool-row.js";

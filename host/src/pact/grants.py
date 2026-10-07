@@ -77,3 +77,16 @@ def refresh(brand: Brand, caller: Caller, token: str, now: int) -> dict[str, Any
     if grant.revoked or grant.expires_at <= now:
         raise OAuthRefused("invalid_grant", "The grant has ended.")
     return tokens(grant, brand, now)
+
+
+def of_account(account: str, now: int) -> list[Grant]:
+    """The grants a person made that still work, the latest first."""
+    live = Grant.objects.filter(account=account, revoked=False, expires_at__gt=now)
+    return list(live.order_by("-created_at"))
+
+
+def end(account: str, grant_id: str) -> None:
+    """Ends one of the person's grants: its delegation tokens are refused from the next message, and its
+    refresh tokens are gone."""
+    Grant.objects.filter(id=grant_id, account=account).update(revoked=True)
+    RefreshToken.objects.filter(grant_id=grant_id, grant__account=account).delete()

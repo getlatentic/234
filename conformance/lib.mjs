@@ -46,6 +46,7 @@ export async function browser() {
   return chromium.launch();
 }
 
+
 /** Waits until no turn is open: the round button offers Send again (it is Stop while a reply is on its way). */
 export const settled = (page, timeout = 15000) => page.locator("chat-thread:not([data-working])").waitFor({ state: "attached", timeout });
 
@@ -128,26 +129,65 @@ export async function openDrawer(page) {
 }
 
 /** What a person does in the Firebase Auth emulator's "Google" page, a popup or the tab itself: pick the account
- * if it exists, else add it. The emulator's form now and then drops a click: each press is repeated until the
- * popup closes or the tab leaves the emulator. */
+ * if it exists, else add it. A cold emulator now and then drops a click, or the email typed before its form was
+ * ready: each try fills the field again if it lost the email, and presses until the popup closes or the tab
+ * leaves the emulator. */
 export async function chooseGoogleAccount(where, email) {
   const handler = /\/emulator\/auth\/handler/;
   const there = () => !where.isClosed() && handler.test(where.url());
-  const pressUntilGone = async (target) => {
-    for (let tries = 0; tries < 3 && there(); tries += 1) {
-      await target.click({ timeout: 5000 }).catch(() => {});
-      const left = where.waitForURL((url) => !handler.test(url.href), { timeout: 5000 });
-      await Promise.race([where.waitForEvent("close", { timeout: 5000 }), left]).catch(() => {});
-    }
-  };
+  const gone = () => Promise.race([
+    where.waitForEvent("close", { timeout: 8000 }),
+    where.waitForURL((url) => !handler.test(url.href), { timeout: 8000 }),
+  ]).catch(() => {});
   await where.locator("#accounts-list").waitFor({ state: "visible", timeout: 15000 });
   const existing = where.locator("li.js-reuse-account", { hasText: email });
-  if (await existing.count()) return pressUntilGone(existing);
-  const field = where.locator("#email-input");
-  for (let tries = 0; tries < 3 && !(await field.isVisible()); tries += 1) {
-    await where.locator("#add-account-button button").click();
-    await field.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
+  if (await existing.count()) {
+    for (let tries = 0; tries < 3 && there(); tries += 1) {
+      await existing.click({ timeout: 20000 }).catch(() => {});
+      await gone();
+    }
+    return;
   }
-  await field.fill(email);
-  await pressUntilGone(where.locator("#sign-in"));
+  const field = where.locator("#email-input");
+  for (let tries = 0; tries < 4 && there(); tries += 1) {
+    if (!(await field.isVisible().catch(() => false))) {
+      await where.locator("#add-account-button button").click({ timeout: 20000 }).catch(() => {});
+      await field.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+    }
+    if ((await field.inputValue().catch(() => "")) !== email) await field.fill(email).catch(() => {});
+    await where.locator("#sign-in").click({ timeout: 20000 }).catch(() => {});
+    await gone();
+  }
+}
+
+/** Whether the Firebase SDK's relay iframe in `page` has loaded: the emulator's sign-in popup hands its result
+ * to that iframe, which passes it to the page. */
+export async function relayReady(page, timeout = 8000) {
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    for (const frame of page.frames().filter((f) => f.url().includes("/emulator/auth/iframe"))) {
+      if (await frame.evaluate(() => document.readyState === "complete" && typeof gapi === "object").catch(() => false)) return true;
+    }
+    await pause(200);
+  }
+  return false;
+}
+
+/** Presses the button that opens Google's sign-in (`press`) and returns the popup once the page's relay iframe
+ * has loaded. In headless Chromium about one sign-in in twenty leaves that iframe loading forever: its response
+ * arrives, its document never parses, and the popup can then hand its result to no one. That is not waited
+ * on: the popup is closed, the page reloaded, `reopen` brings the button back, and it is pressed again, at most
+ * twice more, each time with a note in the output. */
+export async function popupWhenRelayReady(page, press, reopen = async () => {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    const opened = page.waitForEvent("popup");
+    await press();
+    const window = await opened;
+    if (await relayReady(page)) return window;
+    if (attempt === 2) throw new Error("the Firebase relay iframe did not load in three presses");
+    console.log("  note  the Firebase relay iframe did not load; the page is reloaded and the button pressed again");
+    await window.close();
+    await page.reload();
+    await reopen();
+  }
 }

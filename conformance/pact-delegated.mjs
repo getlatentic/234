@@ -5,7 +5,7 @@
 // the suite's delegated test, with 234's scopes and its own sign-in in place of the reference Brand's.
 // Needs a stack with sign-in and PACT (AUTH=1 PACT=1).
 // usage: PORT_BASE=… node conformance/pact-delegated.mjs
-import { browser, chooseGoogleAccount, HOST, suite, watchErrors } from "./lib.mjs";
+import { browser, chooseGoogleAccount, HOST, openDrawer, popupWhenRelayReady, suite, watchErrors } from "./lib.mjs";
 import { AUDIENCE, ISSUER, installSuite, personalAgent, suiteClient } from "./pact-suite.mjs";
 
 const { check, finish } = suite("PACT Delegated");
@@ -34,9 +34,7 @@ async function approve(link, scopes, decision = "Allow", shot = false) {
   const asked = await page.locator('[data-slot="title"]').innerText();
   let window;
   if (asked === "Sign in to connect your agent") {
-    const popup = page.waitForEvent("popup");
-    await page.getByRole("button", { name: "Continue with Google" }).click();
-    window = await popup;
+    window = await popupWhenRelayReady(page, () => page.getByRole("button", { name: "Continue with Google" }).click());
     await chooseGoogleAccount(window, EMAIL);
   }
   await page.locator('[data-slot="decision"]').waitFor({ timeout: 25000 }).catch(async (problem) => {
@@ -113,6 +111,35 @@ const deniedPoll = await oauth.poll(second.deviceCode).then(() => "granted", (er
 check(deniedPoll === "access_denied", `and the agent gets access_denied (${deniedPoll})`);
 const forged = new pact.DelegatedA2AClient({ url: card.url, getToken, getDelegationToken: () => `${token.accessToken.slice(0, -4)}AAAA` });
 check((await rejects(forged.send("hi"), pact.DelegationTokenRejectedError)) === true, "a delegation token that does not verify is rejected as invalid_token");
+
+console.log("\nthe person ends it from Connected apps");
+{
+  const again = await oauth.start(["memory:read", "payments"]);
+  await approve(again.verificationUriComplete, ["memory:read", "payments"]);
+  const live = await oauth.waitForToken(again);
+  const page = await person.newPage();
+  watchErrors(page, errors);
+  await page.goto(`${HOST}/`);
+  await openDrawer(page);
+  await page.getByRole("button", { name: "Connected apps" }).click();
+  const sheet = page.locator("chat-connected dialog[open]");
+  const row = sheet.locator('[data-slot="row"]', { hasText: new URL(ISSUER).host });
+  await row.waitFor({ timeout: 10000 });
+  const uses = await row.locator('[data-slot="uses"]').innerText();
+  check(uses.startsWith("At 234: read your notes, prepare payments."), `the agent is listed with what it can do ("${uses}")`);
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.screenshot({ path: `${screens}connected-apps-${scheme}.png` });
+  }
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: `Disconnect ${new URL(ISSUER).host}` }).click();
+  await row.waitFor({ state: "detached", timeout: 10000 });
+  check((await sheet.locator('[data-slot="row"]').count()) === 0, "Disconnect takes it off the list");
+  const ended = new pact.DelegatedA2AClient({ url: card.url, getToken, getDelegationToken: () => live.accessToken });
+  check((await rejects(ended.send("recall Mum", { contextId }), pact.DelegationTokenRejectedError)) === true, "and its token is refused from the next message");
+  check((await rejects(oauth.refresh(live.refreshToken), pact.OAuthError)) === true, "as is its refresh token");
+  await page.close();
+}
 
 const unexpected = errors.filter((e) => !/Failed to load resource/.test(e));
 check(unexpected.length === 0, `no page errors or policy violations ${unexpected.join("; ")}`);

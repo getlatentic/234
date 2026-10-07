@@ -12,6 +12,7 @@ from tools.mutations import (
     airtime_rules,
     compaction_rules,
     config_rules,
+    connected_rules,
     event_rules,
     host_rules,
     input_rules,
@@ -56,4 +57,5 @@ MUTATIONS: list[Mutation] = [
     *provider_hook_rules.MUTATIONS,
     *quote_event_host_rules.MUTATIONS,
     *pact_rules.MUTATIONS,
+    *connected_rules.MUTATIONS,
 ]
