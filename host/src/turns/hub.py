@@ -12,6 +12,7 @@ import httpx
 from .idempotency import FIELD as KEY_FIELD
 
 OWNER_HEADER = "x-ledger-owner"
+ACCOUNT_META = "com.getlatentic.234/account"
 MEMORY_OWNER_HEADER = "x-memory-owner"
 MEMORY_SERVER = "memory"
 SEPARATOR = "__"
@@ -214,6 +215,7 @@ class Hub:
         remote = {name: McpHttp(url, client, token) for name, url in endpoints.items()}
         self._servers: dict[str, Server] = dict(remote)
         self._servers.update(local or {})
+        self._local = frozenset(local or {})
         self._tools: dict[str, list[dict[str, Any]]] = {}
 
     def _server(self, name: str) -> Server:
@@ -252,9 +254,12 @@ class Hub:
         return offered
 
     async def _tool_call(
-        self, server: str, name: str, arguments: dict[str, Any], owner: str
+        self, server: str, name: str, arguments: dict[str, Any], owner: str, account: bool = False
     ) -> dict[str, Any]:
-        params = {"name": name, "arguments": arguments}
+        """A connector the host serves itself is also told whether `owner` is a signed-in account."""
+        params: dict[str, Any] = {"name": name, "arguments": arguments}
+        if server in self._local:
+            params["_meta"] = {ACCOUNT_META: account}
         return await self._server(server).request(
             "tools/call", params, _owner_key(owner), notes=server == MEMORY_SERVER
         )
@@ -268,7 +273,7 @@ class Hub:
             return False
 
     async def call_model_tool(
-        self, qualified: str, arguments: dict[str, Any], owner: str, key: str
+        self, qualified: str, arguments: dict[str, Any], owner: str, key: str, account: bool = False
     ) -> ToolOutcome:
         """`key` is the idempotency key of this call. A tool that takes one is given it in place of
         whatever the model sent; a tool that takes none is not sent one."""
@@ -281,7 +286,7 @@ class Hub:
             return refused(server, name, f"{name} is not available to the model.")
         if takes_key(tool):
             arguments = {**arguments, KEY_FIELD: key}
-        result = await self._tool_call(server, name, arguments, owner)
+        result = await self._tool_call(server, name, arguments, owner, account)
         return ToolOutcome(server, name, result, card_uri_of(tool))
 
     async def call_app_tool(

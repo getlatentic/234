@@ -14,7 +14,7 @@ from .card_calls import card_ref
 from .eventlog import EventLog
 from .hub import Hub, HubError, ToolOutcome, refused
 from .idempotency import derive_key
-from .ledger_owner import ledger_owner
+from .ledger_owner import is_account, ledger_owner
 from .settings import Settings
 
 UNREACHABLE = "The connector could not be reached."
@@ -89,7 +89,7 @@ class ToolCalls:
         ledger = ledger_owner(owner)
         key = derive_key(ledger, self._log.chat_id, call["id"])
         try:
-            return await self._hub.call_model_tool(call["name"], arguments, ledger, key)
+            return await self._hub.call_model_tool(call["name"], arguments, ledger, key, is_account(owner))
         except HubError, httpx.HTTPError:
             server, _, tool = call["name"].partition("__")
             return refused(server, tool, UNREACHABLE)

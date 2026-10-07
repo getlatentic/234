@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """234 as a person's own agent at other Brands (host turns/reach/): a sub of its own per person and Brand; a
 conversation, a delegation and a sign-in that belong to one person; the Brand's interval respected; a sign-in
-settled once; a token the Brand refuses dropped; and a receipt kept only when the Brand's published key signed
-exactly the claims shown, for 234 and that Brand. Run against the host's own tests."""
+settled once; a token the Brand refuses dropped; a receipt kept only when the Brand's published key signed
+exactly the claims shown, for 234 and that Brand; a sign-in started only for an account; and a disconnect
+that revokes at the Brand where it can and counts only what the Brand confirmed. Run against the host's own
+tests."""
 
 from tools.mutations.model import Mutation
 from tools.mutations.model import host_mutation as host
@@ -95,5 +97,41 @@ MUTATIONS: list[Mutation] = [
         "k = hmac.new(k, v + marker + x + h, hashlib.sha256).digest()",
         "k = hmac.new(k, v + marker + h, hashlib.sha256).digest()",
         ["tests/test_signatures.py"],
+    ),
+    host(
+        "reach: only a signed-in account starts a sign-in at a Brand",
+        "turns/reach/server.py",
+        "        if reply.missing_scopes and not account:",
+        "        if reply.missing_scopes and account is None:",
+        REACH,
+    ),
+    host(
+        "reach: the hub tells its own connectors whether the owner is an account",
+        "turns/hub.py",
+        '            params["_meta"] = {ACCOUNT_META: account}',
+        '            params["_meta"] = {ACCOUNT_META: True}',
+        REACH,
+    ),
+    host(
+        "reach: a disconnect revokes the refresh token too",
+        "turns/reach/signing_in.py",
+        'tokens = ((held.refresh_token, "refresh_token"), (held.access_token, "access_token"))',
+        'tokens = ((held.access_token, "access_token"),)',
+        REACH,
+    ),
+    host(
+        "reach: a revocation counts only when the Brand confirms it",
+        "turns/reach/signing_in.py",
+        "        return all(status == 200 for status in statuses)",
+        "        return True",
+        REACH,
+    ),
+    host(
+        "reach: a disconnect forgets the tokens even when the Brand cannot revoke",
+        "turns/reach/server.py",
+        "        await self._store.forget_delegation(owner, brand_id)\n"
+        "        await self._store.forget_context",
+        "        await self._store.forget_context",
+        REACH,
     ),
 ]

@@ -50,7 +50,7 @@ class QuoteHub(FakeHub):
     async def model_tools(self):
         return [{"type": "function", "function": {"name": "airtime__create_airtime_quote", "parameters": {}}}]
 
-    async def call_model_tool(self, qualified, arguments, owner, key):
+    async def call_model_tool(self, qualified, arguments, owner, key, account=False):
         ref = f"qt-{len(self.made):020x}"
         kobo = arguments["amount_kobo"]
         self.made.append((ref, kobo))

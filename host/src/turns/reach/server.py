@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The `brands` connector, served by the host itself: the hub sends it the same MCP requests it sends a remote
 connector (tools/list, tools/call, resources/list, resources/read), with the ledger owner key it names every
-call with. The model may list the Brands and send one a message; a sign-in card asks how its sign-in
-stands."""
+call with, and, for a model's call, whether that owner is a signed-in account (ACCOUNT_META). The model may
+list the Brands and send one a message; a sign-in card asks how its sign-in stands. Only an account can let
+234 act for it at a Brand, so that it can see and end that in Connected apps (accounts/connected.py)."""
 
 import time
 from collections.abc import Callable
@@ -12,7 +13,7 @@ from typing import Any
 import httpx
 
 from ..db import Db
-from ..hub import MIME_TYPE, HubError
+from ..hub import ACCOUNT_META, MIME_TYPE, HubError
 from ..settings import Settings
 from . import agent
 from .config import SERVER, ReachSettings, reach_settings
@@ -27,6 +28,11 @@ CARD_FILE = Path(__file__).with_name("card.html")
 STALE_CONTEXT = ("INVALID_PARAMS", "UNSUPPORTED_OPERATION")
 READ = {"readOnlyHint": True, "openWorldHint": True}
 TALK = {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True}
+
+NOT_AN_ACCOUNT = (
+    "{brand} needs the person's permission, and only someone signed in to 234 can give it. Ask them to sign "
+    "in, then send the request again."
+)
 
 TOOLS = [
     {
@@ -103,18 +109,19 @@ class ReachServer:
         if method == "resources/read" and params.get("uri") == CARD_URI:
             return {"contents": [{"uri": CARD_URI, "mimeType": MIME_TYPE, "text": CARD_FILE.read_text()}]}
         if method == "tools/call" and owner:
-            return await self._call(str(params.get("name")), params.get("arguments") or {}, owner)
+            account = (params.get("_meta") or {}).get(ACCOUNT_META) is True
+            return await self._call(str(params.get("name")), params.get("arguments") or {}, owner, account)
         raise HubError(f"{method}: not offered by {SERVER}.")
 
     async def relay(self, *_: Any) -> httpx.Response:
         raise HubError(f"{SERVER} is not reachable from outside the host.")
 
-    async def _call(self, name: str, arguments: dict[str, Any], owner: str) -> dict[str, Any]:
+    async def _call(self, name: str, arguments: dict[str, Any], owner: str, account: bool) -> dict[str, Any]:
         try:
             if name == "list_brands":
                 return await self._list(owner)
             if name == "message_brand":
-                return await self._message(arguments, owner)
+                return await self._message(arguments, owner, account)
             if name == "sign_in_status":
                 return await self._status(str(arguments.get("card_id", "")), owner)
         except BrandUnavailable as problem:
@@ -137,7 +144,7 @@ class ReachServer:
         lines = [f"{b['id']}: {b['name']}. {b['description']}" for b in listed]
         return _result("\n".join(lines), {"brands": listed})
 
-    async def _message(self, arguments: dict[str, Any], owner: str) -> dict[str, Any]:
+    async def _message(self, arguments: dict[str, Any], owner: str, account: bool) -> dict[str, Any]:
         brand = await self.directory.find(str(arguments.get("brand", "")))
         text = str(arguments.get("text", "")).strip()[:2000]
         if brand is None or not text:
@@ -145,6 +152,9 @@ class ReachServer:
         if arguments.get("new_conversation"):
             await self._store.forget_context(owner, brand.id)
         reply = await self._exchange(brand, owner, text)
+        if reply.missing_scopes and not account:
+            said = f"{brand.name} says: {reply.text}\n" if reply.text else ""
+            return _result(f"{said}{NOT_AN_ACCOUNT.format(brand=brand.name)}")
         if reply.missing_scopes:
             return await self._ask_to_sign_in(brand, owner, reply)
         return await self._answered(brand, owner, reply)
@@ -211,6 +221,18 @@ class ReachServer:
                     "actions": [a.get("tool") for a in claims["actions"]],
                 }
         return _result(f"{brand.name} replied: {reply.text}{note}", data)
+
+    async def end(self, owner: str, brand_id: str) -> bool:
+        """Ends what 234 holds for the person at this Brand: it asks the Brand to revoke the grant where the
+        Brand offers that, then forgets the tokens and the conversation. Whether the Brand confirmed it."""
+        held = await self._store.delegation(owner, brand_id)
+        brand = await self.directory.find(brand_id) if held else None
+        revoked = False
+        if held and brand:
+            revoked = await self._signing_in.revoke(brand, owner, held, int(self._clock()))
+        await self._store.forget_delegation(owner, brand_id)
+        await self._store.forget_context(owner, brand_id)
+        return revoked
 
     async def _status(self, card_id: str, owner: str) -> dict[str, Any]:
         sign_in = await self._store.sign_in(owner, card_id)

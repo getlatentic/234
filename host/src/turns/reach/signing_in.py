@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The person letting 234 act on their account at a Brand (PACT §5.3, RFC 8628, from the agent's side): 234
 asks the Brand for the scopes it needs and shows the person the Brand's own link; it asks the Brand's token
-endpoint how that stands, never more often than the Brand's interval; and it refreshes a delegation before it
-runs out, dropping it when the Brand no longer honours it."""
+endpoint how that stands, never more often than the Brand's interval; it refreshes a delegation before it
+runs out, dropping it when the Brand no longer honours it; and when the person ends it, it asks the Brand to
+revoke it (RFC 7009) if the Brand's authorization server metadata names a revocation endpoint."""
 
 import secrets
 from typing import Any
@@ -13,7 +14,7 @@ from . import agent
 from .config import ReachSettings
 from .directory import Brand
 from .store import Delegation, SignIn, Store
-from .wire import BrandUnavailable, form
+from .wire import BrandUnavailable, form, json_of
 
 DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code"
 REFRESH_EARLY_SECONDS = 60
@@ -91,6 +92,25 @@ class SigningIn:
         renewed = _delegation(brand, body, now)
         await self._store.keep_delegation(owner, brand.id, renewed, now)
         return renewed
+
+    async def revoke(self, brand: Brand, owner: str, held: Delegation, now: int) -> bool:
+        """Whether the Brand confirmed it revoked the grant. The refresh token goes first: revoking it ends
+        the grant the access token came from too (RFC 7009 §2.1)."""
+        if brand.delegation is None:
+            return False
+        try:
+            url = (await json_of(self._client, brand.delegation.metadata_url)).get("revocation_endpoint")
+            if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+                return False
+            tokens = ((held.refresh_token, "refresh_token"), (held.access_token, "access_token"))
+            statuses = [
+                (await self._post(url, brand, owner, now, {"token": token, "token_type_hint": hint}))[0]
+                for token, hint in tokens
+                if token
+            ]
+        except BrandUnavailable:
+            return False
+        return all(status == 200 for status in statuses)
 
 
 def _delegation(brand: Brand, body: dict[str, Any], now: int) -> Delegation:

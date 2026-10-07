@@ -2,15 +2,16 @@
 // 234 as a person's own agent at another Brand, against PACT's own reference Provider and its Skyline Brand
 // app (the pinned repository, conformance/pact-suite.mjs), started here: 234 registers itself at the Provider
 // with a JWT its own key signs, and a person in 234's chat asks Skyline about a flight (PACT Identity), then
-// about their upcoming flights, which Skyline answers only with their permission: the sign-in card opens the
-// Brand's own login, the person allows one scope, the card sees the Brand issue the token and says so in the
-// chat, and 234 asks again and gets the answer with a receipt it checks. Rebooking then steps up for the scope
-// left out.
-// Needs a stack with REACH=1 (tools/stack.sh reach_vars). usage: PORT_BASE=… node conformance/pact-reach.mjs
+// about their upcoming flights, which Skyline answers only with their permission. A visitor is told to sign in
+// to 234 first; once signed in, the sign-in card opens the Brand's own login, the person allows one scope, the
+// card sees the Brand issue the token and says so in the chat, and 234 asks again and gets the answer with a
+// receipt it checks. Rebooking then steps up for the scope left out, and the person disconnects Skyline in
+// Connected apps.
+// Needs a stack with AUTH=1 and REACH=1 (tools/stack.sh reach_vars). usage: PORT_BASE=… node conformance/pact-reach.mjs
 import { spawn } from "node:child_process";
 import { createPrivateKey, createSign, randomUUID } from "node:crypto";
 import { readFileSync, rmSync } from "node:fs";
-import { browser, HOST, say, settled, startChat, suite, watchErrors } from "./lib.mjs";
+import { browser, chooseGoogleAccount, HOST, openDrawer, popupWhenRelayReady, say, settled, startChat, suite, watchErrors } from "./lib.mjs";
 import { installReference, PNPM, SUITE_DIR } from "./pact-suite.mjs";
 
 const { check, finish } = suite("234 acts for a person at another Brand (PACT)");
@@ -22,6 +23,7 @@ const SKYLINE = "01M3R53Q5SZQ6FQSMSDBSSREAA";
 const state = new URL(`../.stack/${base}/`, import.meta.url).pathname;
 const database = `postgres://postgres:postgres@127.0.0.1:${databasePort}/postgres`;
 const started = [];
+const EMAIL = "reach.person@example.com";
 
 function run(args, env, label) {
   const child = spawn("npx", [...PNPM, ...args], { cwd: SUITE_DIR, env: { ...process.env, ...env }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -129,7 +131,16 @@ try {
   const answered = await lastReply(page);
   check(/SK 482/.test(answered) && /delayed/.test(answered), `and the conversation carries on there (${answered.slice(0, 90)})`);
 
-  console.log("\nPACT Delegated: upcoming flights need the person's permission");
+  console.log("\nPACT Delegated: upcoming flights need the person's permission, which only an account gives");
+  await say(page, "ask skyline Can you check my upcoming flights?");
+  await settled(page, 60000);
+  const visitor = await lastReply(page);
+  check(/only someone signed in to 234 can give it/.test(visitor) && (await page.locator("card-frame").count()) === 0, `a visitor is told to sign in to 234 first, with no card (${visitor.slice(0, 120)})`);
+  await openDrawer(page);
+  const google = await popupWhenRelayReady(page, () => page.getByRole("button", { name: "Continue with Google" }).click(), () => openDrawer(page));
+  await chooseGoogleAccount(google, EMAIL);
+  await page.locator('chat-account [data-slot="email"]').waitFor({ timeout: 25000 });
+  await page.keyboard.press("Escape");
   await say(page, "ask skyline Can you check my upcoming flights?");
   const signIn = lastCard(page).getByRole("button", { name: "Sign in with Skyline Airways" });
   await signIn.waitFor({ timeout: 60000 });
@@ -160,6 +171,23 @@ try {
   await page.locator("card-frame").nth(1).waitFor({ timeout: 60000 });
   await lastCard(page).getByRole("button", { name: "Sign in with Skyline Airways" }).waitFor({ timeout: 30000 });
   check(true, "a request beyond what the person allowed shows a new sign-in card");
+
+  console.log("\nthe person disconnects Skyline in Connected apps");
+  await openDrawer(page);
+  await page.getByRole("button", { name: "Connected apps" }).click();
+  const sheet = page.locator("chat-connected dialog[open]");
+  const row = sheet.locator('[data-slot="row"]', { hasText: "Skyline Airways" });
+  await row.waitFor({ timeout: 10000 });
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: "Disconnect Skyline Airways" }).click();
+  await row.waitFor({ state: "detached", timeout: 10000 });
+  const note = await sheet.locator('[data-slot="note"]').innerText();
+  check(note === "Skyline Airways doesn't let 234 end it there. You can in your Skyline Airways settings.", `PACT's reference Provider offers no revocation endpoint, so the person is told where to end it ("${note}")`);
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await page.keyboard.press("Escape");
+  await say(page, "ask skyline Can you check my upcoming flights?");
+  await page.locator("card-frame").nth(2).waitFor({ timeout: 60000 });
+  check(true, "234 forgot its tokens: the next request asks for the person's permission again");
 
   const unexpected = errors.filter((e) => !/Failed to load resource/.test(e));
   check(unexpected.length === 0, `no page errors or policy violations ${unexpected.join("; ")}`);

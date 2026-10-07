@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from signatures.private_key import from_jwk
-from turns.hub import Hub
+from turns.hub import ACCOUNT_META, Hub
 from turns.reach.config import Reached, ReachSettings
 from turns.reach.server import ReachServer
 
@@ -46,8 +46,10 @@ def rig(sql, keys):
     return brand, server, clock
 
 
-async def call(server, name, owner=ALICE, **arguments):
-    return await server.request("tools/call", {"name": name, "arguments": arguments}, owner)
+async def call(server, name, owner=ALICE, account=True, **arguments):
+    """A call as a signed-in account's, unless `account` is False."""
+    params = {"name": name, "arguments": arguments, "_meta": {ACCOUNT_META: account}}
+    return await server.request("tools/call", params, owner)
 
 
 async def ask(server, text, owner=ALICE):
@@ -225,3 +227,43 @@ def test_a_persons_sub_differs_at_every_brand_and_for_every_person():
 
     assert sub_for(ALICE, CARD) != sub_for(ALICE, "https://other.example/card.json") != sub_for(BOLA, CARD)
     assert sub_for(ALICE, CARD) == sub_for(ALICE, CARD) and ALICE not in sub_for(ALICE, CARD)
+
+
+async def test_only_a_signed_in_account_is_asked_to_give_its_permission_at_a_brand(rig):
+    brand, server, _ = rig
+    hub = Hub({}, httpx.AsyncClient(), local={"brands": server})
+    arguments = {"brand": SKYLINE, "text": "my upcoming flights"}
+    visitor = await hub.call_model_tool("brands__message_brand", arguments, ALICE, "k" * 40)
+    assert "only someone signed in to 234 can give it" in visitor.text and not visitor.is_error
+    assert "structuredContent" not in visitor.result and brand.devices == {}, "no card, no sign-in started"
+    account = await hub.call_model_tool("brands__message_brand", arguments, ALICE, "k" * 40, account=True)
+    assert "sign_in" in account.result["structuredContent"] and len(brand.devices) == 1
+    hello = await call(server, "message_brand", account=False, brand=SKYLINE, text="hello")
+    assert hello["structuredContent"]["reply"] == "Seen: hello", "a visitor still talks to the Brand"
+
+
+async def test_ending_at_a_brand_revokes_the_grant_there_then_forgets_it(rig, sql):
+    brand, server, clock = rig
+    await sign_in(brand, server, clock)
+    assert await server.end(ALICE, SKYLINE) is True
+    assert [hint for hint, _ in brand.revoked] == ["refresh_token", "access_token"]
+    assert brand.tokens == {} and brand.refreshes == {}, "the Brand ended the grant"
+    assert await sql.rows("SELECT * FROM reach_delegation") == []
+    assert await sql.rows("SELECT * FROM reach_conversation") == []
+    assert await server.end(ALICE, SKYLINE) is False, "nothing left to end"
+
+
+@pytest.mark.parametrize("revocation", [None, 503])
+async def test_a_brand_that_offers_no_revocation_or_fails_it_is_not_counted_as_ended(rig, sql, revocation):
+    brand, server, clock = rig
+    await sign_in(brand, server, clock)
+    brand.revocation = revocation
+    assert await server.end(ALICE, SKYLINE) is False
+    assert await sql.rows("SELECT * FROM reach_delegation") == [], "234 forgets its tokens all the same"
+
+
+async def test_ending_one_persons_brand_leaves_anothers(rig, sql):
+    brand, server, clock = rig
+    await sign_in(brand, server, clock)
+    assert await server.end(BOLA, SKYLINE) is False and brand.revoked == []
+    assert len(await sql.rows("SELECT * FROM reach_delegation")) == 1

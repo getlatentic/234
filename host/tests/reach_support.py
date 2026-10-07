@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """A Brand's PACT Provider for the tests of 234 as an agent: an Agent Card with a device-code scheme, a
 message endpoint that checks 234's personal-agent JWT and answers, steps up when a request needs a scope the
-delegation lacks, RFC 8628 device authorization whose decision the test makes, refresh, and receipts signed
-with ES256 as PACT's reference Provider signs them. It is served by httpx.MockTransport."""
+delegation lacks, RFC 8628 device authorization whose decision the test makes, refresh, RFC 7009 revocation
+(unless `revocation` is None), and receipts signed with ES256 as PACT's reference Provider signs them. It is
+served by httpx.MockTransport."""
 
 import json
 import secrets
@@ -38,6 +39,9 @@ class FakeBrand:
         self.receipt_key = self.key
         self.receipt_pa: str | None = None
         self.reject_tokens = False
+        self.revocation: int | None = 200
+        """The status the revocation endpoint answers, or None for a Brand that offers none."""
+        self.revoked: list[tuple[str, str]] = []
 
     # --- what 234 sends, checked -------------------------------------------------------------------
     def caller(self, request: httpx.Request) -> dict | None:
@@ -66,6 +70,7 @@ class FakeBrand:
             f"{BASE}/oauth/token": self.token,
             f"{BASE}/oauth/.well-known/oauth-authorization-server": self.metadata,
             f"{BASE}/oauth/jwks.json": self.jwks,
+            f"{BASE}/oauth/revoke": self.revoke,
         }
         handler = routes.get(url.split("?")[0])
         return handler(request) if handler else httpx.Response(404)
@@ -102,15 +107,15 @@ class FakeBrand:
         )
 
     def metadata(self, request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={
-                "issuer": f"{BASE}/oauth",
-                "jwks_uri": f"{BASE}/oauth/jwks.json",
-                "token_endpoint": f"{BASE}/oauth/token",
-                "device_authorization_endpoint": f"{BASE}/oauth/device_authorization",
-            },
-        )
+        metadata = {
+            "issuer": f"{BASE}/oauth",
+            "jwks_uri": f"{BASE}/oauth/jwks.json",
+            "token_endpoint": f"{BASE}/oauth/token",
+            "device_authorization_endpoint": f"{BASE}/oauth/device_authorization",
+        }
+        if self.revocation is not None:
+            metadata["revocation_endpoint"] = f"{BASE}/oauth/revoke"
+        return httpx.Response(200, json=metadata)
 
     def jwks(self, request: httpx.Request) -> httpx.Response:
         numbers = self.key.public_key().public_numbers()
@@ -277,6 +282,21 @@ class FakeBrand:
             return httpx.Response(400, json={"error": "access_denied"})
         device["taken"] = True
         return httpx.Response(200, json=self.issue(device["sub"], device["decision"]))
+
+    def revoke(self, request: httpx.Request) -> httpx.Response:
+        """RFC 7009: revoking either token ends the grant, so both of its tokens stop working."""
+        caller, fields = self.caller(request), self.form(request)
+        if caller is None or fields.get("client_id") != caller["iss"] or self.revocation is None:
+            return httpx.Response(401, json={"error": "invalid_client"})
+        self.revoked.append((fields.get("token_type_hint", ""), fields["token"]))
+        if self.revocation == 200:
+            ended = self.tokens.pop(fields["token"], None) or self.refreshes.pop(fields["token"], None)
+            if ended:
+                self.tokens = {k: v for k, v in self.tokens.items() if v["sub"] != ended["sub"]}
+                self.refreshes = {k: v for k, v in self.refreshes.items() if v["sub"] != ended["sub"]}
+        return httpx.Response(
+            self.revocation, json={} if self.revocation == 200 else {"error": "server_error"}
+        )
 
 
 def agent_key_pair() -> tuple[str, dict]:

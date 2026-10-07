@@ -37,7 +37,7 @@ class GatedHub(FakeHub):
         super().__init__({MAKE: quote_result()})
         self.gate = asyncio.Event()
 
-    async def call_model_tool(self, qualified, arguments, owner, key):
+    async def call_model_tool(self, qualified, arguments, owner, key, account=False):
         self.calls.append((qualified, arguments))
         await self.gate.wait()
         raise AssertionError("the tool was let through")

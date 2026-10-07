@@ -119,7 +119,9 @@ class FakeHub:
     async def keyed(self, qualified: str) -> bool:
         return qualified in self.keyed_tools
 
-    async def call_model_tool(self, qualified: str, arguments: dict, owner: str, key: str):
+    async def call_model_tool(
+        self, qualified: str, arguments: dict, owner: str, key: str, account: bool = False
+    ):
         from turns.hub import ToolOutcome
 
         self.calls.append((qualified, arguments))
@@ -198,6 +200,8 @@ class FakeBackend:
         self.memory_calls: list[tuple] = []
         self.memory_answers: dict[str, dict] = {}
         self.relayed: list[tuple] = []
+        self.brands_ended: list[tuple] = []
+        self.brand_revokes = False
         self.relay_answer: tuple = (
             200,
             {"content-type": "application/json", "mcp-session-id": "sess-2"},
@@ -250,3 +254,7 @@ class FakeBackend:
     def rate_ok(self, key):
         self.rate_keys.append(key)
         return self.allow
+
+    def end_brand(self, owner, brand):
+        self.brands_ended.append((owner, brand))
+        return self.brand_revokes

@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from django.http import Http404, HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
+from chat.backend import get_backend
 from chat.views.send import json_body
 from oauth import grants as oauth_grants
 from oauth.resources import name_of
@@ -25,6 +26,8 @@ SCOPE_WORDS = {
     "memory:write": "change your notes",
     "payments": "prepare payments",
 }
+
+NOT_REVOKED = "{brand} doesn't let 234 end it there. You can in your {brand} settings."
 
 
 def _owner(request: HttpRequest) -> str:
@@ -54,8 +57,6 @@ def _agents(owner: str) -> list[dict[str, str]]:
 
 
 def _brands(owner: str) -> list[dict[str, str]]:
-    """Ending one forgets 234's tokens there; PACT gives an agent no call to revoke them at the Brand, and
-    without 234's own key they are no use to anyone."""
     held = Delegation.objects.filter(owner=ledger_owner(owner)).order_by("brand_name")
     return [
         {
@@ -73,15 +74,26 @@ def _day(at: int) -> str:
     return f"{made.day} {made:%b %Y}"
 
 
-def _end_brand(owner: str, brand: str) -> None:
+def _end_brand(owner: str, brand: str) -> str:
+    """Ends it at the Brand too where the Brand lets 234 revoke (turns/reach/signing_in.py); where it does
+    not, the person is told to end it there. 234 forgets its tokens either way, and without 234's own key they
+    are no use to anyone."""
     key = ledger_owner(owner)
+    held = Delegation.objects.filter(owner=key, brand=brand).first()
+    revoked = held is not None and get_backend().end_brand(owner, brand)
     Delegation.objects.filter(owner=key, brand=brand).delete()
     Conversation.objects.filter(owner=key, brand=brand).delete()
+    if held is None or revoked:
+        return ""
+    return NOT_REVOKED.format(brand=held.brand_name)
 
 
-def _listing(owner: str) -> JsonResponse:
+def _listing(owner: str, note: str = "") -> JsonResponse:
     found = _apps(owner) + _agents(owner) + _brands(owner)
-    return JsonResponse({"connections": found}, headers={"Cache-Control": "no-store"})
+    body: dict[str, object] = {"connections": found}
+    if note:
+        body["note"] = note
+    return JsonResponse(body, headers={"Cache-Control": "no-store"})
 
 
 @require_GET
@@ -94,12 +106,13 @@ def end(request: HttpRequest) -> JsonResponse:
     owner = _owner(request)
     body = json_body(request)
     kind, found = body.get("kind"), str(body.get("id", ""))
+    note = ""
     if kind == APP:
         oauth_grants.end_client(owner, found)
     elif kind == AGENT:
         pact_grants.end(owner, found)
     elif kind == BRAND:
-        _end_brand(owner, found)
+        note = _end_brand(owner, found)
     else:
         return JsonResponse({"error": "Say which connection to end."}, status=400)
-    return _listing(owner)
+    return _listing(owner, note)

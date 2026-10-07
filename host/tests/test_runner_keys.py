@@ -27,7 +27,7 @@ class LedgerHub(FakeHub):
         self.quotes: dict[str, str] = {}
         self.crash_on_call = crash_on_call
 
-    async def call_model_tool(self, qualified, arguments, owner, key):
+    async def call_model_tool(self, qualified, arguments, owner, key, account=False):
         from turns.hub import ToolOutcome
 
         outcome = await super().call_model_tool(qualified, arguments, owner, key)

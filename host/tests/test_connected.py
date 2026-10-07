@@ -117,7 +117,7 @@ def a_brand(owner: str, brand: str = "skyline-airways") -> None:
     Conversation.objects.create(owner=key, brand=brand, context_id="ctx", updated_at=1_791_400_000)
 
 
-def test_the_brands_234_acts_at_are_listed_and_disconnecting_one_forgets_its_tokens(person):
+def test_the_brands_234_acts_at_are_listed_and_disconnecting_one_forgets_its_tokens(person, backend):
     from reach.models import Conversation, Delegation
 
     owner = account_of(person)
@@ -126,5 +126,18 @@ def test_the_brands_234_acts_at_are_listed_and_disconnecting_one_forgets_its_tok
     (shown,) = listing(person)
     assert shown["kind"] == "brand" and shown["name"] == "Skyline Airways"
     assert shown["uses"] == "234 acts for you there. Since 7 Oct 2026"
-    person.post("/connected/end", {"kind": "brand", "id": "skyline-airways"})
+    ended = person.post("/connected/end", {"kind": "brand", "id": "skyline-airways"}).json()
+    assert backend.brands_ended == [(owner, "skyline-airways")]
+    assert (
+        ended["note"]
+        == "Skyline Airways doesn't let 234 end it there. You can in your Skyline Airways settings."
+    )
     assert listing(person) == [] and Delegation.objects.count() == 1 and Conversation.objects.count() == 1
+
+
+def test_a_brand_that_revoked_the_grant_needs_no_note_and_an_unknown_one_is_not_asked(person, backend):
+    backend.brand_revokes = True
+    a_brand(account_of(person))
+    assert "note" not in person.post("/connected/end", {"kind": "brand", "id": "skyline-airways"}).json()
+    assert "note" not in person.post("/connected/end", {"kind": "brand", "id": "nowhere"}).json()
+    assert len(backend.brands_ended) == 1

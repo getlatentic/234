@@ -64,7 +64,9 @@ class CardHub:
     async def tools(self, server: str):
         return LISTING[server]
 
-    async def call_model_tool(self, qualified: str, arguments: dict, owner: str, key: str):
+    async def call_model_tool(
+        self, qualified: str, arguments: dict, owner: str, key: str, account: bool = False
+    ):
         self.owners.append(owner)
         server, _, tool = qualified.partition("__")
         return ToolOutcome(server, tool, self.model[qualified], self.views.get(qualified))

@@ -43,10 +43,13 @@ class Backend(Protocol):
 
     def rate_ok(self, key: str) -> bool: ...
 
+    def end_brand(self, owner: str, brand: str) -> bool: ...
+
 
 class WorkerBackend:
     def __init__(self) -> None:
         self._hub: Hub | None = None
+        self._local: dict[str, Any] = {}
 
     @staticmethod
     def _env() -> Any:
@@ -111,13 +114,13 @@ class WorkerBackend:
 
             client = httpx.AsyncClient(timeout=30)
             turn = Settings.from_env(runtime.get)
-            local = local_servers(turn, D1(self._env().DB), client) if turn.reaches else {}
+            self._local = local_servers(turn, D1(self._env().DB), client) if turn.reaches else {}
             self._hub = build_hub(
                 settings.CHECKOUT_MCP_URL.rstrip("/"),
                 tuple(settings.CONNECTORS),
                 connector_client(self._env(), runtime.get("CHECKOUT_MCP_BINDING", ""), client),
                 runtime.get("CHECKOUT_MCP_TOKEN", ""),
-                local,
+                self._local,
             )
         return self._hub
 
@@ -151,6 +154,17 @@ class WorkerBackend:
             return True
         outcome = run_sync(limiter.limit(to_js({"key": key}, dict_converter=Object.fromEntries)))
         return bool(outcome.success)
+
+    def end_brand(self, owner: str, brand: str) -> bool:
+        """Ends what 234 holds for the chat owner `owner` at a Brand (turns/reach/); whether the Brand
+        confirmed it revoked the grant."""
+        from pyodide.ffi import run_sync
+
+        from turns.reach.config import SERVER
+
+        self._connectors()
+        server = self._local.get(SERVER)
+        return bool(server) and bool(run_sync(server.end(ledger_owner(owner), brand)))
 
 
 _backend: Backend | None = None

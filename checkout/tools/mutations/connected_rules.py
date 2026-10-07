@@ -57,4 +57,18 @@ MUTATIONS: list[Mutation] = [
         "    if account is None:\n        return ''",
         CONNECTED,
     ),
+    host(
+        "connected apps: a person is told when a Brand did not revoke",
+        "accounts/connected.py",
+        "    if held is None or revoked:",
+        "    if True:",
+        CONNECTED,
+    ),
+    host(
+        "connected apps: a Brand is asked to revoke only what the person holds there",
+        "accounts/connected.py",
+        "    revoked = held is not None and get_backend().end_brand(owner, brand)",
+        "    revoked = get_backend().end_brand(owner, brand)",
+        CONNECTED,
+    ),
 ]

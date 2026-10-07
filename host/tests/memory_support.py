@@ -65,7 +65,9 @@ class MemoryHub:
     async def keyed(self, qualified: str) -> bool:
         return False
 
-    async def call_model_tool(self, qualified: str, arguments: dict, owner: str, key: str) -> ToolOutcome:
+    async def call_model_tool(
+        self, qualified: str, arguments: dict, owner: str, key: str, account: bool = False
+    ) -> ToolOutcome:
         self.model_calls.append((qualified, arguments))
         self.owners.append(owner)
         server, _, tool = qualified.partition("__")
