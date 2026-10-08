@@ -166,7 +166,7 @@ async def test_the_context_is_measured_with_the_notes_in_it(rig):
     r.runner._compactor.before_round = before_round
     await r.say()
     await r.runner.run()
-    assert INDEX in seen[0] and seen[0].startswith("You are a money assistant")
+    assert INDEX in seen[0] and seen[0].startswith("You are 234")
 
 
 async def test_a_memory_tool_a_model_calls_without_an_account_is_refused_before_it_leaves_the_host(rig):

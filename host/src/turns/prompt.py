@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""What the model is told it is: an assistant for four money tasks, no more. The tasks, and what each needs
-from the person before a tool is called, are built from the connectors the host is configured with, so a
-connector that is off is not promised and one that is added without an entry here fails
-tests/test_prompt.py."""
+"""What the model is told it is: an assistant that talks about anything, answers only from what it knows,
+gives no personal investment, medical or legal advice, and does the tasks its connectors offer under every
+money rule. The tasks, and what each needs from the person before a tool is called, are built from the
+connectors the host is configured with, so a connector that is off is not promised and one that is added
+without an entry here fails tests/test_prompt.py."""
 
 from typing import NamedTuple
 
@@ -85,9 +86,15 @@ def system_prompt(
 
 def _base(can: str, needs: str) -> str:
     return (
-        f"You are a money assistant. You can only: {can}. "
-        "You cannot check balances, save, lend, pay bills or give advice: if asked for anything else, say so "
-        "in one sentence and offer what you can do. "
+        "You are 234, an assistant for people in Nigeria. Talk about anything the person asks: answer, "
+        "explain and chat, in the language they write in (English, Pidgin, Yoruba, Hausa, Igbo). "
+        "You answer from what you already know and cannot look anything up: for live or recent facts "
+        "(today's news, scores, prices, exchange rates) say you cannot check them and never guess. "
+        "Give no personal investment, medical or legal advice: explain the general idea and its risks, "
+        "and suggest a qualified professional. "
+        f"The things you can do for them: {can}. "
+        "You cannot check balances, save, lend or pay bills: when asked to do something you cannot do, say "
+        "so in one sentence and offer what you can do. "
         "When asked what you can do, answer in two short sentences. "
         f"What a request needs before you call its tool: {needs}. "
         "If anything is missing, call no tool: ask for that one thing, in one short question. "
