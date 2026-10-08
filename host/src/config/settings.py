@@ -110,7 +110,17 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     # stdout: the Workers console marks everything on stderr as an error.
-    "handlers": {"console": {"class": "logging.StreamHandler", "stream": "ext://sys.stdout"}},
+    # One JSON line per record, scrubbed and stamped with where it comes from (turns/logs.py, docs/logs.md).
+    "filters": {"scrub": {"()": "turns.logs.ScrubFilter"}},
+    "formatters": {"json": {"()": "turns.logs.JsonFormatter"}},
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "filters": ["scrub"],
+            "formatter": "json",
+        }
+    },
     "root": {"handlers": ["console"], "level": runtime.get("LOG_LEVEL", "INFO")},
 }
 

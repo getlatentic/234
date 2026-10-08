@@ -12,10 +12,12 @@ from typing import Any, Protocol
 
 import httpx
 
+from . import trace
 from .idempotency import FIELD as KEY_FIELD
 
 OWNER_HEADER = "x-ledger-owner"
 GROUP_HEADER = "x-ledger-group"
+TASK_HEADER = "x-task-id"
 ACCOUNT_META = "com.getlatentic.234/account"
 MEMORY_OWNER_HEADER = "x-memory-owner"
 MEMORY_SERVER = "memory"
@@ -141,6 +143,8 @@ class McpHttp:
                 headers[MEMORY_OWNER_HEADER] = owner
             if group := _payer_group.get():
                 headers[GROUP_HEADER] = group
+            if task := trace.current().task:
+                headers[TASK_HEADER] = task
         if self._session:
             headers["mcp-session-id"] = self._session
         if self._token:

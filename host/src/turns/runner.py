@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from . import calls as call_rules
-from . import fold, kinds, messages, permissions, scope
+from . import fold, kinds, logs, messages, permissions, scope, trace
 from .budget import add_tokens, take_model_call, tokens_used_up
 from .compaction.compactor import Compactor
 from .db import Db
@@ -99,6 +99,7 @@ class TurnRunner:
             events = await self._log.context()
             turn = fold.open_turn(events)
             self._task = turn.payload["task"] if turn else None
+            trace.set_task(self._task or "")
             self._permits = permissions.of(self._owner, self._servers, events)
             match fold.next_action(events):
                 case fold.Idle():
@@ -122,6 +123,7 @@ class TurnRunner:
 
     async def _start(self, driver: Event) -> Event:
         self._task = driver.task or self._ids()
+        trace.set_task(self._task)
         return await self._log.append(
             kinds.TURN_STARTED, {"task": self._task, "trigger": driver.seq}, task=self._task
         )
@@ -174,6 +176,7 @@ class TurnRunner:
     async def _model_round(self, events: list[Event]) -> None:
         upto = events[-1].seq
         message = self._ids()
+        began = self._clock()
         if verdict := await self._over_budget():
             await self._log.append(
                 kinds.NOTICE, {"level": "info", "text": BUDGET_NOTICES[verdict]}, task=self._task
@@ -214,6 +217,12 @@ class TurnRunner:
         )
         await self._reply(message, streamed.text, calls, finished.reason, upto, measured)
         await self._count_tokens(finished.usage, sent, tools, streamed.text)
+        usage = finished.usage or {}
+        logs.event(
+            logger, "round", finish_reason=finished.reason, tool_calls=len(calls),
+            prompt_tokens=usage.get("prompt_tokens"), completion_tokens=usage.get("completion_tokens"),
+            duration_ms=self._clock() - began,
+        )  # fmt: skip
 
     async def _asked(
         self,
@@ -234,9 +243,7 @@ class TurnRunner:
             except ModelError as error:
                 if not error.transient or attempt == retries or streamed.finished is not None:
                     raise
-                logger.warning(
-                    "Chat %s: the model was not available (%s); asking again", self._log.chat_id, error
-                )
+                logger.warning("The model was not available (%s); asking again", error)
                 await self._start_again(streamed)
                 await asyncio.sleep(self._settings.model_retry_seconds * 2**attempt)
         raise AssertionError("unreachable")
@@ -263,7 +270,7 @@ class TurnRunner:
 
     async def _squeezed(self, events: list[Event], system: str, tools: list[dict[str, Any]]) -> list[Event]:
         """The events after the endpoint has refused the context as too long: trimmed, or as they were."""
-        logger.warning("Chat %s was refused as too long for the model; trimming it", self._log.chat_id)
+        logger.warning("The model refused the context as too long; trimming it")
         return await self._log.context() if await self._compactor.squeeze(system, tools) else events
 
     async def _compacted(self, events: list[Event], system: str, tools: list[dict[str, Any]]) -> list[Event]:
@@ -273,7 +280,7 @@ class TurnRunner:
             if await self._compactor.before_round(events, system, tools):
                 return await self._log.context()
         except Exception:
-            logger.exception("Compaction of chat %s failed; the round goes on without it", self._log.chat_id)
+            logger.exception("Compaction failed; the round goes on without it")
         return events
 
     async def _over_budget(self) -> str | None:

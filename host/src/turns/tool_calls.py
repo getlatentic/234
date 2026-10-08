@@ -10,13 +10,15 @@ it is not sent again, and the model is told to check before it repeats it. A cal
 ledger remembers by its key, is safe to send again."""
 
 import asyncio
+import logging
+import re
 from collections.abc import Callable
 from typing import Any
 
 import httpx
 
 from . import calls as call_rules
-from . import kinds, permissions, quote_events
+from . import kinds, logs, permissions, quote_events
 from .card_calls import card_ref
 from .eventlog import Draft, EventLog
 from .hub import Hub, HubError, ToolOutcome, refused
@@ -25,6 +27,8 @@ from .ledger_owner import is_account, ledger_owner
 from .metrics import Metrics
 from .settings import Settings
 
+log = logging.getLogger(__name__)
+REFUSAL = re.compile(r"^([A-Z][A-Z0-9_]{2,}):")
 UNREACHABLE = "The connector could not be reached."
 BAD_ARGUMENTS = "The tool arguments were not valid JSON."
 TOO_SLOW = "{tool} did not answer in time."
@@ -33,6 +37,12 @@ WHY_SLOW = "{tool} did not answer in time."
 WHY_CUT_OFF = "234 was restarted while {tool} was running."
 CHECK_WITH = "call {tools} to see how it stands"
 CHECK_WITH_PERSON = "ask the person to check"
+
+
+def refusal_code(text: str) -> str | None:
+    """The code a connector refused with (`LIMIT_DAILY: …`), when the result starts with one."""
+    found = REFUSAL.match(text)
+    return found.group(1) if found else None
 
 
 class ToolCalls:
@@ -74,7 +84,13 @@ class ToolCalls:
                 await self._started(call["name"], call["id"], task)
             outcome, measured = await self._call(call, arguments, owner)
             marks = permissions.marks(permits, call["name"], None)
-        self._metrics.tool(outcome.server, outcome.tool, measured, self._clock() - began)
+        took = self._clock() - began
+        self._metrics.tool(outcome.server, outcome.tool, measured, took)
+        code = refusal_code(outcome.text) if outcome.is_error else None
+        logs.event(
+            log, "tool", server=outcome.server, tool=outcome.tool, outcome=measured, duration_ms=took,
+            is_error=outcome.is_error, code=code,
+        )  # fmt: skip
         payload = {
             "call_id": call["id"],
             "server": outcome.server,
@@ -82,6 +98,8 @@ class ToolCalls:
             "arguments": arguments or {},
             "result_text": outcome.text,
             "is_error": outcome.is_error,
+            "duration_ms": took,
+            **({"code": code} if code else {}),
             **marks,
         }
         card = self._card(outcome, task)

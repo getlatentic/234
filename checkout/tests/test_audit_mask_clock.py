@@ -67,3 +67,23 @@ def test_lagos_time():
     assert lagos_day_start(at(2026, 9, 29, 23, 30)) == at(2026, 9, 29, 23)
     assert format_lagos(at(2026, 9, 29, 10, 5)) == "29 Sep 2026, 11:05 WAT"
     assert lagos_stamp(START) == "202609291100"
+
+
+def test_a_line_written_in_a_turn_carries_its_task_and_a_hash_of_the_owner():
+    from checkout.owner import acting_for, in_task
+
+    audit, lines = capture()
+    owner = "ab" * 16
+    with in_task("task-42"), acting_for(owner):
+        audit.log("tool.call")
+    audit.log("tool.call")
+    inside, outside = (json.loads(line) for line in lines)
+    assert inside["task"] == "task-42" and len(inside["owner"]) == 12 and owner not in lines[0]
+    assert "task" not in outside and "owner" not in outside
+
+
+def test_a_task_header_that_is_not_an_id_is_dropped_not_trusted():
+    from checkout.owner import task_of
+
+    assert task_of("task-42_a") == "task-42_a"
+    assert task_of(None) == "" and task_of("x" * 65) == "" and task_of("a b\nc") == ""

@@ -12,7 +12,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
-from . import fold, kinds, permissions, scope
+from . import fold, kinds, permissions, scope, trace
 from .card_calls import CardCalls
 from .db import Db
 from .eventlog import Event, EventLog
@@ -166,12 +166,15 @@ class ChatCore:
                 self._more_to_do = False
                 resumed, self._resume_next = self._resume_next, False
                 await self._alarms.arm(self._clock() + self._settings.watchdog_seconds * 1000)
-                with paying_as(await self._payer_group()):
+                with (
+                    trace.bound(self.chat_id, await self._owner_of_chat()),
+                    paying_as(await self._payer_group()),
+                ):
                     await runner.run(resumed=resumed)
                 if not self._more_to_do:
                     await self._alarms.disarm()
         except Exception:
-            log.exception("The turn loop for chat %s stopped", self.chat_id)
+            log.exception("The turn loop stopped")
 
     async def cancel(self) -> dict[str, Any]:
         """Stops the turn that is answering the person, keeping what was said so far. A message that
@@ -222,12 +225,17 @@ class ChatCore:
         """The watchdog. While the loop lives it only rearms; a loop that is gone is started again. An alarm
         that keeps finding the log where the last one left it, with no loop running (a recovery that fails
         or raises each time), stops after a few, so it does not fire forever."""
+        with trace.bound(self.chat_id, ""):
+            await self._watch()
+
+    async def _watch(self) -> None:
         if self.running:
             await self._alarms.arm(self._clock() + self._settings.watchdog_seconds * 1000)
             return
         if await self._alarms.unchanged(await self.log.last_seq()) >= self._settings.max_alarm_strikes:
-            log.error("The watchdog of chat %s found nothing changed %s times; it stops", self.chat_id,
-                      self._settings.max_alarm_strikes)  # fmt: skip
+            log.error(
+                "The watchdog found nothing changed %s times; it stops", self._settings.max_alarm_strikes
+            )
             await self._alarms.disarm()
             return
         await self.recover()
@@ -242,7 +250,7 @@ class ChatCore:
             await self.wake(resumed=True)
 
     async def card_call(self, server: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        with paying_as(await self._payer_group()):
+        with trace.bound(self.chat_id, await self._owner_of_chat()), paying_as(await self._payer_group()):
             return await self._cards.call(server, name, arguments)
 
     async def refresh_card(self, quote_id: str) -> bool:

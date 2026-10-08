@@ -21,12 +21,15 @@ from contextvars import ContextVar
 OWNER_HEADER = "x-ledger-owner"
 MEMORY_OWNER_HEADER = "x-memory-owner"
 GROUP_HEADER = "x-ledger-group"
+TASK_HEADER = "x-task-id"
 DEFAULT_OWNER = "0" * 32
 _SHAPE = re.compile(r"[0-9a-f]{32}")
+_TASK_SHAPE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 _current: ContextVar[str | None] = ContextVar("ledger_owner", default=None)
 _memory: ContextVar[str | None] = ContextVar("memory_owner", default=None)
 _group: ContextVar[str] = ContextVar("payer_group", default="")
+_task: ContextVar[str] = ContextVar("task_id", default="")
 
 
 def is_owner_key(value: object) -> bool:
@@ -70,3 +73,23 @@ def remembering_for(owner: str) -> Iterator[None]:
         yield
     finally:
         _memory.reset(token)
+
+
+def current_task() -> str:
+    return _task.get()
+
+
+def task_of(value: str | None) -> str:
+    """The turn's id from the task header, '' when it is absent or not an id: it only labels log lines, so a
+    malformed one is dropped, not refused."""
+    return value if value is not None and _TASK_SHAPE.fullmatch(value) else ""
+
+
+@contextmanager
+def in_task(task: str) -> Iterator[None]:
+    """Audit lines written inside the block carry `task`, the host's id of the turn that made the call."""
+    token = _task.set(task)
+    try:
+        yield
+    finally:
+        _task.reset(token)

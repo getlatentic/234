@@ -19,7 +19,17 @@ from .mcp.protocol import (
     error_body,
     parse_body,
 )
-from .owner import GROUP_HEADER, MEMORY_OWNER_HEADER, OWNER_HEADER, acting_for, is_owner_key, remembering_for
+from .owner import (
+    GROUP_HEADER,
+    MEMORY_OWNER_HEADER,
+    OWNER_HEADER,
+    TASK_HEADER,
+    acting_for,
+    in_task,
+    is_owner_key,
+    remembering_for,
+    task_of,
+)
 from .provider_hooks.http import paystack_hook, paystack_keys, vtpass_hook
 from .responses import HttpResponse, json_response
 from .sim_checkout import handle_checkout
@@ -127,6 +137,7 @@ async def handle_mcp(
     except McpError as error:
         return json_response(error_body(_message_id(message), error.code, error.message), 400)
     with ExitStack() as acting:
+        acting.enter_context(in_task(task_of(headers.get(TASK_HEADER))))
         if owner is not None:
             acting.enter_context(acting_for(owner, group))
         if memory_owner is not None:

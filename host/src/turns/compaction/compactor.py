@@ -129,7 +129,7 @@ class Compactor:
                 if isinstance(failed, SummaryFailed)
                 else f"{type(failed).__name__} while summarising"
             )
-            logger.warning("Compaction of chat %s fell back to trimming: %s", self._log.chat_id, reason)
+            logger.warning("Compaction fell back to trimming: %s", reason)
             return await self._trimmed(events, reason, keep, system, tools, started)
 
     async def _summarised(

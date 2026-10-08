@@ -2,6 +2,7 @@
 """The audit log: one JSON line per event, keys removed and long digit runs masked whatever the
 caller passed. Sinks are plain callables, so a Worker prints, a test collects."""
 
+import hashlib
 import json
 import re
 from collections.abc import Callable
@@ -10,6 +11,7 @@ from typing import Any
 
 from .clock import Clock, SystemClock
 from .mask import mask_phone
+from .owner import current_owner, current_task
 
 _KEY_LIKE = re.compile(r"\b(?:sk_(?:test|live)_|pk_(?:test|live)_|SK_|PK_)[A-Za-z0-9]+")
 _LONG_DIGITS = re.compile(r"(?<![A-Za-z0-9])\d{7,}(?![A-Za-z0-9])")
@@ -36,6 +38,11 @@ class Audit:
             "ts": stamp.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
             "event": event,
         }
+        owner, task = current_owner(), current_task()
+        if owner:
+            entry["owner"] = hashlib.sha256(owner.encode()).hexdigest()[:12]
+        if task:
+            entry["task"] = task
         entry.update({k: scrub(v) if isinstance(v, str) else v for k, v in fields.items() if v is not None})
         line = json.dumps(entry, ensure_ascii=False)
         for sink in self._sinks:

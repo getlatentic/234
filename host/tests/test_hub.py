@@ -146,6 +146,17 @@ async def test_a_call_inside_a_payer_group_names_it_and_no_other_call_does(hub):
     assert [h.get(GROUP_HEADER) for h in calls] == [None, "cd" * 16, None]
 
 
+async def test_a_call_inside_a_turn_names_its_task_and_no_other_call_does(hub):
+    from turns import trace
+    from turns.hub import TASK_HEADER
+
+    await hub.call_model_tool("s__create_quote", {"a": 1}, OWNER, KEY)
+    with trace.bound("chat-1", OWNER, "task-9"):
+        await hub.call_model_tool("s__create_quote", {"a": 1}, OWNER, KEY)
+    calls = [h for h, b in zip(HEADERS, CALLS, strict=True) if b.get("method") == "tools/call"]
+    assert [h.get(TASK_HEADER) for h in calls] == [None, "task-9"]
+
+
 NO_REPLY = [
     httpx.Response(502, text=""),
     httpx.Response(200, text="<html>oops</html>"),

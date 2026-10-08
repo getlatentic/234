@@ -29,8 +29,10 @@ _ONE_TIME_CODE = re.compile(
 _LONG_SECRET = re.compile(r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-])")
 
 
-def scrubbed(text: str) -> str:
-    text = _LINK.sub(LINK_REMOVED, text)
+def scrubbed(text: str, *, links: bool = False) -> str:
+    """`text` without its secrets and, unless `links` keeps them, its links."""
+    if not links:
+        text = _LINK.sub(LINK_REMOVED, text)
     for pattern in (_API_KEY, _LABELLED, _BEARER, _ONE_TIME_CODE, _LONG_SECRET):
         text = pattern.sub(REMOVED, text)
     return redact_card_numbers(text, CARD_REMOVED)
