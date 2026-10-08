@@ -411,7 +411,7 @@ smoke_custom() {  # the host on its custom domain: page, /api/me, cookies, the s
 
 smoke_test() {  # [ops-token]: the deploy's own, which lets the smoke test's first message past the bot check
   say "smoke test (curl only; it sends one word, so with a model set that is one model call)"
-  local jar failures=0 csrf chat page
+  local jar failures=0 csrf chat page me
   jar=$(mktemp)
   check() { if [ "$2" = "$3" ]; then echo "ok   $1"; else echo "FAIL $1: expected $3, got $2"; failures=$((failures + 1)); fi; }
   check "sandbox /health" "$(http_status "$SANDBOX_URL/health")" 200
@@ -432,12 +432,13 @@ smoke_test() {  # [ops-token]: the deploy's own, which lets the smoke test's fir
     -H 'content-type: application/json' -d '{"type":"verification","challenge":"x"}')" 401
   check "host page" "$(http_status "$HOST_URL/")" 200
   smoke_shell
-  check "the host's page frames only the sandbox" "$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' | grep -ciE "frame-src $SANDBOX_URL( https://[a-z0-9-]+\\.firebaseapp\\.com)?;" || true)" 1
+  check "the host's page frames only the sandbox" "$(curl -s -m 30 -D - -o /dev/null "$HOST_URL/" | tr -d '\r' | grep -ciE "frame-src $SANDBOX_URL( https://[a-z0-9-]+\\.firebaseapp\\.com)?( https://challenges\\.cloudflare\\.com)?;" || true)" 1
   check "the host's cookies are the host's alone (none names a Domain)" "$(grep -ci 'domain=' <(curl -s -m 30 -D - -o /dev/null -c "$jar" "$HOST_URL/api/me") || true)" 0
   csrf=$(grep -o '"csrf": "[^"]*' <(curl -s -m 60 -b "$jar" -c "$jar" "$HOST_URL/api/me") | cut -d'"' -f4 || true)
   chat=$(openssl rand -hex 16)
   if [ -n "$TURNSTILE_ON" ]; then
-    check "the bot check is on: /api/me offers the widget" "$(if curl -s -m 30 -b "$jar" "$HOST_URL/api/me" | grep -q "\"botCheck\": \"$TURNSTILE_SITE_KEY\""; then echo yes; else echo no; fi)" yes
+    me=$(curl -s -m 30 -b "$jar" "$HOST_URL/api/me" || true)
+    check "the bot check is on: /api/me offers the widget" "$(if grep -q "\"botCheck\": \"$TURNSTILE_SITE_KEY\"" <<< "$me"; then echo yes; else echo no; fi)" yes
     check "the bot check is on: a first message with no token is refused" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$(openssl rand -hex 16)/start" \
       -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' -d '{"text":"hi"}' || true)" 403
   fi
