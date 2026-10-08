@@ -30,6 +30,8 @@ for (const scheme of ["light", "dark"]) {
       const pill = document.querySelector('[data-slot="pill"]').getBoundingClientRect();
       return { last: Math.round(last.top), pill: Math.round(pill.top), height: document.documentElement.scrollHeight };
     });
+  // The composer slides down after the first message; measure once that, and anything else that ends, has ended.
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
   const quiet = await place();
   check(!(await offline.isVisible()) && !(await error.isVisible()), "neither line is shown while all is well");
 
