@@ -135,3 +135,44 @@ async def test_an_error_event_in_a_stream_that_began_with_200_is_an_error_not_an
     with pytest.raises(ModelError, match="reported an error") as failure:
         await collect(model(lambda request: sse(other)))
     assert not isinstance(failure.value, ContextTooLong)
+
+
+@pytest.mark.parametrize(
+    ("status", "transient"),
+    [
+        (429, True),
+        (500, True),
+        (502, True),
+        (503, True),
+        (504, True),
+        (400, False),
+        (401, False),
+        (404, False),
+    ],
+)
+async def test_a_busy_endpoint_is_transient_and_a_refused_request_is_not(status, transient):
+    with pytest.raises(ModelError) as failure:
+        await collect(model(lambda request: httpx.Response(status)))
+    assert failure.value.transient is transient
+
+
+async def test_a_dropped_connection_is_transient_and_a_context_refusal_and_a_missing_key_are_not():
+    def handler(request):
+        raise httpx.ConnectError("refused")
+
+    with pytest.raises(ModelError) as dropped:
+        await collect(model(handler))
+    assert dropped.value.transient is True
+    with pytest.raises(ContextTooLong) as too_long:
+        await collect(model(lambda r: httpx.Response(400, text="maximum context length is 131072 tokens")))
+    assert too_long.value.transient is False
+    with pytest.raises(ModelError) as unset:
+        await collect(model(lambda r: sse(), llm_api_key=""))
+    assert unset.value.transient is False
+
+
+async def test_a_throttling_error_in_a_stream_that_began_with_200_is_transient():
+    error = '{"error": {"message": "Too many requests, please slow down: throttling"}}'
+    with pytest.raises(ModelError) as failure:
+        await collect(model(lambda r: sse(f"{error}")))
+    assert failure.value.transient is True

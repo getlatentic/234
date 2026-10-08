@@ -51,6 +51,8 @@ def new_id() -> str:
 
 @dataclass
 class _Streamed:
+    message: str = ""
+    """The id of the reply being streamed: a new one when a half reply was thrown away to ask again."""
     text: str = ""
     finished: Finished | None = None
 
@@ -184,7 +186,7 @@ class TurnRunner:
             )
             await self._reply(message, "", [], "budget", upto)
             return
-        streamed = _Streamed()
+        streamed = _Streamed(message)
         try:
             permits = self._permits
             system = system_prompt(
@@ -197,40 +199,71 @@ class TurnRunner:
             events = await self._compacted(events, head, tools)
             upto = events[-1].seq
             try:
-                sent = await self._stream_round(events, upto, message, streamed, system, tools, notes)
+                sent = await self._asked(events, upto, streamed, system, tools, notes)
             except ContextTooLong:
                 events = await self._squeezed(events, head, tools)
                 upto = events[-1].seq
-                sent = await self._stream_round(events, upto, message, streamed, system, tools, notes)
+                sent = await self._asked(events, upto, streamed, system, tools, notes)
         except (ModelError, HubError, httpx.HTTPError) as error:
             text = str(error) if isinstance(error, ModelError | HubError) else UNREACHABLE
             await self._log.append(kinds.NOTICE, {"level": "error", "text": text}, task=self._task)
-            await self._reply(message, streamed.text, [], "error", upto)
+            await self._reply(streamed.message, streamed.text, [], "error", upto)
             return
         finished = streamed.finished
         assert finished is not None
         if finished.reason == "length" and not finished.tool_calls:
             await self._log.append(kinds.NOTICE, {"level": "info", "text": LENGTH_NOTICE}, task=self._task)
+        message = streamed.message
         calls = call_rules.with_distinct_ids(finished.tool_calls, call_rules.used_ids(events), message)
         measured = (
             {"estimate": request_tokens(sent, tools), "usage": finished.usage} if finished.usage else {}
         )
         await self._reply(message, streamed.text, calls, finished.reason, upto, measured)
 
+    async def _asked(
+        self,
+        events: list[Event],
+        upto: int,
+        streamed: _Streamed,
+        system: str,
+        tools: list[dict[str, Any]],
+        notes: dict[str, Any] | None,
+    ) -> list[dict[str, Any]]:
+        """Asks the model, again after a wait when the endpoint was busy or could not be reached (at most
+        `model_retries` times, the wait doubling), and the messages sent. What a failed attempt had streamed
+        is thrown away first, as a restart throws it away, and the reply starts under a new id."""
+        retries = self._settings.model_retries
+        for attempt in range(retries + 1):
+            try:
+                return await self._stream_round(events, upto, streamed, system, tools, notes)
+            except ModelError as error:
+                if not error.transient or attempt == retries or streamed.finished is not None:
+                    raise
+                logger.warning(
+                    "Chat %s: the model was not available (%s); asking again", self._log.chat_id, error
+                )
+                await self._start_again(streamed)
+                await asyncio.sleep(self._settings.model_retry_seconds * 2**attempt)
+        raise AssertionError("unreachable")
+
+    async def _start_again(self, streamed: _Streamed) -> None:
+        if streamed.text:
+            await self._log.append(kinds.ROUND_ABORTED, {"message": streamed.message}, task=self._task)
+            streamed.message, streamed.text = self._ids(), ""
+
     async def _stream_round(
         self,
         events: list[Event],
         upto: int,
-        message: str,
         streamed: _Streamed,
         system: str,
         tools: list[dict[str, Any]],
         notes: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Asks the model once, for the conversation as it stands; the messages sent."""
-        self._round = _Round(message, upto, streamed)
+        self._round = _Round(streamed.message, upto, streamed)
         sent = messages.render(events, system, notes)
-        await self._stream(streamed, message, sent, tools)
+        await self._stream(streamed, streamed.message, sent, tools)
         return sent
 
     async def _squeezed(self, events: list[Event], system: str, tools: list[dict[str, Any]]) -> list[Event]:

@@ -18,7 +18,7 @@ import httpx
 from . import calls as call_rules
 from . import kinds, permissions, quote_events
 from .card_calls import card_ref
-from .eventlog import EventLog
+from .eventlog import Draft, EventLog
 from .hub import Hub, HubError, ToolOutcome, refused
 from .idempotency import derive_key
 from .ledger_owner import is_account, ledger_owner
@@ -84,21 +84,24 @@ class ToolCalls:
             "is_error": outcome.is_error,
             **marks,
         }
-        await self._log.append(kinds.TOOL, payload, task=task)
-        await self._card(outcome, owner, task)
+        card = self._card(outcome, task)
+        await self._log.append_all([Draft(kinds.TOOL, payload, task), *([card] if card else [])])
+        if card:
+            await quote_events.follow(self._hub, self._settings, outcome, ledger_owner(owner))
 
-    async def _card(self, outcome: ToolOutcome, owner: str, task: str | None) -> None:
+    def _card(self, outcome: ToolOutcome, task: str | None) -> Draft | None:
+        """The card the result asks for, appended in the same write as the result: a result logged without
+        its card would never be run again, and the person could not approve the quote it made."""
         ref = card_ref(outcome.result)
         if not (outcome.card_uri and not outcome.is_error and ref):
-            return
+            return None
         payload = {
             "server": outcome.server,
             "tool": outcome.tool,
             "resource_uri": outcome.card_uri,
             "result": outcome.result,
         }
-        await self._log.append(kinds.CARD, payload, task=task, ref=ref)
-        await quote_events.follow(self._hub, self._settings, outcome, ledger_owner(owner))
+        return Draft(kinds.CARD, payload, task, ref)
 
     async def _twin_in_reply(
         self, call: dict[str, Any], reply_calls: list[dict[str, Any]]

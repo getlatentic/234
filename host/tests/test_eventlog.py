@@ -2,7 +2,7 @@
 import pytest
 
 from turns.db import UniqueViolation
-from turns.eventlog import EventLog
+from turns.eventlog import Draft, EventLog
 
 pytestmark = pytest.mark.django_db
 
@@ -78,3 +78,45 @@ async def test_last_seq_and_erase(log):
     assert await log.last_seq() == 1
     await log.erase()
     assert await log.read() == []
+
+
+async def test_events_appended_together_take_consecutive_seqs_after_the_log_and_are_published_in_order(
+    chat, sql, clock
+):
+    seen = []
+
+    async def publish(event):
+        seen.append((event.seq, event.type))
+
+    log = EventLog(sql, chat.id, clock, on_append=publish)
+    await log.append("user", {"text": "hi"})
+    events = await log.append_all(
+        [Draft("tool", {"n": 1}, "t1"), Draft("card", {"n": 2}, "t1", "qt-1"), Draft("notice", {"n": 3})]
+    )
+    assert [(e.seq, e.type, e.task, e.ref) for e in events] == [
+        (2, "tool", "t1", None),
+        (3, "card", "t1", "qt-1"),
+        (4, "notice", None, None),
+    ]
+    assert seen == [(1, "user"), (2, "tool"), (3, "card"), (4, "notice")]
+    stored = await log.read()
+    assert [(e.seq, e.type, e.payload) for e in stored[1:]] == [
+        (2, "tool", {"n": 1}),
+        (3, "card", {"n": 2}),
+        (4, "notice", {"n": 3}),
+    ]
+
+
+async def test_events_appended_together_are_all_in_the_log_or_none_is(chat, sql, clock):
+    """One statement: when the database refuses the second row, the first is not left behind."""
+    log = EventLog(sql, chat.id, clock)
+    await log.append("user", {"text": "hi"})
+    await sql.execute(
+        "CREATE TRIGGER refuse_cards BEFORE INSERT ON chat_event WHEN NEW.type = 'card' "
+        "BEGIN SELECT RAISE(ABORT, 'no cards today'); END"
+    )
+    with pytest.raises(Exception, match="no cards today"):
+        await log.append_all([Draft("tool", {}), Draft("card", {}, ref="qt-1")])
+    assert [e.type for e in await log.read()] == ["user"]
+    await sql.execute("DROP TRIGGER refuse_cards")
+    assert [e.seq for e in await log.append_all([Draft("tool", {})])] == [2]

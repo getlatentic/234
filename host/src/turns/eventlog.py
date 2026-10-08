@@ -3,7 +3,7 @@
 unique (chat, seq) key refuses a duplicate. Events never change."""
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,6 +34,16 @@ class Event:
             "payload": self.payload,
             "at": self.at,
         }
+
+
+@dataclass(frozen=True)
+class Draft:
+    """An event not yet appended: what `EventLog.append_all` takes."""
+
+    type: str
+    payload: dict[str, Any]
+    task: str | None = None
+    ref: str | None = None
 
 
 def _event(row: dict[str, Any]) -> Event:
@@ -75,6 +85,33 @@ class EventLog:
         if self._on_append is not None:
             await self._on_append(event)
         return event
+
+    async def append_all(self, drafts: Sequence[Draft]) -> list[Event]:
+        """Appends the events together, with consecutive seqs, in one statement: all of them are in the log or
+        none is, so a crash cannot leave the first without the second (a tool result without its card). The
+        events are published in order once they are all stored."""
+        at = self._clock()
+        next_seq = f"(SELECT COALESCE(MAX(seq), 0) FROM {TABLE} WHERE chat_id = ?)"
+        selects, params = [], []
+        for offset, draft in enumerate(drafts, 1):
+            selects.append(f"SELECT ?, {next_seq} + {offset}, ?, ?, ?, ?, ?")
+            params += [
+                self.chat_id, self.chat_id, draft.type, draft.task or "", draft.ref or "",
+                json.dumps(draft.payload, ensure_ascii=False), at,
+            ]  # fmt: skip
+        rows = await self._db.rows(
+            f"INSERT INTO {TABLE} (chat_id, seq, type, task, ref, payload, created_at) "
+            f"{' UNION ALL '.join(selects)} RETURNING seq",
+            *params,
+        )
+        first = min(row["seq"] for row in rows) if rows else 0
+        events = [
+            Event(first + offset, d.type, d.task, d.ref, d.payload, at) for offset, d in enumerate(drafts)
+        ]
+        if self._on_append is not None:
+            for event in events:
+                await self._on_append(event)
+        return events
 
     async def append_next_of_type(
         self, type: str, payload: dict[str, Any], *, ref: str, newest: int

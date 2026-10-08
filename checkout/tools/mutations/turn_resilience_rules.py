@@ -87,4 +87,63 @@ MUTATIONS: list[Mutation] = [
         "    if body is None:",
         ["tests/test_hub.py"],
     ),
+    host(
+        "turns: a tool result and its card are written in one statement",
+        "turns/tool_calls.py",
+        "        await self._log.append_all([Draft(kinds.TOOL, payload, task), *([card] if card else [])])",
+        "        await self._log.append_all([Draft(kinds.TOOL, payload, task)])\n"
+        "        if card:\n"
+        "            await self._log.append_all([card])",
+        ["tests/test_turn_resilience.py"],
+    ),
+    host(
+        "turns: events appended together take consecutive seqs",
+        "turns/eventlog.py",
+        'selects.append(f"SELECT ?, {next_seq} + {offset}, ?, ?, ?, ?, ?")',
+        'selects.append(f"SELECT ?, {next_seq} + 1, ?, ?, ?, ?, ?")',
+        ["tests/test_eventlog.py"],
+    ),
+    host(
+        "turns: only an error that may pass is asked for again",
+        "turns/runner.py",
+        "                if not error.transient or attempt == retries or streamed.finished is not None:",
+        "                if attempt == retries or streamed.finished is not None:",
+        ["tests/test_turn_resilience.py"],
+    ),
+    host(
+        "turns: a model asked again is asked a bounded number of times",
+        "turns/runner.py",
+        "                if not error.transient or attempt == retries or streamed.finished is not None:",
+        "                if not error.transient or streamed.finished is not None:",
+        ["tests/test_turn_resilience.py"],
+    ),
+    host(
+        "turns: a half reply is thrown away before the model is asked again",
+        "turns/runner.py",
+        "            await self._log.append("
+        'kinds.ROUND_ABORTED, {"message": streamed.message}, task=self._task)',
+        "            pass",
+        ["tests/test_turn_resilience.py"],
+    ),
+    host(
+        "turns: the wait before asking again doubles",
+        "turns/runner.py",
+        "await asyncio.sleep(self._settings.model_retry_seconds * 2**attempt)",
+        "await asyncio.sleep(self._settings.model_retry_seconds)",
+        ["tests/test_turn_resilience.py"],
+    ),
+    host(
+        "turns: a busy endpoint is told from a refused request",
+        "turns/model.py",
+        "    busy = status in TRANSIENT_STATUSES or (status is None and TRANSIENT_BODY.search(body[:4000]))",
+        "    busy = True",
+        ["tests/test_model.py"],
+    ),
+    host(
+        "turns: a dropped connection may pass",
+        "turns/model.py",
+        'f"The model could not be reached: {error.__class__.__name__}.", transient=True',
+        'f"The model could not be reached: {error.__class__.__name__}.", transient=False',
+        ["tests/test_model.py"],
+    ),
 ]

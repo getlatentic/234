@@ -15,6 +15,10 @@ class Settings:
     reasoning_effort: str = "low"
     llm_timeout_seconds: int = 60
     round_deadline_seconds: int = 120
+    model_retries: int = 3
+    """How many times a round is asked again when the endpoint is busy or unreachable (turns/model.py)."""
+    model_retry_seconds: float = 1.0
+    """The wait before the first of them; it doubles each time."""
     max_tool_rounds: int = 6
     model_calls_per_day: int = 0
     visitor_model_calls_per_day: int = 0
@@ -64,6 +68,8 @@ class Settings:
             reasoning_effort=text("LLM_REASONING_EFFORT", cls.reasoning_effort),
             llm_timeout_seconds=number("LLM_TIMEOUT_SECONDS", cls.llm_timeout_seconds),
             round_deadline_seconds=number("LLM_ROUND_DEADLINE_SECONDS", cls.round_deadline_seconds),
+            model_retries=number("LLM_RETRIES", cls.model_retries),
+            model_retry_seconds=fraction("LLM_RETRY_SECONDS", cls.model_retry_seconds),
             tool_deadline_seconds=fraction("TOOL_DEADLINE_SECONDS", cls.tool_deadline_seconds),
             max_tool_rounds=number("MAX_TOOL_ROUNDS", cls.max_tool_rounds),
             model_calls_per_day=number("MODEL_CALLS_PER_DAY", 0),

@@ -24,8 +24,19 @@ CONTEXT_REFUSAL = re.compile(
 )
 
 
+TRANSIENT_STATUSES = frozenset({408, 429, 500, 502, 503, 504, 529})
+TRANSIENT_BODY = re.compile(
+    r"rate[ _-]?limit|throttl|overloaded|unavailable|temporar|try again", re.IGNORECASE
+)
+
+
 class ModelError(Exception):
-    pass
+    """`transient`: asking again soon may succeed (the endpoint is busy or could not be reached), unlike a
+    refusal of the request itself."""
+
+    def __init__(self, message: str = "", transient: bool = False) -> None:
+        super().__init__(message)
+        self.transient = transient
 
 
 class ContextTooLong(ModelError):
@@ -83,7 +94,10 @@ def _refused(status: int | None, body: str) -> ModelError:
         f"The model endpoint answered HTTP {status}." if status else "The model endpoint reported an error."
     )
     too_long = status in (None, 400, 413) and CONTEXT_REFUSAL.search(body[:4000])
-    return (ContextTooLong if too_long else ModelError)(what)
+    if too_long:
+        return ContextTooLong(what)
+    busy = status in TRANSIENT_STATUSES or (status is None and TRANSIENT_BODY.search(body[:4000]))
+    return ModelError(what, transient=bool(busy))
 
 
 def _accumulate(calls: dict[int, dict[str, Any]], pieces: list[dict[str, Any]]) -> None:
@@ -131,5 +145,7 @@ class OpenAICompatible:
                         _accumulate(calls, delta.get("tool_calls") or [])
                         reason = choice.get("finish_reason") or reason
         except httpx.HTTPError as error:
-            raise ModelError(f"The model could not be reached: {error.__class__.__name__}.") from error
+            raise ModelError(
+                f"The model could not be reached: {error.__class__.__name__}.", transient=True
+            ) from error
         yield Finished(reason, [calls[i] for i in sorted(calls)], usage)
