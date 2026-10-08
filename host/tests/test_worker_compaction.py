@@ -92,12 +92,15 @@ async def test_a_long_chat_is_compacted_keeps_its_facts_and_answers_about_its_pa
         sizes = [e["payload"]["usage"]["prompt_tokens"] for e in log if e["type"] == "assistant"]
         assert max(sizes) <= THRESHOLD * 1.15, f"a request of {max(sizes)} tokens went out"
 
+        covered = []
         for compaction in as_events(chat.compactions()):
             last = compaction.payload["covers"]["last"]
             needed = facts.facts_of_events([e for e in events if e.seq <= last])
             kept = facts.facts_of_events([e for e in events if e.seq > last])
-            assert needed.amounts and needed.phones
             assert not facts.missing_from(compaction.payload["summary"], needed, kept)
+            covered.append(needed)
+        # An early compaction may cover small talk only; the later ones cover the payments.
+        assert len([f for f in covered if f.amounts and f.phones]) >= 2
 
         (open_ref,) = [ref for ref, phase in states.items() if phase == "awaiting_approval"]
         last_request = json.dumps(model_requests()[-1]["messages"], ensure_ascii=False)
