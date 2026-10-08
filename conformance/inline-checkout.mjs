@@ -61,7 +61,7 @@ const served = await (await s.page.request.get(`${HOST}/c/${s.chat}/card?server=
 check(JSON.stringify(served.csp) === JSON.stringify({ resourceDomains: ["https://js.paystack.co"], frameDomains: ["https://checkout.paystack.com"] }), "the resource also asked for connections, a wildcard, data:, a look-alike frame and a base URI of another origin: the host gave the card only Paystack's two");
 check(served.permissions && Object.keys(served.permissions).length === 0 && served.sandbox === "allow-scripts allow-same-origin", "no permission, and the sandbox origin only because an approved frame is embedded");
 const hostLog = readFileSync(new URL(`../.stack/${process.env.PORT_BASE ?? 8900}/host.log`, import.meta.url), "utf8");
-const refusedLines = hostLog.split("\n").filter((line) => line.includes('"card.csp.refused"'));
+const refusedLines = hostLog.split("\n").map((line) => { try { return JSON.parse(line).msg ?? ""; } catch { return line; } }).filter((message) => message.includes('"card.csp.refused"'));
 check(refusedLines.length >= 7 && ["api.evil.example.com", "live.evil.example.com", "*.evil.example.com", "com.evil.example.com", "https://evil.example.com"].every((entry) => refusedLines.some((line) => line.includes(entry))), `the refusals are in the host's log, not on the page (${refusedLines.length} lines)`);
 check(!(await s.page.locator("body").innerText()).includes("evil"), "and the person is told nothing about them");
 

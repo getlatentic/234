@@ -19,7 +19,7 @@ MUTATIONS: list[Mutation] = [
     host(
         "metrics: every tool call is a data point",
         "turns/tool_calls.py",
-        "        self._metrics.tool(outcome.server, outcome.tool, measured, self._clock() - began)",
+        "        self._metrics.tool(outcome.server, outcome.tool, measured, took)",
         "        pass",
         METRICS,
     ),
