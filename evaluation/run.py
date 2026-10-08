@@ -253,7 +253,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--split", choices=["dev", "held-out", "tuning", "memory", "all"], default="held-out")
+    parser.add_argument(
+        "--split", choices=["dev", "held-out", "tuning", "memory", "talk", "all"], default="held-out"
+    )
     parser.add_argument("--draws", type=int, default=3)
     parser.add_argument("--only", default="", help="comma-separated case ids or categories")
     parser.add_argument("--concurrency", type=int, default=4)

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 CASES_FILE = Path(__file__).with_name("cases.jsonl")
-SPLITS = ("dev", "held-out", "tuning", "memory")
+SPLITS = ("dev", "held-out", "tuning", "memory", "talk")
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
     "ask": {"mention"},
@@ -21,6 +21,7 @@ OUTCOME_KINDS = {
     "answer": {"mention"},
     "not_saved": set(),
     "no_memory": set(),
+    "talk": {"mention", "not_mention"},
 }
 NOTE_KEYS = {
     "recipient": {"ref", "kind", "title", "account_number", "bank"},

@@ -172,6 +172,18 @@ def test_an_ask_may_read_the_plan_list_first():
     ).ok
 
 
+def test_talking_is_a_reply_with_no_tool_that_names_what_was_asked_and_does_not_refuse_to_talk():
+    assert score("TALK-02", turn(reply="The capital of Nigeria is Abuja.", end="completed")).ok
+    assert not score("TALK-02", turn(reply="It is Lagos.", end="completed")).ok
+    refusal = "I can only buy airtime, send money or order food. Abuja is not something I do."
+    assert not score("TALK-02", turn(reply=refusal, end="completed")).ok
+    searched = turn([call("search_menu", "food-order", {"query": "Abuja"})], "Abuja.", end="completed")
+    assert not score("TALK-02", searched).ok
+    joke = "Why did the generator go to school? To get brighter."
+    assert score("TALK-05", turn(reply=joke, end="completed")).ok
+    assert not score("TALK-05", turn(reply="", end="completed")).ok
+
+
 def test_declining_makes_no_call_and_names_what_it_can_do():
     ok = "I can't buy electricity. I can buy airtime or data, send money, order food or pay a merchant."
     assert score("UNS-01", turn(reply=ok, end="completed")).ok

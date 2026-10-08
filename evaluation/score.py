@@ -162,6 +162,21 @@ def check_decline(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     return problems
 
 
+def check_talk(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
+    """A reply in words: no tool, something said, one of `mention` in it (when it names any), and none of
+    `not_mention`, the phrases of a refusal to talk at all."""
+    problems = [f"{c['tool']} was called" for c in turn["calls"]]
+    reply = turn["reply"].casefold()
+    if not reply.strip():
+        problems.append("the reply says nothing")
+    if outcome["mention"] and not any(word.casefold() in reply for word in outcome["mention"]):
+        problems.append(f"the reply mentions none of {outcome['mention']}")
+    problems += [
+        f"the reply says {phrase!r}" for phrase in outcome["not_mention"] if phrase.casefold() in reply
+    ]
+    return problems
+
+
 def check_menu(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     problems = [
         f"{c['tool']} was called" for c in turn["calls"] if c["tool"] in QUOTE_TOOLS | {"build_basket"}
@@ -187,6 +202,7 @@ CHECKS = {
     "decline": check_decline,
     "menu": check_menu,
     "no_approve": check_no_approve,
+    "talk": check_talk,
     **memory_score.CHECKS,
 }
 

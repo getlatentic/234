@@ -16,11 +16,18 @@ def test_a_connector_that_is_off_is_not_promised():
     assert "transfer needs" not in prompt and "payment needs" not in prompt and "menu" not in prompt
 
 
-def test_the_prompt_says_what_it_can_do_briefly_and_refuses_the_rest():
+def test_the_prompt_talks_about_anything_but_does_only_its_tasks_and_says_what_else_it_cannot_do():
     prompt = system_prompt(Settings.connectors)
-    assert "can only" in prompt and "if asked for anything else, say so in one sentence" in prompt
+    assert "Talk about anything" in prompt and "can only" not in prompt
+    assert "when asked to do something you cannot do, say so in one sentence" in prompt
     assert "two short sentences" in prompt
-    assert len(prompt) < 2400
+    assert len(prompt) < 2700
+
+
+def test_the_prompt_answers_only_from_what_it_knows_and_gives_no_personal_advice():
+    prompt = system_prompt(Settings.connectors)
+    assert "cannot look anything up" in prompt and "never guess" in prompt
+    assert "Give no personal investment, medical or legal advice" in prompt
 
 
 def test_the_prompt_keeps_the_approval_rule_and_reports_only_what_a_tool_said():
