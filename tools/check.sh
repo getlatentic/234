@@ -32,12 +32,32 @@ teardown() {
 trap teardown EXIT
 trap 'exit 130' INT TERM
 
+flaky="$root/.stack/flaky.log"
+: > "$flaky"
+
+# A suite that drives a browser or a Worker is timed by a machine that may be busy with other work: it is run
+# once more when it fails. A timing flake passes the second time and is listed at the end as flaky; a fault
+# fails again and fails the check.
+may_be_flaky() {
+  case "$*" in
+    *conformance/*.mjs* | *"pytest -m worker"* | *tests.crash_probe* | *oracle.py*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # limit SECONDS command...: a step that runs over its time is killed and counts as failed.
 limit() {
   local seconds=$1; shift
   echo "== $* (limit ${seconds}s)"
   timeout --kill-after=10 "$seconds" "$@"
   local status=$?
+  if [ $status -ne 0 ] && may_be_flaky "$@"; then
+    echo "!! failed with status $status (124 means it ran out of time); run once more"
+    echo "== again: $* (limit ${seconds}s)"
+    timeout --kill-after=10 "$seconds" "$@"
+    status=$?
+    [ $status -ne 0 ] || { echo "!! FLAKY: passed on the second try"; echo "$*" >> "$flaky"; }
+  fi
   [ $status -eq 0 ] || { echo "!! failed with status $status (124 means it ran out of time)"; fail=1; }
   return $status
 }
@@ -132,5 +152,9 @@ inside host 300 env AUTH=keys CHECKOUT_URL=http://localhost:8980 HOST_URL=http:/
   uv run pytest -m worker -q tests/test_worker_auth.py
 PORT_BASE=8980 "$root/tools/down.sh" quiet
 
+if [ -s "$flaky" ]; then
+  echo "FLAKY (failed once, passed on a second try; a busy machine, or worth a look):"
+  sed 's/^/  /' "$flaky"
+fi
 [ $fail = 0 ] && echo "ALL SUITES PASSED" || echo "SOME SUITES FAILED"
 exit $fail

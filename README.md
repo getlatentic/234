@@ -59,8 +59,9 @@ To try a real model, export `LLM_BASE_URL` (an OpenAI-compatible endpoint), `LLM
 
 `tools/check.sh` runs everything: lint, unit tests, Worker tests against local workerd and D1, browser suites in
 Chromium and WebKit, the A2A oracle, crash tests and the mutation checks. It takes 15 to 35 minutes depending on the
-machine, uses ports 8900 to 8999 and runs one at a time. The fast parts that the CI runs are listed in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+machine, uses ports 8900 to 8999 and runs one at a time. A browser, Worker or crash suite that fails is run once
+more, because a busy machine times them badly: one that passes the second time is listed at the end as flaky, and
+one that fails twice fails the check. The fast parts that the CI runs are listed in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Deploy
 
