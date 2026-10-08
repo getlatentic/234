@@ -13,7 +13,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 
-def _bearer_matches(request) -> bool:
+def bearer_matches(request) -> bool:
+    """Whether the request carries the ops token, which only a deploy knows."""
     given = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
     return bool(settings.OPS_TOKEN) and hmac.compare_digest(given, settings.OPS_TOKEN)
 
@@ -21,7 +22,7 @@ def _bearer_matches(request) -> bool:
 def ops_endpoint(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
-        if not _bearer_matches(request):
+        if not bearer_matches(request):
             return HttpResponse(status=404)
         return view(request, *args, **kwargs)
 

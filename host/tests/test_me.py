@@ -9,7 +9,7 @@ from .firebase_support import PROJECT
 
 pytestmark = pytest.mark.django_db
 
-CONTRACT = {"product", "csrf", "account", "signIn", "memory", "chats", "problem"}
+CONTRACT = {"product", "csrf", "account", "signIn", "botCheck", "memory", "chats", "problem"}
 
 
 def test_the_answer_is_exactly_what_the_static_home_cannot_hold(client):
@@ -17,7 +17,7 @@ def test_the_answer_is_exactly_what_the_static_home_cannot_hold(client):
     me = answer.json()
     assert answer.status_code == 200 and set(me) == CONTRACT
     assert me["product"] == "234" and me["csrf"] and me["account"] is None
-    assert me["signIn"] is None and me["memory"] is False and me["chats"] == []
+    assert me["signIn"] is None and me["botCheck"] is None and me["memory"] is False and me["chats"] == []
 
 
 def test_it_is_never_stored_and_never_read_by_another_site(client):

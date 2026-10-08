@@ -173,6 +173,16 @@ ACCOUNT_KEY = runtime.get("ACCOUNT_KEY", _INSECURE_DEV_KEY if DEBUG else "")
 # The static build holds no secret; it needs to know whether sign-in is on, for the home shell and its policy.
 _SIGN_IN_KEY = ACCOUNT_KEY or runtime.IS_STATIC_BUILD
 SIGN_IN_ENABLED = all((FIREBASE_PROJECT_ID, FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, _SIGN_IN_KEY))
+# Cloudflare Turnstile before a visitor's first message (chat/bot_check.py, docs/bot-check.md): the widget's
+# public site key and its secret. Like sign-in, the static build holds no secret; it needs the site key, for
+# the home shell and its policy.
+TURNSTILE_SITE_KEY = runtime.get("TURNSTILE_SITE_KEY", "")
+TURNSTILE_SECRET = runtime.get("TURNSTILE_SECRET", "")
+TURNSTILE_ENABLED = bool(TURNSTILE_SITE_KEY and (TURNSTILE_SECRET or runtime.IS_STATIC_BUILD))
+# The addresses a token may have been made on (default: the host's own, ALLOWED_HOSTS).
+TURNSTILE_HOSTNAMES = runtime.get_list("TURNSTILE_HOSTNAMES")
+if not re.fullmatch(r"[0-9A-Za-z_-]*", TURNSTILE_SITE_KEY):
+    raise ImproperlyConfigured("TURNSTILE_SITE_KEY is letters, digits, - and _.")
 # Development only: the Firebase Auth emulator (host:port) and a stand-in for Google's key document. Setting
 # either outside development is refused at startup, so no public configuration can accept an unsigned token.
 FIREBASE_AUTH_EMULATOR_HOST = runtime.get("FIREBASE_AUTH_EMULATOR_HOST", "")

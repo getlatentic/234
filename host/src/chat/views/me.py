@@ -29,6 +29,12 @@ def _sign_in() -> dict[str, str] | None:
     }
 
 
+def _bot_check(account: object) -> str | None:
+    """The Turnstile site key for a visitor who must pass it before a first message; a signed-in person has
+    been identified by Google already and passes nothing."""
+    return settings.TURNSTILE_SITE_KEY if settings.TURNSTILE_ENABLED and account is None else None
+
+
 def _chats(request: HttpRequest) -> list[dict[str, object]]:
     return [
         {
@@ -53,6 +59,7 @@ def me(request: HttpRequest) -> HttpResponse:
             "csrf": get_token(request),
             "account": {"email": account.email, "initial": account.initial} if account else None,
             "signIn": _sign_in(),
+            "botCheck": _bot_check(account),
             "memory": account is not None,
             "chats": _chats(request),
             "problem": turn_settings().model_problem(),

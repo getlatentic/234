@@ -18,6 +18,11 @@ class Settings:
     max_tool_rounds: int = 6
     model_calls_per_day: int = 0
     visitor_model_calls_per_day: int = 0
+    model_tokens_per_day: int = 0
+    """Tokens (prompt and completion) all the rounds of a day may use: the cost of the model in tokens, which
+    the cap on calls does not bound (a call can be long). 0 is no cap."""
+    visitor_model_tokens_per_day: int = 0
+    """The same for each visitor or account."""
     flush_seconds: float = 0.15
     watchdog_seconds: int = 30
     max_idle_resumes: int = 3
@@ -68,6 +73,8 @@ class Settings:
             max_tool_rounds=number("MAX_TOOL_ROUNDS", cls.max_tool_rounds),
             model_calls_per_day=number("MODEL_CALLS_PER_DAY", 0),
             visitor_model_calls_per_day=number("VISITOR_MODEL_CALLS_PER_DAY", 0),
+            model_tokens_per_day=number("MODEL_TOKENS_PER_DAY", 0),
+            visitor_model_tokens_per_day=number("VISITOR_MODEL_TOKENS_PER_DAY", 0),
             watchdog_seconds=number("WATCHDOG_SECONDS", cls.watchdog_seconds),
             context_window_tokens=number("CONTEXT_WINDOW_TOKENS", cls.context_window_tokens),
             compact_at=fraction("COMPACT_AT", cls.compact_at),

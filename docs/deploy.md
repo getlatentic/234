@@ -100,8 +100,19 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
   What stays public on the connectors is `/health` and the simulated checkout page `/sim/checkout/<reference>`,
   which a person opens from a card and which only moves simulated state. `/test/*` is off.
 - **Model spend is capped:** 300 calls a day for everyone, 30 for each visitor (D1 counters, one conditional
-  `UPDATE` each), 12 messages a minute per visitor per Cloudflare location, 500 characters a message. To see the
-  count: `tools/deploy.sh tail host` shows refusals; the counters are in `chat_budget` of the host database.
+  `UPDATE` each), 12 messages a minute per visitor per Cloudflare location, 500 characters a message. A call can be
+  long, so the day's **tokens** are capped too: 2,500,000 for everyone and 250,000 for each visitor or account
+  (`MODEL_TOKENS_PER_DAY`, `VISITOR_MODEL_TOKENS_PER_DAY`; 0 is no cap). A round's tokens are the endpoint's own
+  count, or an estimate when it gives none; they are read before a round and added after it, so a round that starts
+  under the cap may end over it, by one round at most, and the next is refused with the same notice as the cap on
+  calls. A summary's own tokens are not counted (its call is). At gpt-oss-120b's prices the whole day's cap is under
+  a dollar. To see the count: `tools/deploy.sh tail host` shows refusals; the counters are in `chat_budget` of the
+  host database (`tokens:<owner>` and `tokens:global`).
+- **A visitor's first message passes Turnstile** ([bot-check.md](bot-check.md)) where `.env.turnstile.local` holds the
+  stage's keys.
+- **Every Worker has a CPU limit** (`limits.cpu_ms`, in each template): the host 30,000 ms (the platform default,
+  named), the connectors 15,000, the sandbox 2,000. The last two are not measured against the slowest real request:
+  if a deploy's smoke test or a request shows `Exceeded CPU limit`, raise the number in the template.
 - **The model's settings are secrets** (`LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`), not variables. Until they are
   set a message is answered with one plain line, "No model is configured. Set LLM_BASE_URL and LLM_API_KEY."
 
