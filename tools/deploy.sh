@@ -363,7 +363,7 @@ smoke_auth() {  # cookie-jar csrf-token: sign-in is on exactly when .env.auth.lo
     check "sign-in: /auth/session needs the CSRF token" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/auth/session" \
       -H "origin: $HOST_URL" -H 'content-type: application/json' -d '{"idToken":"garbage"}' || true)" 403
     check "sign-in: the popup keeps its link to the page (COOP)" "$(grep -ci '^cross-origin-opener-policy: same-origin-allow-popups' <<< "$headers" || true)" 1
-    check "sign-in: only apis.google.com is added to script-src" "$(grep -ci "script-src 'self' https://apis.google.com;" <<< "$headers" || true)" 1
+    check "sign-in: only apis.google.com is added to script-src (and Turnstile's origin, where it is on)" "$(grep -ciE "script-src 'self' https://apis\\.google\\.com( https://challenges\\.cloudflare\\.com)?;" <<< "$headers" || true)" 1
     check "pact: the card offers delegation" "$(curl -s -m 30 "$HOST_URL/a2a/234/.well-known/agent-card.json" | grep -c '"userDelegation"' || true)" 1
     check "pact: the delegation key is published, the public half only" "$(curl -s -m 30 "$HOST_URL/a2a/234/oauth/jwks.json" | grep -c '"kty": "RSA"' || true)$(curl -s -m 30 "$HOST_URL/a2a/234/oauth/jwks.json" | grep -c '"d":' || true)" 10
     check "pact: device authorization needs the agent's token" "$(http_status -X POST "$HOST_URL/a2a/234/oauth/device_authorization" \
