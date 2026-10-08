@@ -52,3 +52,18 @@ def test_production_refuses_a_commit_staging_has_not_run(tmp_path):
     staged.write_text("0" * 40 + "\n")
     done = run("deploy", STAGED_FILE=str(staged))
     assert done.returncode != 0 and "to staging first: STAGE=staging tools/deploy.sh" in done.stderr
+
+
+def test_deploy_fills_the_site_key_into_the_host_template_and_the_keys_file_is_ignored_by_git():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    template = (root / "host" / "wrangler.public.jsonc").read_text().splitlines()
+    marker = [i for i, line in enumerate(template) if line.strip() == "// @TURNSTILE_VARS@"]
+    opened = next(i for i, line in enumerate(template) if line.strip().startswith('"vars"'))
+    assert len(marker) == 1 and opened < marker[0]
+    deploy = (root / "tools" / "deploy.sh").read_text()
+    assert "// @TURNSTILE_VARS@" in deploy and ".env.turnstile.local" in deploy
+    assert ".env.turnstile.local" in (root / ".gitignore").read_text().replace(
+        ".env.*", ".env.turnstile.local"
+    )

@@ -43,3 +43,40 @@ async def test_the_cap_starts_again_the_next_day(sql):
 async def test_calls_that_arrive_together_still_stop_at_the_cap(sql):
     verdicts = await asyncio.gather(*[take_model_call(sql, "v:a", AT, 0, 4) for _ in range(9)])
     assert verdicts.count(None) == 4
+
+
+async def test_a_token_cap_is_read_before_a_round_and_a_rounds_tokens_are_added_after_it(sql):
+    from turns.budget import add_tokens, tokens_used_up
+
+    assert await tokens_used_up(sql, "v:a", AT, 1000, 5000) is None
+    await add_tokens(sql, "v:a", AT, 600, 1000, 5000)
+    assert await tokens_used_up(sql, "v:a", AT, 1000, 5000) is None
+    await add_tokens(sql, "v:a", AT, 500, 1000, 5000)
+    assert await tokens_used_up(sql, "v:a", AT, 1000, 5000) == "visitor", "1,100 is over 1,000"
+    assert await tokens_used_up(sql, "v:b", AT, 1000, 5000) is None, "someone else has their own share"
+
+
+async def test_the_global_token_cap_is_shared_and_a_cap_of_zero_is_none(sql):
+    from turns.budget import add_tokens, tokens_used_up
+
+    await add_tokens(sql, "v:a", AT, 3000, 0, 5000)
+    await add_tokens(sql, "v:b", AT, 2500, 0, 5000)
+    assert await tokens_used_up(sql, "v:c", AT, 0, 5000) == "global"
+    assert await tokens_used_up(sql, "v:c", AT, 0, 0) is None
+    assert await used(sql, "tokens:v:a") == 0, "no per-visitor cap, nothing counted for them"
+    assert await used(sql, "tokens:global") == 5500
+
+
+async def test_a_new_day_starts_the_count_again(sql):
+    from turns.budget import add_tokens, tokens_used_up
+
+    await add_tokens(sql, "v:a", AT, 5000, 1000, 1000)
+    assert await tokens_used_up(sql, "v:a", AT, 1000, 1000) is not None
+    assert await tokens_used_up(sql, "v:a", AT + 24 * 3600 * 1000, 1000, 1000) is None
+
+
+async def test_adding_nothing_changes_nothing(sql):
+    from turns.budget import add_tokens
+
+    await add_tokens(sql, "v:a", AT, 0, 1000, 1000)
+    assert await used(sql, "tokens:v:a") == 0

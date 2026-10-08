@@ -33,6 +33,7 @@ export async function hydrate(thread) {
   thread.querySelector("chat-account")?.fill(me);
   const memory = me.memory && thread.querySelector('template[data-kind="memory"]');
   if (memory) thread.append(memory.content);
+  if (me.botCheck) thread.dataset.botCheck = me.botCheck;
   thread.sheet.fill(me.chats);
   if (me.chats.length || me.signIn) thread.offerChats();
   if (me.problem) thread.refuse(me.problem);

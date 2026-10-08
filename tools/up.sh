@@ -17,6 +17,8 @@
 #   PACT=1 registers a test personal agent (issuer and JWKS on base+18, served by conformance/pact-suite.mjs),
 #   two Brands, 234 and food, on the PACT endpoint /a2a/<brand>/, and a signing key: with AUTH=1 as well, the
 #   Brands offer PACT Delegated (docs/pact.md);
+#   TURNSTILE=1 turns on the bot check before a first message with Cloudflare's published test keys (the real
+#   Turnstile script and siteverify, so it needs the network; conformance/bot-check.mjs)
 #   REACH=1 makes 234 an agent for people at the Skyline Brand of PACT's reference Provider, which
 #   conformance/pact-reach.mjs starts on base+12 to base+14 (docs/pact.md);
 #   REAL_MODEL=1 uses the model in LLM_BASE_URL, LLM_MODEL and (through host/.dev.vars.real) LLM_API_KEY

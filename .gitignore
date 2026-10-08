@@ -8,6 +8,8 @@ __pycache__/
 .env.*
 # The Firebase values of the public deployment (docs/auth.md); .env.* already covers it, this names it
 .env.auth.local
+# The Turnstile site keys and secrets of the public deployment (docs/bot-check.md)
+.env.turnstile.local
 .dev.vars
 staticfiles/
 *.sqlite3

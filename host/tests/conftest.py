@@ -88,8 +88,8 @@ def visitor(client):
         def token(self):
             return client.get("/api/me").json()["csrf"]
 
-        def post(self, path, data=None, json=None):
-            headers = {"HTTP_X_CSRFTOKEN": self.token()}
+        def post(self, path, data=None, json=None, **extra):
+            headers = {"HTTP_X_CSRFTOKEN": self.token(), **extra}
             if json is not None:
                 import json as jsonlib
 

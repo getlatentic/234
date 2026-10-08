@@ -10,6 +10,8 @@
   // Every minute: approved quotes checked again with the provider, overdue ones expired, due events handed on.
   "triggers": { "crons": ["* * * * *"] },
   "workers_dev": true,
+  // The most CPU time one request, queue batch or cron may use, in milliseconds (docs/deploy.md).
+  "limits": { "cpu_ms": 15000 },
   "preview_urls": false,
   "observability": { "enabled": true },
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],

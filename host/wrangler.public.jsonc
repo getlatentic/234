@@ -7,6 +7,8 @@
   "compatibility_date": "2026-09-21",
   "compatibility_flags": ["python_workers"],
   "workers_dev": true,
+  // The most CPU time one request or Durable Object call may use, in milliseconds (docs/deploy.md): the default.
+  "limits": { "cpu_ms": 30000 },
   // @ROUTES@
   "preview_urls": false,
   "observability": { "enabled": true },
@@ -51,6 +53,7 @@
     { "binding": "DB", "database_name": "@HOST_DB@", "database_id": "@HOST_DB_ID@" }
   ],
   "vars": {
+    // @TURNSTILE_VARS@
     // @FIREBASE_VARS@
     "DJANGO_DEBUG": "0",
     "SIMULATION": "1",
@@ -62,9 +65,12 @@
     "CHECKOUT_MCP_BINDING": "CHECKOUT_MCP",
     "CHECKOUT_MCP_URL": "https://@CONNECTORS_WORKER@.internal",
     "CONNECTORS": "paystack-pay,send-money,airtime,food-order,memory",
-    // Model spend: calls per day for everyone and for each visitor.
+    // Model spend: calls and tokens per day for everyone and for each visitor or account. A call can be long, so
+    // the tokens are what bound the cost (docs/deploy.md).
     "MODEL_CALLS_PER_DAY": "300",
-    "VISITOR_MODEL_CALLS_PER_DAY": "30"
+    "VISITOR_MODEL_CALLS_PER_DAY": "30",
+    "MODEL_TOKENS_PER_DAY": "2500000",
+    "VISITOR_MODEL_TOKENS_PER_DAY": "250000"
   }
   // Secrets (docs/deploy.md): DJANGO_SECRET_KEY, OPS_TOKEN, EVENTS_SECRET, CHECKOUT_MCP_TOKEN, and the
   // model's LLM_BASE_URL, LLM_MODEL and LLM_API_KEY. A2A_TOKENS is not set: no other agent may call.

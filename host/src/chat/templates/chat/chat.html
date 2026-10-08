@@ -27,6 +27,8 @@
       <p class="m-0 max-w-xs text-balance text-base text-ink-2" data-slot="tagline">I buy airtime, send money and order food, and you approve every payment.</p>
     </div>
 
+    <div class="fixed inset-x-0 bottom-24 z-50 grid place-items-center empty:hidden" data-slot="bot-check"></div>
+
     <div class="flex flex-col gap-3 pb-8 in-data-draft:hidden" data-slot="thread" aria-live="polite">
       {% for item in items %}{% include "chat/_item.html" %}{% endfor %}
     </div>

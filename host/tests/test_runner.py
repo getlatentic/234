@@ -260,3 +260,31 @@ async def test_a_model_that_never_finishes_ends_the_turn_as_failed_when_the_roun
     assert (await r.of("notice"))[0].payload == {"level": "error", "text": TOO_SLOW}
     assert (await r.of("assistant"))[0].payload["finish_reason"] == "error"
     assert (await r.of("turn.finished"))[0].payload["reason"] == "failed"
+
+
+async def test_the_token_caps_stop_a_round_before_the_model_is_called_and_a_round_counts_its_tokens(
+    rig, sql, clock
+):
+    model = ScriptedModel("one two three", "never")
+    r = rig(model, visitor_model_tokens_per_day=50)
+    await r.say()
+    await r.runner.run()
+    spent = await sql.row(
+        "SELECT used FROM chat_budget WHERE scope LIKE 'tokens:%' AND scope != 'tokens:global'"
+    )
+    assert spent is not None and spent["used"] > 0, "the first round cost something and was counted"
+    await sql.execute("UPDATE chat_budget SET used = 50 WHERE scope LIKE 'tokens:%'")
+    await r.say("again")
+    await r.runner.run()
+    assert len(model.sent) == 1 and "today's share" in (await r.of("notice"))[0].payload["text"]
+
+
+async def test_a_global_token_cap_says_the_days_budget_is_used_up(rig, sql, clock):
+    model = ScriptedModel("never")
+    r = rig(model, model_tokens_per_day=10)
+    await sql.execute(
+        "INSERT INTO chat_budget (scope, day, used) VALUES (?, ?, 10)", "tokens:global", day_of(clock())
+    )
+    await r.say()
+    await r.runner.run()
+    assert model.sent == [] and "budget is used up" in (await r.of("notice"))[0].payload["text"]

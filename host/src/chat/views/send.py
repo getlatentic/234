@@ -5,12 +5,15 @@ and handed to the chat's Durable Object, which is the only writer of its log."""
 import json
 from typing import Any
 
+from django.conf import settings
 from django.http import Http404, HttpRequest, JsonResponse
 from django.views.decorators.http import require_POST
 
+from ops.views import bearer_matches
 from turns import kinds
 from turns.inputs import InputRefused, clean_text
 
+from .. import bot_check
 from ..access import chat_for, claim_chat
 from ..backend import get_backend
 from ..models import Chat, Event
@@ -53,6 +56,27 @@ def _deliver(chat: Chat, kind: str, text: str) -> JsonResponse:
     return JsonResponse(answer)
 
 
+NOT_A_PERSON = (
+    "We could not check that you are a person. Allow challenges.cloudflare.com and try again, or sign in."
+)
+
+
+def _bot_refusal(request: HttpRequest, chat_id: str) -> JsonResponse | None:
+    """The refusal of a first message that has not passed Turnstile. Only the message that would make the
+    chat is checked: a second message to the same id joins it, and a signed-in person is exempt."""
+    if not settings.TURNSTILE_ENABLED or getattr(request, "account", None) is not None:
+        return None
+    if bearer_matches(request):
+        return None  # a deploy's smoke test, which holds the ops token
+    if Chat.objects.filter(pk=chat_id, owner=request.owner).exists():
+        return None
+    token = json_body(request).get("botToken")
+    ip = request.headers.get("CF-Connecting-IP", "")
+    if bot_check.verdict(token, ip) == bot_check.REFUSED:
+        return JsonResponse({"error": "bot_check", "message": NOT_A_PERSON}, status=403)
+    return None
+
+
 def _forget_if_empty(chat: Chat, created: bool) -> None:
     if created and not Event.objects.filter(chat=chat).exists():
         chat.delete()
@@ -77,6 +101,8 @@ def start(request: HttpRequest, chat_id: str) -> JsonResponse:
     checked = _checked(request, request.owner)
     if isinstance(checked, JsonResponse):
         return checked
+    if refusal := _bot_refusal(request, chat_id):
+        return refusal
     chat, created = claim_chat(request.owner, chat_id)
     if chat.owner != request.owner:
         raise Http404

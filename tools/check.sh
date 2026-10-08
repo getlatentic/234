@@ -109,6 +109,11 @@ done
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8960 ENGINE=webkit node "$root/conformance/sandbox-proxy.mjs"
 PORT_BASE=8960 "$root/tools/down.sh" quiet
 
+echo "== stack with the bot check on ports 8960-8979: Cloudflare's test keys, the real Turnstile script and siteverify (needs the network)"
+PORT_BASE=8960 TURNSTILE=1 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the bot check stack did not come up"; exit 1; }
+limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8960 node "$root/conformance/bot-check.mjs"
+PORT_BASE=8960 "$root/tools/down.sh" quiet
+
 echo "== stack with sign-in against the Firebase Auth emulator on ports 8980-8999: what 234 remembers, PACT Delegated"
 PORT_BASE=8980 AUTH=1 PACT=1 VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the sign-in stack did not come up"; exit 1; }
 limit 900 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-auth.mjs"

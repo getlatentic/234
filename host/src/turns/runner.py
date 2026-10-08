@@ -17,7 +17,7 @@ import httpx
 
 from . import calls as call_rules
 from . import fold, kinds, messages, permissions, scope
-from .budget import take_model_call
+from .budget import add_tokens, take_model_call, tokens_used_up
 from .compaction.compactor import Compactor
 from .db import Db
 from .eventlog import Event, EventLog
@@ -174,13 +174,7 @@ class TurnRunner:
     async def _model_round(self, events: list[Event]) -> None:
         upto = events[-1].seq
         message = self._ids()
-        if verdict := await take_model_call(
-            self._db,
-            self._owner,
-            self._clock(),
-            self._settings.visitor_model_calls_per_day,
-            self._settings.model_calls_per_day,
-        ):
+        if verdict := await self._over_budget():
             await self._log.append(
                 kinds.NOTICE, {"level": "info", "text": BUDGET_NOTICES[verdict]}, task=self._task
             )
@@ -219,6 +213,7 @@ class TurnRunner:
             {"estimate": request_tokens(sent, tools), "usage": finished.usage} if finished.usage else {}
         )
         await self._reply(message, streamed.text, calls, finished.reason, upto, measured)
+        await self._count_tokens(finished.usage, sent, tools, streamed.text)
 
     async def _asked(
         self,
@@ -281,16 +276,29 @@ class TurnRunner:
             logger.exception("Compaction of chat %s failed; the round goes on without it", self._log.chat_id)
         return events
 
+    async def _over_budget(self) -> str | None:
+        """Which of today's caps (tokens, then calls) refuses a model call; None, with the call taken."""
+        s = self._settings
+        used_up = await tokens_used_up(
+            self._db, self._owner, self._clock(), s.visitor_model_tokens_per_day, s.model_tokens_per_day
+        )
+        return used_up or await take_model_call(
+            self._db, self._owner, self._clock(), s.visitor_model_calls_per_day, s.model_calls_per_day
+        )
+
+    async def _count_tokens(
+        self, usage: dict[str, int] | None, sent: list[dict[str, Any]], tools: list[dict[str, Any]], text: str
+    ) -> None:
+        """What the round cost, from the endpoint's own count when it gave one, else estimated."""
+        s = self._settings
+        used = sum(usage.values()) if usage else request_tokens(sent, tools) + len(text) // 4
+        await add_tokens(
+            self._db, self._owner, self._clock(), used, s.visitor_model_tokens_per_day, s.model_tokens_per_day
+        )
+
     async def _permit_model_call(self) -> bool:
         """A summary is a model call and counts against the same daily caps as a reply."""
-        verdict = await take_model_call(
-            self._db,
-            self._owner,
-            self._clock(),
-            self._settings.visitor_model_calls_per_day,
-            self._settings.model_calls_per_day,
-        )
-        return verdict is None
+        return await self._over_budget() is None
 
     def use_owner(self, owner: str) -> None:
         """The chat's owner as it is now: signing in moves a visitor's chats to their account while this

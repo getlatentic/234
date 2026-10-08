@@ -43,10 +43,25 @@ def sign_in_sources() -> dict[str, list[str]]:
     return sources
 
 
+# What Cloudflare Turnstile needs, only where it is on (docs/bot-check.md): its script, its challenge frame,
+# and its own calls.
+TURNSTILE_ORIGIN = "https://challenges.cloudflare.com"
+
+
+def turnstile_sources() -> dict[str, list[str]]:
+    if not settings.TURNSTILE_ENABLED:
+        return {}
+    return {name: [TURNSTILE_ORIGIN] for name in ("script-src", "connect-src", "frame-src")}
+
+
 def page_policy(form_targets: tuple[str, ...] = ()) -> str:
-    """The only frames a page may hold are the card sandbox's, from its own origin, and, where sign-in is on,
-    the Firebase handler's. `form_targets`: origins a form of the page may also be sent or redirected to."""
-    extra = {**sign_in_sources(), "form-action": list(form_targets)}
+    """The only frames a page may hold are the card sandbox's, from its own origin, and, where they are on,
+    the Firebase handler's and Turnstile's. `form_targets`: origins a form of the page may also be sent or
+    redirected to."""
+    extra = {"form-action": list(form_targets)}
+    for sources in (sign_in_sources(), turnstile_sources()):
+        for name, values in sources.items():
+            extra[name] = [*extra.get(name, []), *values]
     parts = []
     for name, base in DIRECTIVES.items():
         sources = base + (

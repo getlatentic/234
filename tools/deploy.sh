@@ -75,13 +75,19 @@ OWNER_SECRETS="LLM_BASE_URL LLM_MODEL LLM_API_KEY"
 AUTH_FILE=${AUTH_FILE:-$root/.env.auth.local}
 AUTH_NAMES="FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN"
 AUTH_ENABLED=""
+TURNSTILE_FILE=${TURNSTILE_FILE:-$root/.env.turnstile.local}
+TURNSTILE_ON=""
 
 die() { echo "deploy: $*" >&2; exit 1; }
 say() { echo "== $*"; }
 
 auth_value() {  # NAME: the value of NAME in .env.auth.local with one pair of quotes removed; never echoed by the callers
+  file_value "$AUTH_FILE" "$1"
+}
+
+file_value() {  # FILE NAME: the value of NAME in FILE with one pair of quotes removed; never echoed by the callers
   local line value
-  line=$(grep -E "^[[:space:]]*$1=" "$AUTH_FILE" | tail -1 || true)
+  line=$(grep -E "^[[:space:]]*$2=" "$1" | tail -1 || true)
   value=${line#*=}
   value=$(printf %s "$value" | tr -d '\r')
   value=${value#\"}; value=${value%\"}; value=${value#\'}; value=${value%\'}
@@ -114,6 +120,30 @@ load_auth() {  # sets AUTH_ENABLED=1 and FIREBASE_* when .env.auth.local is comp
 auth_vars_line() {  # the lines that replace the marker in the host template: the three variables, or nothing
   [ -n "$AUTH_ENABLED" ] || return 0
   printf '"FIREBASE_PROJECT_ID": "%s", "FIREBASE_API_KEY": "%s", "FIREBASE_AUTH_DOMAIN": "%s",' "$FIREBASE_PROJECT_ID" "$FIREBASE_API_KEY" "$FIREBASE_AUTH_DOMAIN"
+}
+
+load_turnstile() {  # sets TURNSTILE_ON=1, TURNSTILE_SITE_KEY and TURNSTILE_SECRET from this stage's two lines of .env.turnstile.local; says so; refuses a malformed value
+  TURNSTILE_ON=""
+  local label=PRODUCTION site secret
+  [ "$STAGE" = staging ] && label=STAGING
+  if [ ! -f "$TURNSTILE_FILE" ]; then say "bot check (Turnstile): off (no .env.turnstile.local)"; return 0; fi
+  site=$(file_value "$TURNSTILE_FILE" "TURNSTILE_${label}_SITE_KEY")
+  secret=$(file_value "$TURNSTILE_FILE" "TURNSTILE_${label}_SECRET")
+  if [ -z "$site$secret" ]; then say "bot check (Turnstile): off (.env.turnstile.local has no $STAGE keys)"; return 0; fi
+  [[ $site =~ ^0x[0-9A-Za-z_-]{10,40}$ ]] || die "TURNSTILE_${label}_SITE_KEY in .env.turnstile.local is not the shape of a site key"
+  [[ $secret =~ ^0x[0-9A-Za-z_-]{20,80}$ ]] || die "TURNSTILE_${label}_SECRET in .env.turnstile.local is missing or not the shape of a secret"
+  TURNSTILE_SITE_KEY=$site TURNSTILE_SECRET=$secret TURNSTILE_ON=1
+  say "bot check (Turnstile): on (the $STAGE site key and secret of .env.turnstile.local)"
+}
+
+turnstile_vars_line() {  # the line that replaces the marker in the host template: the public site key, or nothing
+  [ -n "$TURNSTILE_ON" ] || return 0
+  printf '"TURNSTILE_SITE_KEY": "%s",' "$TURNSTILE_SITE_KEY"
+}
+
+turnstile_secret_lines() {  # the host's TURNSTILE_SECRET, from the file, to the pipe that goes to wrangler (never printed)
+  [ -n "$TURNSTILE_ON" ] || return 0
+  printf 'TURNSTILE_SECRET=%s\n' "$TURNSTILE_SECRET"
 }
 
 filtered() {  # pattern command...: runs it quietly; on success shows the lines that match, on failure all of them
@@ -168,6 +198,7 @@ render() {  # template output: the template with this file's names filled in
     -e "s|@MCP_RATE_LIMIT_NAMESPACE@|$MCP_RATE_LIMIT_NAMESPACE|g" -e "s|@METRICS_DATASET@|$METRICS_DATASET|g" "$1" |
     sed -f "$edits" |
     sed -e "s|^\([[:space:]]*\)// @FIREBASE_VARS@\$|\1$(auth_vars_line)|" \
+      -e "s|^\([[:space:]]*\)// @TURNSTILE_VARS@\$|\1$(turnstile_vars_line)|" \
       -e "s|^\([[:space:]]*\)// @ROUTES@\$|\1$(routes_line)|" > "$2"
   rm -f "$edits"
 }
@@ -212,6 +243,7 @@ upload() {  # dir: uploads the rendered config in dir; the secrets to add arrive
   if [ "$dir" = host ]; then  # the build of the home page (host/build_shell) gives it the policy these settings decide
     export SANDBOX_ORIGIN="$SANDBOX_URL"
     [ -z "$AUTH_ENABLED" ] || export FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN
+    [ -z "$TURNSTILE_ON" ] || export TURNSTILE_SITE_KEY
   fi
   uv run pywrangler sync > /dev/null
   printf '%s' "$pending" | filtered "Uploaded|Deployed|https://|Version ID|Startup|Total Upload" \
@@ -280,6 +312,7 @@ deploy_all() {
   require_staged
   require_clean_tree
   load_auth; AUTH_LOADED=1
+  load_turnstile
   run_checks
   local shared="" ops
   ops=$(openssl rand -hex 32)
@@ -301,13 +334,13 @@ deploy_all() {
   { secret_lines "$CONNECTORS_WORKER" APPROVAL_SECRET; [ -z "$shared" ] || echo "MCP_ACCESS_TOKEN=$shared"; } \
     | deploy_worker checkout
   say "deploying $HOST_WORKER"
-  { secret_lines "$HOST_WORKER" DJANGO_SECRET_KEY; auth_secret_lines; [ -z "$shared" ] || echo "CHECKOUT_MCP_TOKEN=$shared"
+  { secret_lines "$HOST_WORKER" DJANGO_SECRET_KEY; auth_secret_lines; turnstile_secret_lines; [ -z "$shared" ] || echo "CHECKOUT_MCP_TOKEN=$shared"
     [ -z "$signing" ] || echo "SANDBOX_SIGNING_KEY=$signing"
     [ -z "$events" ] || echo "EVENTS_SECRET=$events"; [ -z "$pact" ] || echo "PACT_SIGNING_KEY='$pact'"
     [ -z "$agent" ] || echo "PACT_AGENT_KEY='$agent'"
     echo "OPS_TOKEN=$ops"; } | deploy_worker host
   migrate_host "$ops"
-  smoke_test
+  smoke_test "$ops"
   if [ "$STAGE" = staging ]; then mkdir -p "$root/.stack" && git -C "$root" rev-parse HEAD > "$STAGED_FILE"; fi
 }
 
@@ -376,7 +409,7 @@ smoke_custom() {  # the host on its custom domain: page, /api/me, cookies, the s
   rm -f "$jar"
 }
 
-smoke_test() {
+smoke_test() {  # [ops-token]: the deploy's own, which lets the smoke test's first message past the bot check
   say "smoke test (curl only; it sends one word, so with a model set that is one model call)"
   local jar failures=0 csrf chat page
   jar=$(mktemp)
@@ -403,9 +436,14 @@ smoke_test() {
   check "the host's cookies are the host's alone (none names a Domain)" "$(grep -ci 'domain=' <(curl -s -m 30 -D - -o /dev/null -c "$jar" "$HOST_URL/api/me") || true)" 0
   csrf=$(grep -o '"csrf": "[^"]*' <(curl -s -m 60 -b "$jar" -c "$jar" "$HOST_URL/api/me") | cut -d'"' -f4 || true)
   chat=$(openssl rand -hex 16)
+  if [ -n "$TURNSTILE_ON" ]; then
+    check "the bot check is on: /api/me offers the widget" "$(if curl -s -m 30 -b "$jar" "$HOST_URL/api/me" | grep -q "\"botCheck\": \"$TURNSTILE_SITE_KEY\""; then echo yes; else echo no; fi)" yes
+    check "the bot check is on: a first message with no token is refused" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$(openssl rand -hex 16)/start" \
+      -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' -d '{"text":"hi"}' || true)" 403
+  fi
   started=$(curl -s -m 60 -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$chat/start" \
     -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' \
-    -d '{"text":"hi"}' || true)
+    ${1:+-H "Authorization: Bearer $1"} -d '{"text":"hi"}' || true)
   check "a chat is started by its first message" "$started" 200
   page=$(curl -s -m 10 -b "$jar" "$HOST_URL/c/$chat/events" || true)
   check "the turn ran and reached the connectors" "$(if grep -q 'could not be reached' <<< "$page"; then echo no; else echo yes; fi)" yes

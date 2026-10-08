@@ -11,6 +11,7 @@ import "./connected.js";
 import "./sheet.js";
 import "./starters.js";
 import "./tool-row.js";
+import { botToken } from "./bot-check.js";
 import { postJson } from "./http.js";
 import { assistantBubble, builders, shownBubble } from "./render.js";
 import { Follow } from "./scroll.js";
@@ -145,7 +146,9 @@ customElements.define(
       this.composer.sending = true;
       this.problem(null);
       try {
-        const { seq } = await postJson(this.hasAttribute("data-draft") ? this.dataset.startUrl : this.dataset.sendUrl, { text });
+        const draft = this.hasAttribute("data-draft");
+        const body = draft && this.dataset.botCheck ? { text, botToken: await botToken(this.dataset.botCheck, this.querySelector('[data-slot="bot-check"]')) } : { text };
+        const { seq } = await postJson(draft ? this.dataset.startUrl : this.dataset.sendUrl, body);
         this.composer.sent();
         this.composer.clear(text);
         this.#title(text);
