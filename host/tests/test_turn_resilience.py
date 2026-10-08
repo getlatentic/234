@@ -214,3 +214,21 @@ async def test_an_alarm_that_sees_the_log_move_starts_counting_again(rig):
         assert await c.alarms.unchanged(await c.log.last_seq()) >= 0
     await c.log.append(kinds.NOTICE, {"level": "info", "text": "moved"}, task="t1")
     assert await c.alarms.unchanged(await c.log.last_seq()) == 0
+
+
+async def test_a_chat_in_a_payer_group_makes_its_turns_and_card_calls_inside_it(rig, chat, sql):
+    from turns import hub as hub_module
+
+    c = rig(("", [tool_call(SEND, {})]), "Sent.")
+    await sql.execute("UPDATE chat_chat SET payer_group = ? WHERE id = ?", "cd" * 16, chat.id)
+    seen = []
+    called = c.hub.call_model_tool
+
+    async def recording(*args, **kwargs):
+        seen.append(hub_module._payer_group.get())
+        return await called(*args, **kwargs)
+
+    c.hub.call_model_tool = recording
+    await c.core.submit(kinds.USER, "send it")
+    await c.settle()
+    assert seen == ["cd" * 16]

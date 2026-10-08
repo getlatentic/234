@@ -19,8 +19,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         "the daily sum inside the approval statement counts only the owner's approved spend",
         LEDGER_FILE,
-        'f"FROM quotes WHERE owner = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ?",',
-        'f"FROM quotes WHERE ? IS NOT NULL AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ?",',
+        'f"FROM quotes WHERE owner = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ? "',
+        'f"FROM quotes WHERE ? IS NOT NULL AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ? "',
         BOOKS + CALLS,
     ),
     Mutation(
@@ -67,9 +67,9 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         "the owner never changes after a quote is made (database trigger)",
-        "migrations/0004_owner.sql",
-        "created_at, expires_at, owner ON quotes",
-        "created_at, expires_at ON quotes",
+        "migrations/0007_payer_group.sql",
+        "created_at, expires_at, owner, payer_group ON quotes",
+        "created_at, expires_at, payer_group ON quotes",
         BOOKS,
     ),
     Mutation(

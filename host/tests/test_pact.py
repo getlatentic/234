@@ -208,6 +208,12 @@ def test_each_user_of_an_agent_has_an_owner_of_their_own_and_a_brand_limits_the_
     owners = {Chat.objects.get(pk=a["contextId"]).owner, Chat.objects.get(pk=b["contextId"]).owner}
     assert owners == {Caller(ISSUER, "alice").owner, Caller(ISSUER, "bob").owner} and len(owners) == 2
     assert Chat.objects.get(pk=b["contextId"]).connectors == "food-order"
+    groups = {
+        Chat.objects.get(pk=a["contextId"]).payer_group,
+        Chat.objects.get(pk=b["contextId"]).payer_group,
+    }
+    assert groups == {Caller(ISSUER, "anyone").payer_group}, "every User of one agent pays in its group"
+    assert Caller("https://other-agent.example", "alice").payer_group not in groups
 
 
 def test_a_rate_limited_user_is_429_with_retry_after(client, agent, backend):

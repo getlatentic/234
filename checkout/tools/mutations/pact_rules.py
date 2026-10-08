@@ -81,8 +81,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "pact: a Brand's chat is made with the Brand's connectors",
         "pact/conversation.py",
-        'return Chat.objects.create(owner=owner, connectors=",".join(brand.connectors))',
-        "return Chat.objects.create(owner=owner)",
+        'Chat.objects.create(owner=owner, connectors=",".join(brand.connectors), payer_group=payer_group)',
+        "Chat.objects.create(owner=owner, payer_group=payer_group)",
         PACT,
     ),
     host(

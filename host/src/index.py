@@ -12,6 +12,7 @@ from workers import Response, WorkerEntrypoint
 from chat.socket_gate import chat_for_socket
 from config.warm import warm_up
 from config.wsgi import application
+from turns import health
 from turns.alternatives import runners
 from turns.chat_object import Chat  # noqa: F401
 
@@ -24,6 +25,10 @@ class Default(WorkerEntrypoint):
 
     async def queue(self, batch, *_):
         await runners.consume(batch, self.env)
+
+    async def scheduled(self, *_):
+        """Every five minutes: the health checks (turns/health.py)."""
+        await health.check(self.env)
 
     async def fetch(self, request):
         runners.current_context = self.ctx

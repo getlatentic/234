@@ -17,9 +17,10 @@ from .card_calls import CardCalls
 from .db import Db
 from .eventlog import Event, EventLog
 from .fanout import Fanout, SocketPool
-from .hub import Hub, HubError
+from .hub import Hub, HubError, paying_as
 from .inputs import InputRefused, clean_text
 from .ledger_owner import is_account, ledger_owner
+from .metrics import Metrics
 from .model import Model
 from .runner import TurnRunner, new_id
 from .settings import Settings
@@ -52,8 +53,10 @@ class ChatCore:
         alarms: Alarms,
         clock: Callable[[], int],
         starter: Starter | None = None,
+        metrics: Metrics | None = None,
     ) -> None:
         self.chat_id = chat_id
+        self._metrics = metrics or Metrics()
         self._db, self._settings, self._model, self._hub = db, settings, model, hub
         self._alarms, self._clock, self._starter = alarms, clock, starter
         self.log = EventLog(db, chat_id, clock, on_append=self._publish)
@@ -77,6 +80,10 @@ class ChatCore:
         if row is None:
             raise HubError("There is no such chat.")
         return row["owner"]
+
+    async def _payer_group(self) -> str:
+        row = await self._db.row("SELECT payer_group FROM chat_chat WHERE id = ?", self.chat_id)
+        return row["payer_group"] if row else ""
 
     async def _ledger_owner(self) -> str:
         return ledger_owner(await self._owner_of_chat())
@@ -139,8 +146,9 @@ class ChatCore:
         row = await self._db.row("SELECT connectors FROM chat_chat WHERE id = ?", self.chat_id)
         servers = scope.servers_of(row["connectors"] if row else "")
         return TurnRunner(
-            self.log, self._db, self._model, self._hub, self._settings, owner, self._clock, servers=servers
-        )
+            self.log, self._db, self._model, self._hub, self._settings, owner, self._clock, servers=servers,
+            metrics=self._metrics,
+        )  # fmt: skip
 
     async def _the_runner(self) -> TurnRunner:
         """The one runner of this chat: its compactor serialises compactions, the turns' and the person's."""
@@ -158,7 +166,8 @@ class ChatCore:
                 self._more_to_do = False
                 resumed, self._resume_next = self._resume_next, False
                 await self._alarms.arm(self._clock() + self._settings.watchdog_seconds * 1000)
-                await runner.run(resumed=resumed)
+                with paying_as(await self._payer_group()):
+                    await runner.run(resumed=resumed)
                 if not self._more_to_do:
                     await self._alarms.disarm()
         except Exception:
@@ -233,7 +242,8 @@ class ChatCore:
             await self.wake(resumed=True)
 
     async def card_call(self, server: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        return await self._cards.call(server, name, arguments)
+        with paying_as(await self._payer_group()):
+            return await self._cards.call(server, name, arguments)
 
     async def refresh_card(self, quote_id: str) -> bool:
         return await self._cards.refresh(quote_id)

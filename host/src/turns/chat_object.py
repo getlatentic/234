@@ -127,6 +127,10 @@ class Chat(DurableObject):
     async def webSocketError(self, socket: Any, error: Any) -> None:
         await (await self._core_for()).detach(socket)
 
+    async def ping(self) -> str:
+        """The health check's call (health.py): the objects answer. It builds no chat."""
+        return "ok"
+
     async def alarm(self) -> None:
         await (await self._core_for()).on_alarm()
 

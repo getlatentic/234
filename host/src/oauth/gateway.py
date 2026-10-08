@@ -3,7 +3,11 @@
 
 The token is checked here (issued by this server, for this connector, not expired) and goes no further: the
 connector is called over the host's own binding with the host's token, for the ledger owner of the account
-that approved the grant. Only the MCP headers are passed on, so a caller cannot name an owner itself."""
+that approved the grant. Only the MCP headers are passed on, so a caller cannot name an owner itself.
+
+Calls are rate limited per account, across every client it allowed (MCP_LIMITER). Not per client alone: one
+client id (Claude's, ChatGPT's) is shared by everyone who uses it, and a client acts only for accounts that
+allowed it, so the account is what one caller can push on."""
 
 from django.http import Http404, HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -18,6 +22,7 @@ from .resources import connectors, metadata_url, resource_url, scope_of
 from .views import signing_in
 
 MAX_BODY = 1024 * 1024
+LIMITER = "MCP_LIMITER"
 PASSED_ON = ("mcp-protocol-version", "mcp-session-id", "last-event-id")
 
 
@@ -51,6 +56,8 @@ def mcp(request: HttpRequest, connector: str) -> HttpResponse:
         return HttpResponse(status=405, headers={"Allow": "POST"})
     if len(request.body) > MAX_BODY:
         return HttpResponse(status=413)
+    if not get_backend().rate_ok(f"mcp:{ledger_owner(access.owner)}", LIMITER):
+        return HttpResponse(status=429, headers={"Retry-After": "60"})
     headers = {name: request.headers[name] for name in PASSED_ON if name in request.headers}
     status, answered, body = get_backend().relay(
         connector, request.body, headers, ledger_owner(access.owner), notes=connector == MEMORY_SERVER

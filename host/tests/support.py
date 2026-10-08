@@ -207,6 +207,7 @@ class FakeBackend:
         self.scopes: list[list[str] | None] = []
         self.allow = True
         self.rate_keys: list[str] = []
+        self.limiters: list[str] = []
         self.answer: dict = {"seq": 1, "task": "t1"}
         self.card_answer: dict = {"result": {"content": [{"type": "text", "text": "ok"}]}}
         self.refreshed: list[tuple] = []
@@ -273,8 +274,9 @@ class FakeBackend:
             name, {"content": [{"type": "text", "text": "ok"}], "structuredContent": {}}
         )
 
-    def rate_ok(self, key):
+    def rate_ok(self, key, limiter="CHAT_LIMITER"):
         self.rate_keys.append(key)
+        self.limiters.append(limiter)
         return self.allow
 
     def end_brand(self, owner, brand):

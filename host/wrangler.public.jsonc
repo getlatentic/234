@@ -10,6 +10,10 @@
   // @ROUTES@
   "preview_urls": false,
   "observability": { "enabled": true },
+  // The health checks every five minutes (src/turns/health.py), and where they and the turns record how 234
+  // runs (src/turns/metrics.py, docs/metrics.md).
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "analytics_engine_datasets": [{ "binding": "METRICS", "dataset": "@METRICS_DATASET@" }],
   // The static files and the home page (index.html with its _headers, built below) are served by the platform
   // without starting the Worker. Every other path has no asset and reaches the Worker, which answers it.
   "assets": { "directory": "./staticfiles", "html_handling": "auto-trailing-slash", "not_found_handling": "none" },
@@ -37,7 +41,8 @@
   // Messages per minute per visitor, counted per Cloudflare location. The namespace id must not clash with
   // another Worker's on the same account (RATE_LIMIT_NAMESPACE in tools/deploy.sh).
   "ratelimits": [
-    { "name": "CHAT_LIMITER", "namespace_id": "@RATE_LIMIT_NAMESPACE@", "simple": { "limit": 12, "period": 60 } }
+    { "name": "CHAT_LIMITER", "namespace_id": "@RATE_LIMIT_NAMESPACE@", "simple": { "limit": 12, "period": 60 } },
+    { "name": "MCP_LIMITER", "namespace_id": "@MCP_RATE_LIMIT_NAMESPACE@", "simple": { "limit": 60, "period": 60 } }
   ],
   // The connectors are reached through a service binding: a Worker cannot fetch another Worker of its
   // account by the public workers.dev address (measured 2026-09-29: the connector answered 404 to the host).

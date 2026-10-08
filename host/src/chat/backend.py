@@ -41,7 +41,7 @@ class Backend(Protocol):
         self, server: str, body: bytes, headers: dict[str, str], owner: str, notes: bool
     ) -> tuple[int, dict[str, str], bytes]: ...
 
-    def rate_ok(self, key: str) -> bool: ...
+    def rate_ok(self, key: str, limiter: str = "CHAT_LIMITER") -> bool: ...
 
     def end_brand(self, owner: str, brand: str) -> bool: ...
 
@@ -145,14 +145,15 @@ class WorkerBackend:
         answer = run_sync(self._connectors().relay(server, body, headers, owner, notes))
         return answer.status_code, dict(answer.headers), answer.content
 
-    def rate_ok(self, key: str) -> bool:
+    def rate_ok(self, key: str, limiter: str = "CHAT_LIMITER") -> bool:
+        """Whether `key` is within the named rate limit binding; a Worker without it is not limited."""
         from js import Object
         from pyodide.ffi import run_sync, to_js
 
-        limiter = getattr(self._env(), "CHAT_LIMITER", None)
-        if limiter is None:
+        binding = getattr(self._env(), limiter, None)
+        if binding is None:
             return True
-        outcome = run_sync(limiter.limit(to_js({"key": key}, dict_converter=Object.fromEntries)))
+        outcome = run_sync(binding.limit(to_js({"key": key}, dict_converter=Object.fromEntries)))
         return bool(outcome.success)
 
     def end_brand(self, owner: str, brand: str) -> bool:

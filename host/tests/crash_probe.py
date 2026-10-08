@@ -90,6 +90,10 @@ async def follow(v: Visitor, chat: str, killed: float, runner: str, quote: bool)
         f"assistant={kinds.count('assistant')} tool={kinds.count('tool')} card={kinds.count('card')} "
         f"{'one_quote_and_its_answer' if quote else 'complete_text'}={complete}"
     )
+    if done is None or not complete:
+        notices = [e["payload"].get("text") for e in log if e["type"] == "notice"]
+        replies = [e["payload"].get("text", "")[-60:] for e in log if e["type"] == "assistant"]
+        print(f"{runner}: why: finished={done and done['payload']} notices={notices} replies={replies}")
     return done is not None and complete
 
 

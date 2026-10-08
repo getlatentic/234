@@ -15,6 +15,7 @@ TOOLS = [
     {"name": "get_status", "description": "d", "inputSchema": {"type": "object"}},
 ]  # fmt: skip
 CALLS: list[dict] = []
+HEADERS: list[dict] = []
 OWNER = "ab" * 16
 KEY = "k" * 40
 MENU_META = {"ui": {"prefersBorder": False, "csp": {"resourceDomains": ["https://cdn.example.com", 7]}}}
@@ -26,6 +27,7 @@ MIME = "text/html;profile=mcp-app"
 def handler(request: httpx.Request) -> httpx.Response:
     body = json.loads(request.content)
     CALLS.append(body)
+    HEADERS.append(dict(request.headers))
     method = body.get("method")
     if method == "tools/list":
         result = {"tools": TOOLS}
@@ -62,6 +64,7 @@ def handler(request: httpx.Request) -> httpx.Response:
 @pytest.fixture
 def hub():
     CALLS.clear()
+    HEADERS.clear()
     return Hub({"s": "http://s/mcp"}, httpx.AsyncClient(transport=httpx.MockTransport(handler)))
 
 
@@ -130,3 +133,34 @@ async def test_an_unknown_connector_is_refused(hub):
 async def test_the_client_initializes_before_its_first_request(hub):
     await hub.tools("s")
     assert [c.get("method") for c in CALLS][:2] == ["initialize", "notifications/initialized"]
+
+
+async def test_a_call_inside_a_payer_group_names_it_and_no_other_call_does(hub):
+    from turns.hub import GROUP_HEADER, paying_as
+
+    await hub.call_model_tool("s__create_quote", {"a": 1}, OWNER, KEY)
+    with paying_as("cd" * 16):
+        await hub.call_model_tool("s__create_quote", {"a": 1}, OWNER, KEY)
+    await hub.call_model_tool("s__create_quote", {"a": 1}, OWNER, KEY)
+    calls = [h for h, b in zip(HEADERS, CALLS, strict=True) if b.get("method") == "tools/call"]
+    assert [h.get(GROUP_HEADER) for h in calls] == [None, "cd" * 16, None]
+
+
+NO_REPLY = [
+    httpx.Response(502, text=""),
+    httpx.Response(200, text="<html>oops</html>"),
+    httpx.Response(200, json={"jsonrpc": "2.0"}),
+]
+
+
+@pytest.mark.parametrize("reply", NO_REPLY)
+async def test_a_connector_that_sends_no_json_rpc_reply_is_one_that_could_not_be_reached(reply):
+    from turns.hub import HubError
+
+    def broken(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        return handler(request) if body.get("method") != "tools/call" else reply
+
+    hub = Hub({"s": "http://s/mcp"}, httpx.AsyncClient(transport=httpx.MockTransport(broken)))
+    with pytest.raises(HubError, match="no JSON-RPC reply"):
+        await hub.call_app_tool("s", "approve_quote", {}, OWNER)

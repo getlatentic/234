@@ -69,8 +69,8 @@ def read(body: Any) -> Incoming:
     return Incoming(message_id, text, context_id)
 
 
-def _chat(brand: Brand, owner: str) -> Chat:
-    return Chat.objects.create(owner=owner, connectors=",".join(brand.connectors))
+def _chat(brand: Brand, owner: str, payer_group: str = "") -> Chat:
+    return Chat.objects.create(owner=owner, connectors=",".join(brand.connectors), payer_group=payer_group)
 
 
 def _moved_to_account(found: Context, brand: Brand, account: str) -> Context:
@@ -91,7 +91,7 @@ def _moved_to_account(found: Context, brand: Brand, account: str) -> Context:
 def _context(brand: Brand, caller: Caller, incoming: Incoming, delegation: Delegation | None) -> Context:
     account = delegation.account if delegation else ""
     if incoming.context_id is None:
-        chat = _chat(brand, account or caller.owner)
+        chat = _chat(brand, account, "") if account else _chat(brand, caller.owner, caller.payer_group)
         return Context.objects.create(chat=chat, brand=brand.id, owner=caller.owner, account=account)
     found = Context.objects.filter(chat_id=incoming.context_id, brand=brand.id, owner=caller.owner).first()
     if found is None:

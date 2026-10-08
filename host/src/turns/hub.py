@@ -4,6 +4,9 @@ each call goes. A tool is never in both hands unless its server said so."""
 
 import base64
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -12,6 +15,7 @@ import httpx
 from .idempotency import FIELD as KEY_FIELD
 
 OWNER_HEADER = "x-ledger-owner"
+GROUP_HEADER = "x-ledger-group"
 ACCOUNT_META = "com.getlatentic.234/account"
 MEMORY_OWNER_HEADER = "x-memory-owner"
 MEMORY_SERVER = "memory"
@@ -102,6 +106,20 @@ def refused(server: str, tool: str, reason: str) -> ToolOutcome:
     return ToolOutcome(server, tool, {"isError": True, "content": [{"type": "text", "text": reason}]}, None)
 
 
+_payer_group: ContextVar[str] = ContextVar("payer_group", default="")
+
+
+@contextmanager
+def paying_as(group: str) -> Iterator[None]:
+    """The connector calls made inside the block name `group` as their payer group ('' for none): the people
+    one outside agent speaks for, whose spend the ledger caps together (pact/identity.py)."""
+    token = _payer_group.set(group)
+    try:
+        yield
+    finally:
+        _payer_group.reset(token)
+
+
 class McpHttp:
     """A minimal MCP client over Streamable HTTP: JSON-RPC requests, JSON answers."""
 
@@ -121,6 +139,8 @@ class McpHttp:
             headers[OWNER_HEADER] = owner
             if notes:
                 headers[MEMORY_OWNER_HEADER] = owner
+            if group := _payer_group.get():
+                headers[GROUP_HEADER] = group
         if self._session:
             headers["mcp-session-id"] = self._session
         if self._token:
@@ -175,10 +195,22 @@ class McpHttp:
         response = await self._post(
             {"jsonrpc": "2.0", "id": self._ids, "method": method, "params": params or {}}, owner, notes
         )
-        body = response.json()
+        body = _answer(response, method)
         if "error" in body:
             raise HubError(f"{method}: {body['error']['message']}")
         return body["result"]
+
+
+def _answer(response: httpx.Response, method: str) -> dict[str, Any]:
+    """The JSON-RPC answer, or HubError when the connector sent none: a connector restarted mid-request
+    answers with an empty body or an error page, which is a connector that could not be reached."""
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or not ("result" in body or "error" in body):
+        raise HubError(f"{method}: the connector answered {response.status_code} with no JSON-RPC reply.")
+    return body
 
 
 def _html_of(content: dict[str, Any]) -> str:
@@ -328,6 +360,10 @@ class Hub:
         if "app" not in visibility_of(tool):
             raise HubError(f"{name} is not available to cards.")
         return await self._tool_call(server, name, arguments, owner)
+
+    async def ping(self, server: str) -> None:
+        """MCP's own liveness request, after the handshake: the connector is reachable and answering."""
+        await self._server(server).request("ping")
 
     async def subscribe(self, server: str, params: dict[str, Any], owner: str) -> None:
         """An MCP events subscription made as `owner`, so its events are that owner's quotes only."""

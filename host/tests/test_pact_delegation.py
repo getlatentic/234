@@ -249,6 +249,7 @@ def test_a_delegated_message_runs_as_the_account_within_the_scopes_and_carries_a
         context.account == account_of(person)
         and Chat.objects.get(pk=reply["contextId"]).owner == context.account
     )
+    assert Chat.objects.get(pk=reply["contextId"]).payer_group == "", "the account pays within its own limit"
     assert backend.scopes[-1] == ["memory:read", "payments"]
     receipt = reply["metadata"]["pact.receipt"]
     claims = verified_by(jwks(client), receipt["jws"])

@@ -26,7 +26,13 @@ STUBS = {
 }
 
 
-OTHER_NAMES = {"HOST_DB": "db", "LEDGER_DB": "led", "RATE_LIMIT_NAMESPACE": "1"}
+OTHER_NAMES = {
+    "HOST_DB": "db",
+    "LEDGER_DB": "led",
+    "RATE_LIMIT_NAMESPACE": "1",
+    "MCP_RATE_LIMIT_NAMESPACE": "2",
+    "METRICS_DATASET": "chat_metrics",
+}
 
 
 def run_render(template: Path, out: Path, **env: str) -> subprocess.CompletedProcess:
@@ -59,7 +65,7 @@ def filled_by_hand(template: Path) -> dict:
 
 @pytest.mark.parametrize("template", [HOST_TEMPLATE, SANDBOX_TEMPLATE, CONNECTORS_TEMPLATE])
 def test_without_a_custom_domain_the_rendered_templates_are_what_they_always_were(template, tmp_path):
-    config = rendered(template, tmp_path, HOST_DB="db", LEDGER_DB="led", RATE_LIMIT_NAMESPACE="1")
+    config = rendered(template, tmp_path, **OTHER_NAMES)
     assert config == filled_by_hand(template)
     assert "routes" not in config
 

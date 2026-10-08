@@ -10,6 +10,7 @@ it is not sent again, and the model is told to check before it repeats it. A cal
 ledger remembers by its key, is safe to send again."""
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -21,6 +22,7 @@ from .eventlog import EventLog
 from .hub import Hub, HubError, ToolOutcome, refused
 from .idempotency import derive_key
 from .ledger_owner import is_account, ledger_owner
+from .metrics import Metrics
 from .settings import Settings
 
 UNREACHABLE = "The connector could not be reached."
@@ -34,8 +36,16 @@ CHECK_WITH_PERSON = "ask the person to check"
 
 
 class ToolCalls:
-    def __init__(self, log: EventLog, hub: Hub, settings: Settings) -> None:
+    def __init__(
+        self,
+        log: EventLog,
+        hub: Hub,
+        settings: Settings,
+        clock: Callable[[], int] | None = None,
+        metrics: Metrics | None = None,
+    ) -> None:
         self._log, self._hub, self._settings = log, hub, settings
+        self._clock, self._metrics = clock or (lambda: 0), metrics or Metrics()
 
     async def run(
         self,
@@ -50,19 +60,21 @@ class ToolCalls:
         arguments = call_rules.arguments_of(call)
         refusal = permits.refusal(call["name"])
         marks: dict[str, Any] = {}
+        began, measured = self._clock(), "refused"
         if arguments is None:
             outcome = refused("", call["name"], BAD_ARGUMENTS)
         elif refusal is not None:
             outcome, marks = refusal.outcome, permissions.marks(permits, call["name"], refusal)
         elif twin := await self._twin_in_reply(call, reply_calls):
-            outcome = await self._repeat_of(call["name"], twin)
+            outcome, measured = await self._repeat_of(call["name"], twin), "repeat"
         elif started and not await self._hub.repeatable(call["name"]):
-            outcome = await self._unknown(call["name"], WHY_CUT_OFF)
+            outcome, measured = await self._unknown(call["name"], WHY_CUT_OFF), "unknown"
         else:
             if not started:
                 await self._started(call["name"], call["id"], task)
-            outcome = await self._call(call, arguments, owner)
+            outcome, measured = await self._call(call, arguments, owner)
             marks = permissions.marks(permits, call["name"], None)
+        self._metrics.tool(outcome.server, outcome.tool, measured, self._clock() - began)
         payload = {
             "call_id": call["id"],
             "server": outcome.server,
@@ -109,21 +121,24 @@ class ToolCalls:
             kinds.TOOL_STARTED, {"call_id": call_id, "server": server, "tool": tool}, task=task
         )
 
-    async def _call(self, call: dict[str, Any], arguments: dict[str, Any], owner: str) -> ToolOutcome:
+    async def _call(
+        self, call: dict[str, Any], arguments: dict[str, Any], owner: str
+    ) -> tuple[ToolOutcome, str]:
+        """The connector's answer, and how it went: ok, error, slow, unknown or unreachable."""
         ledger = ledger_owner(owner)
         key = derive_key(ledger, self._log.chat_id, call["id"])
         name = call["name"]
+        server, _, tool = name.partition("__")
         try:
             async with asyncio.timeout(self._settings.tool_deadline_seconds):
-                return await self._hub.call_model_tool(name, arguments, ledger, key, is_account(owner))
+                outcome = await self._hub.call_model_tool(name, arguments, ledger, key, is_account(owner))
         except TimeoutError:
             if await self._hub.read_only(name):
-                server, _, tool = name.partition("__")
-                return refused(server, tool, TOO_SLOW.format(tool=tool))
-            return await self._unknown(name, WHY_SLOW)
+                return refused(server, tool, TOO_SLOW.format(tool=tool)), "slow"
+            return await self._unknown(name, WHY_SLOW), "unknown"
         except HubError, httpx.HTTPError:
-            server, _, tool = name.partition("__")
-            return refused(server, tool, UNREACHABLE)
+            return refused(server, tool, UNREACHABLE), "unreachable"
+        return outcome, "error" if outcome.is_error else "ok"
 
     async def _unknown(self, name: str, why: str) -> ToolOutcome:
         server, _, tool = name.partition("__")

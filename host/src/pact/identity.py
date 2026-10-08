@@ -32,6 +32,12 @@ class Caller:
         digest = hashlib.sha256(f"{self.issuer}\n{self.sub}".encode()).hexdigest()
         return f"{OWNER_PREFIX}{digest[:32]}"
 
+    @property
+    def payer_group(self) -> str:
+        """Every User of one agent is an owner of their own, and the agent names them; the ledger caps what
+        they spend together by this key (turns/hub.py `paying_as`)."""
+        return hashlib.sha256(f"234-pact-issuer\n{self.issuer}".encode()).hexdigest()[:32]
+
 
 def _decoded(token: str) -> jws.Parts:
     found = jws.parts(token)

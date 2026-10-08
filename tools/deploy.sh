@@ -31,6 +31,11 @@
 # in your Cloudflare account: a route with custom_domain, the canonical origin settings, the sandbox's allowed
 # embedder, and smoke checks of that origin. The host also keeps answering on its workers.dev address.
 #   tools/deploy.sh render TEMPLATE OUT   fills in a wrangler template without deploying (the tests use it)
+#
+# STAGE=staging (any command) works on a second deployment of its own: the same names with -staging, its own
+# databases, queues and rate-limit namespaces, no custom domain, and sign-in only from .env.auth.staging.local.
+# A production deploy refuses a commit that has not first deployed to staging and passed its smoke test there
+# (the commit is recorded in .stack/staged-commit); SKIP_STAGING=1 deploys anyway and says so.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -38,15 +43,24 @@ env_file=${DEPLOY_ENV_FILE:-$root/.env.deploy.local}
 # shellcheck disable=SC1090
 [ ! -f "$env_file" ] || source "$env_file"
 
-HOST_WORKER=${HOST_WORKER:-ask234}
-CONNECTORS_WORKER=${CONNECTORS_WORKER:-ask234-connectors}
-SANDBOX_WORKER=${SANDBOX_WORKER:-ask234-sandbox}
-HOST_DB=${HOST_DB:-ask234-host-db}
-LEDGER_DB=${LEDGER_DB:-ask234-ledger}
+STAGE=${STAGE:-production}
+case "$STAGE" in
+  production) stage="" namespaces=(4391 4392) ;;
+  staging) stage="-staging" namespaces=(4393 4394) CUSTOM_DOMAIN="" AUTH_FILE=${AUTH_FILE:-$root/.env.auth.staging.local} ;;
+  *) echo "deploy: STAGE is production or staging" >&2; exit 1 ;;
+esac
+HOST_WORKER=${HOST_WORKER:-ask234$stage}
+CONNECTORS_WORKER=${CONNECTORS_WORKER:-ask234-connectors$stage}
+SANDBOX_WORKER=${SANDBOX_WORKER:-ask234-sandbox$stage}
+HOST_DB=${HOST_DB:-ask234$stage-host-db}
+LEDGER_DB=${LEDGER_DB:-ask234$stage-ledger}
 SUBDOMAIN=${SUBDOMAIN:-}
 CUSTOM_DOMAIN=${CUSTOM_DOMAIN:-}
 [ -n "$SUBDOMAIN" ] || { echo "deploy: set SUBDOMAIN to your account's workers.dev subdomain (environment or .env.deploy.local; docs/deploy.md)" >&2; exit 1; }
-RATE_LIMIT_NAMESPACE=${RATE_LIMIT_NAMESPACE:-4391}
+RATE_LIMIT_NAMESPACE=${RATE_LIMIT_NAMESPACE:-${namespaces[0]}}
+MCP_RATE_LIMIT_NAMESPACE=${MCP_RATE_LIMIT_NAMESPACE:-${namespaces[1]}}
+STAGED_FILE=${STAGED_FILE:-$root/.stack/staged-commit}
+METRICS_DATASET=${METRICS_DATASET:-${HOST_WORKER//-/_}_metrics}
 if [ -n "$CUSTOM_DOMAIN" ]; then
   [[ $CUSTOM_DOMAIN =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] && [[ $CUSTOM_DOMAIN != *.workers.dev ]] ||
     { echo "deploy: CUSTOM_DOMAIN is a host name of a zone in your account (for example 234.example.com), not a URL and not on workers.dev" >&2; exit 1; }
@@ -150,7 +164,8 @@ render() {  # template output: the template with this file's names filled in
     -e "s|@SANDBOX_WORKER@|$SANDBOX_WORKER|g" \
     -e "s|@HOST_DB@|$HOST_DB|g" -e "s|@HOST_DB_ID@|$host_id|g" \
     -e "s|@LEDGER_DB@|$LEDGER_DB|g" -e "s|@LEDGER_DB_ID@|$ledger_id|g" \
-    -e "s|@SUBDOMAIN@|$SUBDOMAIN|g" -e "s|@RATE_LIMIT_NAMESPACE@|$RATE_LIMIT_NAMESPACE|g" "$1" |
+    -e "s|@SUBDOMAIN@|$SUBDOMAIN|g" -e "s|@RATE_LIMIT_NAMESPACE@|$RATE_LIMIT_NAMESPACE|g" \
+    -e "s|@MCP_RATE_LIMIT_NAMESPACE@|$MCP_RATE_LIMIT_NAMESPACE|g" -e "s|@METRICS_DATASET@|$METRICS_DATASET|g" "$1" |
     sed -f "$edits" |
     sed -e "s|^\([[:space:]]*\)// @FIREBASE_VARS@\$|\1$(auth_vars_line)|" \
       -e "s|^\([[:space:]]*\)// @ROUTES@\$|\1$(routes_line)|" > "$2"
@@ -251,7 +266,18 @@ auth_secret_lines() {  # the host's ACCOUNT_KEY, made once when sign-in is on an
   secret_lines "$HOST_WORKER" ACCOUNT_KEY
 }
 
+require_staged() {  # a production deploy is of a commit that staging already runs and passed its smoke test with
+  [ "$STAGE" = production ] || return 0
+  local head staged=""
+  head=$(git -C "$root" rev-parse HEAD)
+  [ ! -f "$STAGED_FILE" ] || staged=$(cat "$STAGED_FILE")
+  [ "$staged" = "$head" ] && return 0
+  [ "${SKIP_STAGING:-}" = 1 ] && { say "SKIP_STAGING=1: deploying a commit staging has not run"; return 0; }
+  die "deploy $(git -C "$root" rev-parse --short HEAD) to staging first: STAGE=staging tools/deploy.sh"
+}
+
 deploy_all() {
+  require_staged
   require_clean_tree
   load_auth; AUTH_LOADED=1
   run_checks
@@ -282,6 +308,7 @@ deploy_all() {
     echo "OPS_TOKEN=$ops"; } | deploy_worker host
   migrate_host "$ops"
   smoke_test
+  if [ "$STAGE" = staging ]; then mkdir -p "$root/.stack" && git -C "$root" rev-parse HEAD > "$STAGED_FILE"; fi
 }
 
 http_status() { curl -s -m 60 -o /dev/null -w '%{http_code}' "$@" || true; }
@@ -468,14 +495,16 @@ cmd_auth() {  # what .env.auth.local holds, by name, and what a deploy would do:
 
 cmd_names() {
   cat <<EOF
+stage              $STAGE
 sandbox Worker     $SANDBOX_WORKER     $SANDBOX_URL
 host Worker        $HOST_WORKER        $HOST_URL
 custom domain      $( [ -n "$CUSTOM_DOMAIN" ] && echo "$CUSTOM_URL (canonical; $HOST_URL still answers)" || echo "none (CUSTOM_DOMAIN is not set)")
 connectors Worker  $CONNECTORS_WORKER  $CONNECTORS_URL
 host database      $HOST_DB
 ledger database    $LEDGER_DB
-rate limit         namespace $RATE_LIMIT_NAMESPACE
-sign-in            $( [ -f "$AUTH_FILE" ] && echo ".env.auth.local found: tools/deploy.sh auth says what it holds" || echo "off (no .env.auth.local)")
+rate limit         namespace $RATE_LIMIT_NAMESPACE (chat), $MCP_RATE_LIMIT_NAMESPACE (MCP gateway)
+metrics            Analytics Engine dataset $METRICS_DATASET
+sign-in            $( [ -f "$AUTH_FILE" ] && echo "$(basename "$AUTH_FILE") found: tools/deploy.sh auth says what it holds" || echo "off (no $(basename "$AUTH_FILE"))")
 EOF
 }
 

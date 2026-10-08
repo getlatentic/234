@@ -12,6 +12,7 @@ from .chat_core import Alarms, ChatCore, Starter
 from .db import D1
 from .fanout import SocketPool
 from .hub import build_hub
+from .metrics import metrics_of
 from .model import OpenAICompatible
 from .reach.server import local_servers
 from .settings import Settings
@@ -56,4 +57,5 @@ def build_core(
         alarms,
         lambda: int(time.time() * 1000),
         starter,
+        metrics_of(env),
     )

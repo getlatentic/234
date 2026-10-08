@@ -6,6 +6,8 @@
   "workers_dev": false,
   "preview_urls": false,
   "observability": { "enabled": true },
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "analytics_engine_datasets": [{ "binding": "METRICS", "dataset": "ask234_local_metrics" }],
   // The static files and, once tools/up.sh has built it, the home page (index.html with its _headers) are served
   // without starting the Worker; every other path reaches it.
   "assets": { "directory": "./staticfiles", "html_handling": "auto-trailing-slash", "not_found_handling": "none" },
@@ -33,7 +35,8 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Chat"] }],
   // Messages per minute per visitor, counted per Cloudflare location.
   "ratelimits": [
-    { "name": "CHAT_LIMITER", "namespace_id": "4301", "simple": { "limit": 12, "period": 60 } }
+    { "name": "CHAT_LIMITER", "namespace_id": "4301", "simple": { "limit": 12, "period": 60 } },
+    { "name": "MCP_LIMITER", "namespace_id": "4302", "simple": { "limit": 60, "period": 60 } }
   ],
   "d1_databases": [
     { "binding": "DB", "database_name": "checkout-host", "database_id": "00000000-0000-0000-0000-000000000001" }

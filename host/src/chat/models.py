@@ -19,6 +19,9 @@ class Chat(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     # The connectors this chat's model may use, comma-separated; blank is every one (pact/brands.py).
     connectors = models.CharField(max_length=200, blank=True, default="")
+    # The payer group the ledger caps this chat's spend in, with others' ('' for none): an outside personal
+    # agent's issuer, for a chat it holds as itself (pact/identity.py).
+    payer_group = models.CharField(max_length=32, blank=True, default="")
 
     def __str__(self) -> str:
         return self.id

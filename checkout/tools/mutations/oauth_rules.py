@@ -66,4 +66,11 @@ MUTATIONS: list[Mutation] = [
         "        and True",
         OAUTH,
     ),
+    host(
+        "the gateway is rate limited per account",
+        "oauth/gateway.py",
+        '    if not get_backend().rate_ok(f"mcp:{ledger_owner(access.owner)}", LIMITER):',
+        "    if False:",
+        OAUTH,
+    ),
 ]

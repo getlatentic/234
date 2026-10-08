@@ -21,8 +21,9 @@ the script fills in. The live demo (https://ask234.wintern.workers.dev) is one s
 | Host database (chats, the event log, model-call counts) | `ask234-host-db` | |
 | Ledger database (quotes, limits, simulators) | `ask234-ledger` | |
 
-A Worker name is also its address. The ids of the databases and the rate-limit namespace (`RATE_LIMIT_NAMESPACE`,
-which must not clash with another Worker on your account) are filled into the templates; the deployed copies
+A Worker name is also its address. The ids of the databases and the rate-limit namespaces (`RATE_LIMIT_NAMESPACE`
+for the chat, `MCP_RATE_LIMIT_NAMESPACE` for the MCP gateway, 60 calls a minute per account; neither may clash
+with another Worker on your account) are filled into the templates; the deployed copies
 (`*/wrangler.deploy.jsonc`) are ignored by git.
 
 ## The card sandbox
@@ -81,7 +82,10 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
   a test of the public template), so an unlabelled call is never pooled with anyone's. A visitor who reaches
   their limit reads one line, with what is left of their own day. **Clearing cookies makes a new visitor with a
   new allowance** (a person who signs in with Google has an allowance of their account's, the same on every device: [auth.md](auth.md)). That is acceptable here because the money is simulated, and the global and per-visitor model
-  caps and the rate limit, which are unchanged, are what bound abuse by clearing cookies. A deployment that
+  caps and the rate limit, which are unchanged, are what bound abuse by clearing cookies. An outside personal
+  agent ([pact.md](pact.md)) names its own people, each an owner of their own, so the host also names the agent
+  as a payer group (`x-ledger-group`), and all its people together may approve at most ₦500,000 a day
+  (`GROUP_DAILY_LIMIT_KOBO`). A deployment that
   moves real money must tie the allowance to an authenticated account instead.
 - **The connectors' tools answer only to the host.** `/<connector>/mcp` needs `Authorization: Bearer` with the shared
   token (`MCP_ACCESS_TOKEN` on the connectors, `CHECKOUT_MCP_TOKEN` on the host); without it the answer is 401
@@ -187,6 +191,28 @@ up to five for it.
 - **Sign-in from the custom origin** needs the domain in the Firebase project's authorized domains ([auth.md](auth.md#what-you-do-in-the-console)). `FIREBASE_AUTH_DOMAIN` stays the `firebaseapp.com` handler: the popup and the redirect run through it and come back to whichever origin started them.
 - **The smoke test** (`tools/deploy.sh`, with the domain set) also checks, on the custom domain: the home page, `/api/me`, the page's policy against the workers.dev one, cookies without a `Domain`, a POST from the custom origin accepted by CSRF (and one naming another origin refused), the sandbox framing the custom origin and no other, and the workers.dev address still answering with no redirect.
 - **Unsetting it** and deploying removes the route (Cloudflare removes the record) and the origins; chats made on the custom domain stay in the database under their visitors, who can no longer reach them from the workers.dev address.
+
+## Staging first
+
+Staging is a second deployment on the same account, for 234 to run a commit before production does: Workers
+`ask234-staging`, `ask234-connectors-staging` and `ask234-sandbox-staging`, databases `ask234-staging-host-db` and
+`ask234-staging-ledger`, its own four queues and rate-limit namespaces (4393, 4394), and no custom domain. Every
+command takes `STAGE=staging`:
+
+```
+STAGE=staging tools/deploy.sh init     # its databases and queues, once
+STAGE=staging tools/deploy.sh          # checks, deploys, applies its migrations, smoke-tests
+tools/deploy.sh                        # production: only a commit staging deployed and passed
+```
+
+A production deploy refuses a commit staging has not deployed with a passing smoke test (the last one is in
+`.stack/staged-commit`); `SKIP_STAGING=1` deploys anyway and says so. Staging makes secrets of its own like
+production, and the model is set on it the same way (`STAGE=staging tools/deploy.sh secret host LLM_API_KEY`).
+Sign-in there needs its own `.env.auth.staging.local` and the staging address among the Firebase project's
+authorised domains; without them staging has no sign-in.
+
+**The ledger migration `0007_payer_group.sql`** adds a column with a default, an index, and recreates the trigger
+that keeps a quote fixed; existing quotes take no group. It runs on staging's ledger before production's.
 
 ## Redeploy
 

@@ -111,7 +111,7 @@ def build_contexts(
     ledger = Ledger(
         db,
         clock,
-        Limits(settings.per_payment_limit_kobo, settings.daily_limit_kobo),
+        Limits(settings.per_payment_limit_kobo, settings.daily_limit_kobo, settings.group_daily_limit_kobo),
         settings.quote_ttl_seconds,
         settings.approval_secret,
         None if settings.require_owner else DEFAULT_OWNER,

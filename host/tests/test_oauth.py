@@ -272,6 +272,18 @@ def test_the_gateway_acts_for_the_account_and_passes_on_only_mcp_headers(granted
     assert headers == {"mcp-session-id": "sess-1", "mcp-protocol-version": "2025-11-25"}
 
 
+def test_the_gateway_is_rate_limited_per_account_and_says_when_to_come_back(granted, backend):
+    _, tokens = granted
+    assert gateway(tokens["access_token"]).status_code == 200
+    key, limiter = backend.rate_keys[-1], backend.limiters[-1]
+    owner = ledger_owner(account_owner("uid-abc", ACCOUNT_KEY))
+    assert limiter == "MCP_LIMITER" and key == f"mcp:{owner}", "keyed by the account, as opaque as its ledger"
+    backend.allow = False
+    relayed = len(backend.relayed)
+    refused = gateway(tokens["access_token"])
+    assert refused.status_code == 429 and refused["Retry-After"] == "60" and len(backend.relayed) == relayed
+
+
 def test_a_token_for_one_connector_is_refused_by_another(granted, backend):
     _, tokens = granted
     answer = gateway(tokens["access_token"], "/mcp/send-money")

@@ -69,6 +69,8 @@ class Settings:
     approval_secret: str = field(repr=False)
     per_payment_limit_kobo: int = 5_000_000
     daily_limit_kobo: int = 10_000_000
+    group_daily_limit_kobo: int = 50_000_000
+    """What the people one outside agent speaks for may approve together in a day (owner.py)."""
     quote_ttl_seconds: int = 600
     checkout_window_seconds: int = 900
     public_base_url: str = "http://localhost:8787"
@@ -107,10 +109,14 @@ class Settings:
         daily = env.positive_int("DAILY_LIMIT_KOBO", base.daily_limit_kobo)
         if per_payment > daily:
             raise ConfigError("PER_PAYMENT_LIMIT_KOBO cannot be more than DAILY_LIMIT_KOBO.")
+        group_daily = env.positive_int("GROUP_DAILY_LIMIT_KOBO", base.group_daily_limit_kobo)
+        if daily > group_daily:
+            raise ConfigError("DAILY_LIMIT_KOBO cannot be more than GROUP_DAILY_LIMIT_KOBO.")
         return cls(
             approval_secret=secret,
             per_payment_limit_kobo=per_payment,
             daily_limit_kobo=daily,
+            group_daily_limit_kobo=group_daily,
             quote_ttl_seconds=env.positive_int("QUOTE_TTL_SECONDS", base.quote_ttl_seconds),
             checkout_window_seconds=env.positive_int("CHECKOUT_WINDOW_SECONDS", base.checkout_window_seconds),
             public_base_url=env.text("PUBLIC_BASE_URL") or base.public_base_url,

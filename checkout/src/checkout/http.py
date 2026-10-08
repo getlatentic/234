@@ -19,7 +19,7 @@ from .mcp.protocol import (
     error_body,
     parse_body,
 )
-from .owner import MEMORY_OWNER_HEADER, OWNER_HEADER, acting_for, is_owner_key, remembering_for
+from .owner import GROUP_HEADER, MEMORY_OWNER_HEADER, OWNER_HEADER, acting_for, is_owner_key, remembering_for
 from .provider_hooks.http import paystack_hook, paystack_keys, vtpass_hook
 from .responses import HttpResponse, json_response
 from .sim_checkout import handle_checkout
@@ -122,12 +122,13 @@ async def handle_mcp(
         return refusal
     try:
         owner = _owner_of(app, headers, message)
+        group = _checked_key(headers.get(GROUP_HEADER), "group") or ""
         memory_owner = _memory_owner_of(headers, message, connector_name)
     except McpError as error:
         return json_response(error_body(_message_id(message), error.code, error.message), 400)
     with ExitStack() as acting:
         if owner is not None:
-            acting.enter_context(acting_for(owner))
+            acting.enter_context(acting_for(owner, group))
         if memory_owner is not None:
             acting.enter_context(remembering_for(memory_owner))
         response = await answer(connector, message, stateless, _events_of(app, connector_name))

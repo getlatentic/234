@@ -80,4 +80,11 @@ MUTATIONS: list[Mutation] = [
         "False:",
         RESILIENCE,
     ),
+    host(
+        "turns: a connector that sends no JSON-RPC reply is one that could not be reached",
+        "turns/hub.py",
+        '    if not isinstance(body, dict) or not ("result" in body or "error" in body):',
+        "    if body is None:",
+        ["tests/test_hub.py"],
+    ),
 ]

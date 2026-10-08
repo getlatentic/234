@@ -30,7 +30,7 @@ from .db import Db, UniqueViolation
 from .errors import DomainError
 from .ids import new_quote_id
 from .money import Kobo, format_naira
-from .owner import current_owner
+from .owner import current_group, current_owner
 
 SPENDING_STATES = ("approved", "settled", "refund_due")
 ENDED_STATES = ("settled", "failed", "abandoned", "declined", "unavailable", "refund_due")
@@ -41,6 +41,8 @@ _SPENDING_SQL = ", ".join(f"'{s}'" for s in SPENDING_STATES)
 class Limits:
     per_payment_kobo: Kobo
     daily_kobo: Kobo
+    group_daily_kobo: Kobo = 50_000_000
+    """What all the owners of one payer group may approve together in a day (owner.py)."""
 
 
 @dataclass(frozen=True)
@@ -142,6 +144,24 @@ class Ledger:
             raise DomainError("OWNER_REQUIRED", "This call does not say whose it is, so nothing was done.")
         return owner
 
+    async def _group_spent(self, group: str) -> Kobo:
+        row = await self._db.row(
+            f"SELECT COALESCE(SUM(amount_kobo), 0) AS spent FROM quotes "
+            f"WHERE payer_group = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})",
+            group,
+            lagos_day_start(self._clock.now()),
+        )
+        return int(row["spent"])
+
+    async def _assert_within_group(self, amount: Kobo, group: str) -> None:
+        if group and await self._group_spent(group) + amount > self.limits.group_daily_kobo:
+            raise DomainError(
+                "LIMIT_GROUP_DAILY",
+                f"{format_naira(amount)} would take what the people of this agent approved today above "
+                f"{format_naira(self.limits.group_daily_kobo)}, "
+                "the most one agent's people can spend in a day.",
+            )
+
     def _scoped_key(self, key: str) -> str:
         """The idempotency key as stored: UNIQUE (connector, idempotency_key) spans every owner, so the
         owner goes in front and two owners never share a key."""
@@ -212,6 +232,7 @@ class Ledger:
         assert_above_floor(amount)
         self._assert_within_per_payment(amount)
         self._assert_within_daily(amount, (await self.budget()).spent_today_kobo)
+        await self._assert_within_group(amount, current_group())
 
     async def replay(self, connector: str, key: str, digest: str) -> Quote | None:
         """The quote an earlier request with this key made; a key reused for another request is refused."""
@@ -240,12 +261,13 @@ class Ledger:
         quote_id, now = new_quote_id(), self._clock.now()
         try:
             await self._db.execute(
-                "INSERT INTO quotes (id, owner, connector, kind, amount_kobo, currency, description,"
-                " merchant, merchant_ref, details, progress, state, idempotency_key, request_hash,"
-                " created_at, expires_at)"
-                " VALUES (?, ?, ?, ?, ?, 'NGN', ?, ?, ?, ?, '{}', 'open', ?, ?, ?, ?)",
+                "INSERT INTO quotes (id, owner, payer_group, connector, kind, amount_kobo, currency,"
+                " description, merchant, merchant_ref, details, progress, state, idempotency_key,"
+                " request_hash, created_at, expires_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, 'NGN', ?, ?, ?, ?, '{}', 'open', ?, ?, ?, ?)",
                 quote_id,
                 self.owner(),
+                current_group(),
                 new.connector,
                 new.kind,
                 new.amount_kobo,
@@ -265,6 +287,10 @@ class Ledger:
             return winner, True
         return await self._must_get(quote_id), False
 
+    async def _group_of(self, quote_id: str) -> str:
+        row = await self._db.row("SELECT payer_group FROM quotes WHERE id = ?", quote_id)
+        return row["payer_group"] if row else ""
+
     async def _must_get(self, quote_id: str) -> Quote:
         quote = await self.get(quote_id)
         if quote is None:
@@ -275,8 +301,10 @@ class Ledger:
         """The one approval a quote can have. A later claim finds the first and changes nothing.
 
         The UPDATE holds every rule: the caller's own quote, still open, not expired, within the
-        per-payment limit, and the caller's approved spend today plus this quote within the daily
-        limit. The event row rides in the same batch, inserted only when the UPDATE changed a row.
+        per-payment limit, the caller's approved spend today plus this quote within the daily limit,
+        and, for a quote made in a payer group, the group's approved spend today plus this quote within
+        the group's limit. The event row rides in the same batch, inserted only when the UPDATE changed a
+        row.
         """
         now, owner = self._clock.now(), self.owner()
         results = await self._db.batch(
@@ -285,7 +313,10 @@ class Ledger:
                     "UPDATE quotes SET state = 'approved', approved_at = ? "
                     "WHERE id = ? AND owner = ? AND connector = ? AND state = 'open' AND expires_at > ? "
                     "AND amount_kobo <= ? AND amount_kobo + (SELECT COALESCE(SUM(amount_kobo), 0) "
-                    f"FROM quotes WHERE owner = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ?",
+                    f"FROM quotes WHERE owner = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ? "
+                    "AND (payer_group = '' OR amount_kobo + (SELECT COALESCE(SUM(g.amount_kobo), 0) "
+                    "FROM quotes AS g WHERE g.payer_group = quotes.payer_group AND g.approved_at >= ? "
+                    f"AND g.state IN ({_SPENDING_SQL})) <= ?)",
                     (
                         now,
                         quote_id,
@@ -296,6 +327,8 @@ class Ledger:
                         owner,
                         lagos_day_start(now),
                         self.limits.daily_kobo,
+                        lagos_day_start(now),
+                        self.limits.group_daily_kobo,
                     ),
                 ),
                 (
@@ -320,6 +353,7 @@ class Ledger:
             raise DomainError("QUOTE_NOT_OPEN", f"This quote is {quote.state} and cannot be approved.")
         self._assert_within_per_payment(quote.amount_kobo)
         self._assert_within_daily(quote.amount_kobo, (await self.budget()).spent_today_kobo)
+        await self._assert_within_group(quote.amount_kobo, await self._group_of(quote_id))
         raise DomainError("APPROVAL_IN_PROGRESS", "The quote changed while it was being approved.")
 
     async def patch_progress(

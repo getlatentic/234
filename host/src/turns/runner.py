@@ -23,6 +23,7 @@ from .db import Db
 from .eventlog import Event, EventLog
 from .hub import Hub, HubError
 from .memory import notes_message, read_index, with_notes
+from .metrics import Metrics
 from .model import ContextTooLong, Finished, Model, ModelError, TextDelta
 from .prompt import system_prompt
 from .settings import Settings
@@ -75,6 +76,7 @@ class TurnRunner:
         clock: Callable[[], int],
         ids: Callable[[], str] = new_id,
         servers: tuple[str, ...] = (),
+        metrics: Metrics | None = None,
     ) -> None:
         """`servers`: the connectors this chat may use (turns/scope.py); empty is every one."""
         self._log, self._db, self._model, self._hub = log, db, model, hub
@@ -84,7 +86,8 @@ class TurnRunner:
         self._task: str | None = None
         self._round: _Round | None = None
         self._compactor = Compactor(log, model, settings, clock, self._permit_model_call)
-        self._tools = ToolCalls(log, hub, settings)
+        self._metrics = metrics or Metrics()
+        self._tools = ToolCalls(log, hub, settings, clock, self._metrics)
 
     async def run(self, resumed: bool = False) -> None:
         """Runs until the log has nothing left for the runner to do."""
@@ -340,6 +343,15 @@ class TurnRunner:
         ]
         payload = {"task": self._task, "reason": reason, "finish_reasons": replies, "rounds": len(replies)}
         await self._log.append(kinds.TURN_FINISHED, {**payload, **marks}, task=self._task)
+        self._record(events, turn, reason, str(marks.get("cause", "")))
+
+    def _record(self, events: list[Event], turn: Event, reason: str, cause: str) -> None:
+        """The turn's data point: how it ended, how long it took, and the tokens its rounds used."""
+        replies = [e for e in events if e.type == kinds.ASSISTANT and e.task == self._task]
+        usage = [r.payload.get("usage") or {} for r in replies]
+        prompt = sum(int(u.get("prompt_tokens", 0)) for u in usage)
+        completion = sum(int(u.get("completion_tokens", 0)) for u in usage)
+        self._metrics.turn(reason, cause, len(replies), self._clock() - turn.at, prompt, completion)
 
     async def stop(self) -> bool:
         """Ends what the person asked to stop, after the task that was running it has been cancelled.

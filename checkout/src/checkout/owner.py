@@ -6,6 +6,9 @@ with the bearer token. The value is an opaque key of 32 lowercase hex characters
 server never interprets it. `handle_mcp` reads it from that header and from nowhere else, and holds it for
 the length of the call, so the ledger scopes every read and write by it.
 
+An outside personal agent's chats also carry a payer group in `x-ledger-group` (the same shape of key): the
+people one agent speaks for are owners of their own, and the group caps what they spend together each day.
+
 Memory has a header of its own, `x-memory-owner`, which the host sends only for a signed-in account. The
 memory connector reads that owner and no other, so a call with none, an anonymous visitor's, reaches no note.
 """
@@ -17,11 +20,13 @@ from contextvars import ContextVar
 
 OWNER_HEADER = "x-ledger-owner"
 MEMORY_OWNER_HEADER = "x-memory-owner"
+GROUP_HEADER = "x-ledger-group"
 DEFAULT_OWNER = "0" * 32
 _SHAPE = re.compile(r"[0-9a-f]{32}")
 
 _current: ContextVar[str | None] = ContextVar("ledger_owner", default=None)
 _memory: ContextVar[str | None] = ContextVar("memory_owner", default=None)
+_group: ContextVar[str] = ContextVar("payer_group", default="")
 
 
 def is_owner_key(value: object) -> bool:
@@ -32,15 +37,21 @@ def current_owner() -> str | None:
     return _current.get()
 
 
+def current_group() -> str:
+    return _group.get()
+
+
 @contextmanager
-def acting_for(owner: str) -> Iterator[None]:
-    """Everything awaited inside the block acts for `owner`; a concurrent call has its own."""
-    if not is_owner_key(owner):
-        raise ValueError("an owner is 32 lowercase hex characters")
-    token = _current.set(owner)
+def acting_for(owner: str, group: str = "") -> Iterator[None]:
+    """Everything awaited inside the block acts for `owner`, in payer `group` ('' for none); a concurrent
+    call has its own."""
+    if not is_owner_key(owner) or (group and not is_owner_key(group)):
+        raise ValueError("an owner and a group are 32 lowercase hex characters")
+    token, grouped = _current.set(owner), _group.set(group)
     try:
         yield
     finally:
+        _group.reset(grouped)
         _current.reset(token)
 
 
