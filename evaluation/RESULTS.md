@@ -224,6 +224,14 @@ answered well after the search, one said it had no information.
 checked. In one draw the model gave a fine of "₦10,000 per day" using the registration fee of the near-miss page, and
 the source line under it made it look sourced. The score counts it as a wrong answer; the person is not warned.
 
+**Research.** `start_research` ([../docs/research.md](../docs/research.md)) adds one tool to every turn. The same
+payment subset (22 cases x 6) read 95/132 with it, 97/132 before it and 103/132 with the sources off: inside the
+noise of 132 draws, and the same slow slide the sources caused. A smoke test with the real model, five questions:
+two asked for a report in the background and started a run, each of which searched the sources and posted a report
+that the chat answered in about ten seconds; two answered with `search_knowledge` directly (the model prefers the
+short path when one search is enough), and one said it could not browse the web though `web_fetch` was offered.
+This is not a measurement: no case set exists for when to start a run.
+
 Files: `knowledge-1`…`5`, `knowledge-heldout-1`…`4`, `knowledge-heldout-final`, `-final2`, `knowledge-dev-final`,
 `held-out-final`, `held-out-knowledge-prompt`, `talk-final`, `talk-final2`, `subset-*`. Reproduce: start the stack with
 `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh`, then `evaluation.run --split knowledge-held-out --draws 12`.
