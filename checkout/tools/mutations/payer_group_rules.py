@@ -55,8 +55,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "a chat's turns run inside its payer group",
         "turns/chat_core.py",
-        "                    paying_as(await self._payer_group()),\n                ):\n                    await runner.run",
-        "                    paying_as(''),\n                ):\n                    await runner.run",
+        "                    paying_as(await self._payer_group()),\n                ):\n",
+        "                    paying_as(''),\n                ):\n",
         ["tests/test_turn_resilience.py"],
     ),
     Mutation(
