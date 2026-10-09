@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 
 from . import calls as call_rules
-from . import kinds, logs, permissions, quote_events
+from . import kinds, logs, permissions, quote_events, sources
 from .card_calls import card_ref
 from .eventlog import Draft, EventLog
 from .hub import Hub, HubError, ToolOutcome, refused
@@ -75,6 +75,11 @@ class ToolCalls:
             outcome = refused("", call["name"], BAD_ARGUMENTS)
         elif refusal is not None:
             outcome, marks = refusal.outcome, permissions.marks(permits, call["name"], refusal)
+        elif why := await sources.refusal(
+            call["name"], permits.reading, self._settings.searches_per_turn, self._read_only
+        ):
+            server, _, tool = call["name"].partition("__")
+            outcome = refused(server, tool, why)
         elif twin := await self._twin_in_reply(call, reply_calls):
             outcome, measured = await self._repeat_of(call["name"], twin), "repeat"
         elif started and not await self._hub.repeatable(call["name"]):
@@ -102,10 +107,16 @@ class ToolCalls:
             **({"code": code} if code else {}),
             **marks,
         }
+        if sources.is_source(call["name"]) and not outcome.is_error:
+            passages, found_in = sources.retrieved(outcome.result)
+            logs.event(log, "retrieval", tool=outcome.tool, passages=len(passages), sources=found_in)
         card = self._card(outcome, task)
         await self._log.append_all([Draft(kinds.TOOL, payload, task), *([card] if card else [])])
         if card:
             await quote_events.follow(self._hub, self._settings, outcome, ledger_owner(owner))
+
+    async def _read_only(self, qualified: str) -> bool:
+        return await self._hub.read_only(qualified)
 
     def _card(self, outcome: ToolOutcome, task: str | None) -> Draft | None:
         """The card the result asks for, appended in the same write as the result: a result logged without

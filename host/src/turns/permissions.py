@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from . import kinds, scope
+from . import kinds, scope, sources
 from .eventlog import Event
 from .hub import MEMORY_SERVER, SEPARATOR, ToolOutcome, refused
 from .ledger_owner import is_account
@@ -56,6 +56,8 @@ class Permissions:
     servers: tuple[str, ...] = ()
     scopes: frozenset[str] | None = None
     """None for a turn no personal agent asked for."""
+    reading: sources.Reading = sources.NOTHING_READ
+    """What the turn has read from sources so far."""
 
     @property
     def account(self) -> bool:
@@ -108,4 +110,4 @@ def of(owner: str, servers: tuple[str, ...], events: list[Event]) -> Permissions
     said = next((e for e in reversed(events) if e.type == kinds.USER), None)
     listed = said.payload.get(SCOPES_FIELD) if said else None
     scopes = frozenset(listed) if isinstance(listed, list) else None
-    return Permissions(owner, servers, scopes)
+    return Permissions(owner, servers, scopes, sources.reading_of(events))

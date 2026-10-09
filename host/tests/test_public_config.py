@@ -55,13 +55,14 @@ def test_the_worker_is_public_on_workers_dev_only():
     assert "routes" not in config
 
 
-def test_all_five_connectors_are_named():
+def test_all_six_connectors_are_named():
     assert set(public_config()["vars"]["CONNECTORS"].split(",")) == {
         "paystack-pay",
         "send-money",
         "airtime",
         "food-order",
         "memory",
+        "knowledge",
     }
 
 

@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from . import calls as call_rules
-from . import fold, kinds, logs, messages, permissions, scope, trace
+from . import fold, kinds, logs, messages, permissions, scope, sources, trace
 from .budget import add_tokens, take_model_call, tokens_used_up
 from .compaction.compactor import Compactor
 from .db import Db
@@ -376,6 +376,7 @@ class TurnRunner:
         await self._close(events, turn, kinds.MAX_ROUNDS)
 
     async def _finish(self, events: list[Event], turn: Event) -> None:
+        await self._check_grounding(events)
         replies = [e for e in events if e.type == kinds.ASSISTANT and e.task == self._task]
         if fold.cards_awaiting_approval(events, self._task or ""):
             reason = kinds.INPUT_REQUIRED
@@ -384,6 +385,20 @@ class TurnRunner:
         else:
             reason = kinds.COMPLETED
         await self._close(events, turn, reason)
+
+    async def _check_grounding(self, events: list[Event]) -> None:
+        """When the turn searched the sources, a link or an amount in its answer that none of them (and not
+        the person) gave is named to the person, who is told to check it with the agency."""
+        mine = [e for e in events if e.task == self._task]
+        if not any(e.type == kinds.TOOL and e.payload.get("server") in sources.SOURCE_SERVERS for e in mine):
+            return
+        answer = next((e.payload.get("text", "") for e in reversed(mine) if e.type == kinds.ASSISTANT), "")
+        read = " ".join(e.payload["result_text"] for e in mine if e.type == kinds.TOOL)
+        said = " ".join(e.payload.get("text", "") for e in events if e.type == kinds.USER)
+        if missing := sources.ungrounded(answer, read, said):
+            logs.event(logger, "ungrounded", figures=len(missing))
+            text = sources.NOT_IN_SOURCES.format(items=", ".join(missing))
+            await self._log.append(kinds.NOTICE, {"level": "info", "text": text}, task=self._task)
 
     async def _close(self, events: list[Event], turn: Event, reason: str, **marks: Any) -> None:
         replies = [

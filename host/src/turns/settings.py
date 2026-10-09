@@ -8,7 +8,9 @@ class Settings:
     mcp_url: str
     mcp_token: str = ""
     mcp_binding: str = ""
-    connectors: tuple[str, ...] = ("paystack-pay", "send-money", "airtime", "food-order", "memory")
+    connectors: tuple[str, ...] = (
+        *("paystack-pay", "send-money", "airtime", "food-order", "memory", "knowledge"),
+    )
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = "openai.gpt-oss-120b"
@@ -20,6 +22,8 @@ class Settings:
     model_retry_seconds: float = 1.0
     """The wait before the first of them; it doubles each time."""
     max_tool_rounds: int = 6
+    searches_per_turn: int = 3
+    """Calls to a source a turn may make before it must answer (turns/sources.py)."""
     model_calls_per_day: int = 0
     visitor_model_calls_per_day: int = 0
     model_tokens_per_day: int = 0
@@ -77,6 +81,7 @@ class Settings:
             model_retry_seconds=fraction("LLM_RETRY_SECONDS", cls.model_retry_seconds),
             tool_deadline_seconds=fraction("TOOL_DEADLINE_SECONDS", cls.tool_deadline_seconds),
             max_tool_rounds=number("MAX_TOOL_ROUNDS", cls.max_tool_rounds),
+            searches_per_turn=number("SEARCHES_PER_TURN", cls.searches_per_turn),
             model_calls_per_day=number("MODEL_CALLS_PER_DAY", 0),
             visitor_model_calls_per_day=number("VISITOR_MODEL_CALLS_PER_DAY", 0),
             model_tokens_per_day=number("MODEL_TOKENS_PER_DAY", 0),

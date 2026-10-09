@@ -11,7 +11,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from . import kinds
+from . import kinds, sources
 from .eventlog import Event
 
 CARD_UPDATE_PREFIX = "[card update] "
@@ -89,8 +89,9 @@ def _assistant_message(payload: dict[str, Any]) -> dict[str, Any]:
     return message
 
 
-def _exchange(event: Event, results: dict[str, Event], pruned_before: int) -> Unit:
-    """A reply and the results of its calls, which must stay together."""
+def _exchange(event: Event, results: dict[str, Event], pruned_before: int, asked_at: int) -> Unit:
+    """A reply and the results of its calls, which must stay together. The passages a source gave for an
+    earlier question (before the person's latest message) are not sent again."""
     messages = [_assistant_message(event.payload)]
     last: float = event.seq
     for call in event.payload.get("tool_calls", []):
@@ -100,7 +101,9 @@ def _exchange(event: Event, results: dict[str, Event], pruned_before: int) -> Un
         else:
             last = max(last, result.seq)
             text = result.payload["result_text"]
-            if result.seq < pruned_before and is_bulky(text):
+            if result.payload.get("server") in sources.SOURCE_SERVERS and result.seq < asked_at:
+                text = sources.ELIDED
+            elif result.seq < pruned_before and is_bulky(text):
                 text = stub(text)
         messages.append({"role": "tool", "tool_call_id": call["id"], "content": text})
     return Unit(event.seq, last, event.payload.get("upto", event.seq) + 0.5, tuple(messages))
@@ -111,6 +114,7 @@ def units_of(events: list[Event], pruned_before: int = 0) -> list[Unit]:
     after the last event it had read (`upto`), not where it was appended, so a message that arrived while the
     model was streaming follows the reply that did not know of it."""
     results = {e.payload["call_id"]: e for e in events if e.type == kinds.TOOL}
+    asked_at = max((e.seq for e in events if e.type == kinds.USER), default=0)
     units = []
     for event in events:
         text = event.payload.get("text", "")
@@ -126,7 +130,7 @@ def units_of(events: list[Event], pruned_before: int = 0) -> list[Unit]:
             content = CARD_UPDATE_PREFIX + text
             units.append(Unit(event.seq, event.seq, event.seq, ({"role": "user", "content": content},)))
         elif event.type == kinds.ASSISTANT and (text or event.payload.get("tool_calls")):
-            units.append(_exchange(event, results, pruned_before))
+            units.append(_exchange(event, results, pruned_before, asked_at))
     return sorted(units, key=lambda unit: unit.at)
 
 
