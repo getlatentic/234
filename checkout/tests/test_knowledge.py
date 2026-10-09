@@ -221,12 +221,12 @@ async def test_list_sources_names_the_published_ones_by_agency(stack):
     assert [s["source_id"] for s in only["structuredContent"]["sources"]] == ["jamb-yoruba"]
 
 
-async def test_the_tools_are_read_only_and_for_the_model(stack):
+async def test_the_tools_are_read_only_and_only_the_search_is_offered_to_the_model(stack):
     listing = (await stack.mcp("knowledge", "tools/list", owner=OWNER))["result"]["tools"]
     assert {t["name"] for t in listing} == {"search_knowledge", "open_source", "list_sources"}
-    assert all(
-        t["annotations"]["readOnlyHint"] and t["_meta"]["ui"]["visibility"] == ["model"] for t in listing
-    )
+    assert all(t["annotations"]["readOnlyHint"] for t in listing)
+    seen = {t["name"]: t["_meta"]["ui"]["visibility"] for t in listing}
+    assert seen == {"search_knowledge": ["model"], "open_source": ["app"], "list_sources": ["app"]}
 
 
 def test_the_database_refuses_to_publish_a_source_nobody_reviewed():

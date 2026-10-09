@@ -194,10 +194,10 @@ async def test_a_summary_that_forgets_facts_is_asked_again_and_then_completed_by
 
 
 async def test_a_prompt_the_endpoint_refuses_as_too_long_is_trimmed_and_the_turn_answered():
-    """The scripted endpoint refuses a request of more than 14,500 characters as the Bedrock one does, with
-    status 200 and an error event. The tool definitions alone are about 10,000 of them."""
+    """The scripted endpoint refuses a request of more than 16,500 characters as the Bedrock one does, with
+    status 200 and an error event. The tool definitions alone are about 12,000 of them."""
     async with httpx.AsyncClient() as http:
-        await http.post(f"{FAKE_MODEL}/v1/_config", json={"refuse_over_chars": 14500})
+        await http.post(f"{FAKE_MODEL}/v1/_config", json={"refuse_over_chars": 16500})
     async with Visitor(HOST) as v, LongChat.open(v) as chat:
         for n in range(8):
             await chat.say(talk(n))

@@ -45,6 +45,8 @@ def copy_project(project: str) -> Path:
             scratch / "sandbox" / "test",
             ignore=shutil.ignore_patterns("*.mjs"),
         )
+    if project == "checkout":  # its tests read the fixture sources at ../knowledge
+        shutil.copytree(ROOT.parent / "knowledge", scratch / "knowledge")
     for name in copied:
         source = source_root / name
         if source.is_dir():

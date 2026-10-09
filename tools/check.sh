@@ -108,9 +108,9 @@ CAP=6 VISITOR_CAP=3 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!
 inside host 300 uv run pytest -m worker -q tests/test_worker_limits.py
 "$root/tools/down.sh" quiet
 
-echo "== stack with a small context window (8,000 tokens, compacting at 0.75, keeping 500): compaction"
+echo "== stack with a small context window (8,000 tokens, compacting at 0.75, keeping 500; no daily call cap, a long chat compacts many times): compaction"
 compaction_window="CONTEXT_WINDOW_TOKENS=8000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500"
-env $compaction_window timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the compaction stack did not come up"; exit 1; }
+env $compaction_window VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the compaction stack did not come up"; exit 1; }
 inside host 1200 uv run pytest -m worker -q tests/test_worker_compaction.py
 limit 300 node "$root/conformance/chat-compaction.mjs"
 inside host 600 env $compaction_window uv run python -u -m tests.crash_probe_compaction --expect-finished

@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The `knowledge` connector: what 234 may quote when it answers from sources (docs/knowledge.md).
 
-Three read-only tools over the curated guidance. What they return is quoted data with its source, date and
-tier; the server decides which sources are served (published ones), never an argument."""
+Three read-only tools over the curated guidance. Only the search is offered to the model: every tool it is
+offered costs tokens on every round, and the other two serve a page that opens a passage or lists the sources.
+What they return is quoted data with its source, date and tier; the server decides which sources are served
+(published ones), never an argument."""
 
 from typing import Annotated, Literal
 
@@ -12,7 +14,7 @@ from ..audit import Audit
 from ..errors import DomainError
 from ..knowledge.render import passage_view, passages_text, source_view
 from ..knowledge.store import MAX_RESULTS, Filters, KnowledgeStore
-from ..mcp.registry import MODEL_ONLY, Connector, Tool, ToolResult
+from ..mcp.registry import APP_ONLY, MODEL_ONLY, Connector, Tool, ToolResult
 from .kit import Strict, plain_result
 
 NAME = "knowledge"
@@ -22,20 +24,16 @@ Agency = Annotated[str, Field(min_length=2, max_length=40, pattern=r"^[A-Za-z0-9
 
 
 class Search(Strict):
-    query: Annotated[
-        str, Field(min_length=2, max_length=200, description="What to look for, in the person's words.")
-    ]
-    agency: Annotated[
-        Agency | None, Field(description="Only when the person named this agency, as written in the sources.")
-    ] = None
+    query: Annotated[str, Field(min_length=2, max_length=200, description="The person's words.")]
+    agency: Annotated[Agency | None, Field(description="Only if the person named it.")] = None
     content_type: Annotated[
         Literal["guidance", "fee", "procedure", "notice", "form"] | None,
-        Field(description="Only when the person asked for this kind of source; leave empty otherwise."),
+        Field(description="Only if the person asked for this kind."),
     ] = None
-    trust_tier: Annotated[
-        Literal[1, 2, 3] | None, Field(description="Only this tier: 1 official, 2 agency partner, 3 outlet.")
-    ] = None
-    limit: Annotated[int, Field(ge=1, le=MAX_RESULTS, description="How many passages, at most.")] = 5
+    trust_tier: Annotated[Literal[1, 2, 3] | None, Field(description="1 official, 2 partner, 3 outlet.")] = (
+        None
+    )
+    limit: Annotated[int, Field(ge=1, le=MAX_RESULTS, description="At most this many.")] = 5
 
 
 class OpenSource(Strict):
@@ -81,7 +79,8 @@ def build_connector(store: KnowledgeStore, audit: Audit) -> Connector:
     tools = KnowledgeTools(store, audit)
 
     def model_tool(name: str, title: str, description: str, arguments, run) -> Tool:
-        return Tool(name, title, description, arguments, run, None, MODEL_ONLY, READ_HINTS)
+        seen = MODEL_ONLY if name == "search_knowledge" else APP_ONLY
+        return Tool(name, title, description, arguments, run, None, seen, READ_HINTS)
 
     return Connector(
         name=NAME,
@@ -96,10 +95,9 @@ def build_connector(store: KnowledgeStore, audit: Audit) -> Connector:
             model_tool(
                 "search_knowledge",
                 "Search the sources",
-                "Use this first for any question about a government service, fee, requirement or procedure. "
-                "Passages of the curated guidance that match the question, with source, link, date and tier. "
-                "Answer only from them (a total of figures they give is fine; show the parts), and say so "
-                "if none cover it.",
+                "Use first for any question about a government service, fee, requirement or procedure. "
+                "Returns passages with source, link, date and tier. Answer only from them (a total of "
+                "figures they give is fine; show the parts); say so if none cover it.",
                 Search,
                 tools.search,
             ),
