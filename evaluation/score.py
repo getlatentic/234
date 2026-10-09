@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import memory_score
+from . import knowledge_score, memory_score
 from .arg_match import arg_matches, arg_problems, arguments_of
 from .cases import Case, Turn
 
@@ -23,6 +23,10 @@ MODEL_TOOLS = {
     "search_menu": "food-order",
     "build_basket": "food-order",
     "get_quote_status": None,
+    "search_knowledge": "knowledge",
+    "open_source": "knowledge",
+    "list_sources": "knowledge",
+    "web_fetch": "web",
     "recall": "memory",
     "remember": "memory",
     "update": "memory",
@@ -204,6 +208,7 @@ CHECKS = {
     "no_approve": check_no_approve,
     "talk": check_talk,
     **memory_score.CHECKS,
+    **knowledge_score.CHECKS,
 }
 
 

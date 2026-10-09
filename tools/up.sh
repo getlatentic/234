@@ -9,6 +9,7 @@
 #   `probe` serves the probe card as the default card; CAP is the host's global daily model-call cap
 #   (0 is off); VISITOR_CAP is each visitor's; KEEP_STATE=1 keeps the previous run's database;
 #   ALT_RUNNERS=1 also starts a host on the queue runner and one on the waitUntil runner;
+#   KNOWLEDGE_DIR is the folder of sources the connectors' database starts with (default knowledge/fixtures);
 #   PAYSTACK_RIG=fake|real puts the paystack-pay connector in Paystack test mode against a stand-in on base+6: `fake`
 #   answers itself, `real` forwards to Paystack's test mode with the key in the repository's .env.local,
 #   which only that one process reads (see conformance/paystack-rig.mjs);
@@ -47,7 +48,7 @@ fi
 card=()
 [ "${1:-}" = "probe" ] && card=(--var CARD_FILE:probe-card.html)
 (cd "$root/checkout" && uv run pywrangler d1 migrations apply DB --local --persist-to "$state/checkout" > /dev/null 2>&1)
-(cd "$root/checkout" && PYTHONPATH=src uv run python -m tools.knowledge_load sql --dir ../knowledge/fixtures > "$state/knowledge.sql" && uv run pywrangler d1 execute DB --local --persist-to "$state/checkout" --file "$state/knowledge.sql" > /dev/null 2>&1)
+(cd "$root/checkout" && PYTHONPATH=src uv run python -m tools.knowledge_load sql --dir "${KNOWLEDGE_DIR:-../knowledge/fixtures}" > "$state/knowledge.sql" && uv run pywrangler d1 execute DB --local --persist-to "$state/checkout" --file "$state/knowledge.sql" > /dev/null 2>&1)
 start checkout "$root/checkout" "$checkout_port" "$state/checkout.log" \
   --var ENABLE_TEST_ROUTES:1 --var "PUBLIC_BASE_URL:http://localhost:$checkout_port" \
   --var "HOST_PUBLIC_URL:http://localhost:$host_port" \

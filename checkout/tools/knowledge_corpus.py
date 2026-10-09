@@ -133,7 +133,7 @@ def problems_of(source: Source, today: date | None = None) -> list[str]:
 
 
 def load_all(root: Path = SOURCES) -> list[Source]:
-    sources = [parse(p) for p in sorted(root.rglob("*.md"))]
+    sources = [parse(p) for p in sorted(root.rglob("*.md")) if p.name != "README.md"]
     seen: dict[str, Path] = {}
     for source in sources:
         if source.id and source.id in seen:

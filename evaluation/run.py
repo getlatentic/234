@@ -8,6 +8,9 @@ Start the stack first (`tools/real-model.sh`), then, from `host/`:
     PORT_BASE=8920 PYTHONPATH=src:..:../checkout/src uv run python -u -m evaluation.run \\
         --split held-out --draws 3 --out ../evaluation/results/held-out.jsonl
 
+The knowledge split reads the invented corpus of knowledge/eval: start that stack with
+`KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh` (gate.py holds the release gate).
+
 The memory split signs people in: start that stack with `AUTH=1 VISITOR_CAP=0 tools/real-model.sh` and
 run with `--split memory`.
 
@@ -35,6 +38,7 @@ from turns.prompt import system_prompt
 from turns.settings import Settings
 
 from .cases import Case, load_cases
+from .knowledge_data import knowledge_cases
 from .redo import plan
 from .score import score_case
 from .signed_in import Accounts, SetupFailed, live_notes, set_up_notes
@@ -196,7 +200,7 @@ def metadata(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
 
 
 def pick(cases: list[Case], args: argparse.Namespace) -> list[Case]:
-    chosen = [c for c in cases if args.split == "all" or c.split == args.split]
+    chosen = [c for c in cases if c.split == args.split or (args.split == "all" and c.split != "knowledge")]
     if args.only:
         wanted = set(args.only.split(","))
         chosen = [c for c in chosen if c.id in wanted or c.category in wanted]
@@ -206,7 +210,7 @@ def pick(cases: list[Case], args: argparse.Namespace) -> list[Case]:
 async def run(args: argparse.Namespace) -> None:
     base = int(os.environ.get("PORT_BASE", "8900"))
     urls = {"checkout": f"http://localhost:{base}", "host": f"http://localhost:{base + 1}"}
-    cases = pick(load_cases(), args)
+    cases = pick([*load_cases(), *knowledge_cases()], args)
     draws, kept = plan(cases, args)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -254,7 +258,9 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "--split", choices=["dev", "held-out", "tuning", "memory", "talk", "all"], default="held-out"
+        "--split",
+        choices=["dev", "held-out", "tuning", "memory", "talk", "knowledge", "all"],
+        default="held-out",
     )
     parser.add_argument("--draws", type=int, default=3)
     parser.add_argument("--only", default="", help="comma-separated case ids or categories")

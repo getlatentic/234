@@ -91,6 +91,11 @@ def _address(url: str) -> str:
     return url.rstrip(".,;:/").lower()
 
 
+def amounts_in(text: str) -> list[str]:
+    """The naira amounts `text` states, as digits."""
+    return [_digits(m.group(1) or m.group(2)) for m in _AMOUNT.finditer(text)]
+
+
 def ungrounded(answer: str, read: str, said: str) -> list[str]:
     """The links and amounts in `answer` that are in neither what the turn read nor what the person said."""
     known_numbers = {_digits(n) for n in _NUMBER.findall(read + " " + said)}

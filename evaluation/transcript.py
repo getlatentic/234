@@ -12,6 +12,8 @@ approval, menu or memory cards the chat got, as a line each; `log` is the turn i
 
 from typing import Any
 
+from turns.sources import SOURCE_SERVERS
+
 REPEATED_PREFIX = "Not made again: "
 RESULT_CHARS = 600
 IGNORED = {"text", "card_state", "card_message", "card_context"}
@@ -42,6 +44,7 @@ def _call(payload: dict[str, Any]) -> dict[str, Any]:
         "is_error": bool(payload["is_error"]),
         "result": result[:RESULT_CHARS],
         "repeated": result.startswith(REPEATED_PREFIX),
+        **({"read": result} if payload["server"] in SOURCE_SERVERS else {}),
     }
 
 
