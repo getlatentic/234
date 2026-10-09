@@ -197,7 +197,7 @@ questions have not been read by a native speaker, so no number is quoted for tho
 **What each change was.** Filters prefer and never hide (the model's guessed agency hid the right page); the host,
 not the model, shows the source line (title, link, day read) after an answer that shares a number or three long words
 with a passage; keywords let a Hausa page be found by an English question; the guidance moved from the system prompt
-into the tool's description (the prompt's extra text cost payment accuracy); the one sentence of the prompt that said
+into the tool's description (the prompt's extra text may have cost payment accuracy; see below, the difference is within noise); the one sentence of the prompt that said
 "cannot look anything up" now names `search_knowledge`; a total of two read amounts counts as read; an empty search
 says to give nothing from memory for a government fee, and to answer normally for anything else.
 
