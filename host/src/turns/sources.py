@@ -15,6 +15,7 @@ from . import kinds
 from .eventlog import Event
 from .hub import SEPARATOR
 
+RESEARCH_REF = "research:"
 SOURCE_SERVERS = frozenset({"knowledge", "web"})
 SEARCH_BUDGET = (
     "SEARCH_BUDGET: This turn has searched as many times as it may. Answer from the passages you have, "
@@ -48,18 +49,22 @@ def is_source(qualified: str) -> bool:
     return qualified.partition(SEPARATOR)[0] in SOURCE_SERVERS
 
 
+def reads_only(qualified: str) -> bool:
+    """Whether a person's agent needs no scope to call the tool: it reads sources or starts research, and
+    changes nothing of the person's."""
+    return qualified.partition(SEPARATOR)[0] in SOURCE_SERVERS | {"research"}
+
+
 def since_the_person(events: list[Event]) -> list[Event]:
     last = max((i for i, e in enumerate(events) if e.type == kinds.USER), default=-1)
     return events[last + 1 :]
 
 
 def reading_of(events: list[Event]) -> Reading:
-    calls = [
-        e
-        for e in since_the_person(events)
-        if e.type == kinds.TOOL and e.payload.get("server") in SOURCE_SERVERS
-    ]
-    return Reading(len(calls), any(not e.payload["is_error"] for e in calls))
+    since = since_the_person(events)
+    calls = [e for e in since if e.type == kinds.TOOL and e.payload.get("server") in SOURCE_SERVERS]
+    reported = any(e.type == kinds.EVENT and (e.ref or "").startswith(RESEARCH_REF) for e in since)
+    return Reading(len(calls), reported or any(not e.payload["is_error"] for e in calls))
 
 
 async def refusal(

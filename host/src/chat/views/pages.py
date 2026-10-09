@@ -16,7 +16,7 @@ from .. import history, tickets
 from ..access import chat_for, chats_of
 from ..backend import get_backend
 from ..context import tagline
-from ..models import Access, Chat, Event
+from ..models import Access, Chat, Event, Research
 from ..palette import GROUND, PRIMARY
 from ..shell import render_shell
 from ..starters import STARTERS
@@ -75,8 +75,11 @@ def delete(request: HttpRequest, chat_id: str) -> HttpResponse:
     chat = chat_for(request, chat_id)
     if chat.owner != request.owner:
         return HttpResponse(status=403)
-    get_backend().erase(chat.id)
+    runs = list(Research.objects.filter(parent=chat.id).values_list("chat_id", flat=True))
+    for chat_id in (chat.id, *runs):
+        get_backend().erase(chat_id)
     with transaction.atomic():
+        Chat.objects.filter(parent=chat.id).delete()
         chat.delete()
     return redirect("chat:index")
 

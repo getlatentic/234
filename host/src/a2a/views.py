@@ -207,7 +207,7 @@ def cancel(request: HttpRequest, task_id: str) -> HttpResponse:
 
 @a2a_endpoint
 def list_tasks(request: HttpRequest) -> HttpResponse:
-    chats = Chat.objects.filter(owner=request.principal)
+    chats = Chat.objects.filter(owner=request.principal, parent="")
     if context := request.GET.get("contextId"):
         chats = chats.filter(pk=context)
     found: dict[str, Chat] = {}

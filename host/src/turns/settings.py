@@ -23,6 +23,14 @@ class Settings:
     """The wait before the first of them; it doubles each time."""
     max_tool_rounds: int = 6
     searches_per_turn: int = 3
+    research_seconds: int = 300
+    """The wall-clock time a research run has before it is stopped and reports what it has."""
+    researches_per_day: int = 5
+    """Research runs a person may start in a day."""
+    research_searches: int = 12
+    """Calls to sources a research run may make."""
+    research_rounds: int = 12
+    """Model rounds a research run may take."""
     """Calls to a source a turn may make before it must answer (turns/sources.py)."""
     model_calls_per_day: int = 0
     visitor_model_calls_per_day: int = 0
@@ -82,6 +90,10 @@ class Settings:
             tool_deadline_seconds=fraction("TOOL_DEADLINE_SECONDS", cls.tool_deadline_seconds),
             max_tool_rounds=number("MAX_TOOL_ROUNDS", cls.max_tool_rounds),
             searches_per_turn=number("SEARCHES_PER_TURN", cls.searches_per_turn),
+            research_seconds=number("RESEARCH_SECONDS", cls.research_seconds),
+            researches_per_day=number("RESEARCHES_PER_DAY", cls.researches_per_day),
+            research_searches=number("RESEARCH_SEARCHES", cls.research_searches),
+            research_rounds=number("RESEARCH_ROUNDS", cls.research_rounds),
             model_calls_per_day=number("MODEL_CALLS_PER_DAY", 0),
             visitor_model_calls_per_day=number("VISITOR_MODEL_CALLS_PER_DAY", 0),
             model_tokens_per_day=number("MODEL_TOKENS_PER_DAY", 0),

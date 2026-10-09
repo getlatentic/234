@@ -35,6 +35,7 @@ import scripted_brands
 import scripted_intents
 import scripted_memory
 import scripted_recall
+import scripted_research
 import scripted_summary
 
 REQUESTS: list[dict] = []
@@ -78,6 +79,8 @@ def answer(messages: list[dict], tools: list[dict] | None = None) -> dict:
         return remembered
     if reached := scripted_brands.answer(messages, tools or []):
         return reached
+    if researched := scripted_research.answer(messages, tools or []):
+        return researched
     return scripted_intents.answer(messages, tools or []) or _answer(messages, tools or [])
 
 

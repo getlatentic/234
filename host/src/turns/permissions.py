@@ -76,7 +76,7 @@ class Permissions:
 
     def needed(self, qualified: str) -> str | None:
         """The scope a call needs in this turn, if any."""
-        if self.scopes is None:
+        if self.scopes is None or sources.reads_only(qualified):
             return None
         if is_memory_tool(qualified):
             return MEMORY_READ if qualified in READS_MEMORY else MEMORY_WRITE

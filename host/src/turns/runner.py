@@ -79,11 +79,15 @@ class TurnRunner:
         ids: Callable[[], str] = new_id,
         servers: tuple[str, ...] = (),
         metrics: Metrics | None = None,
+        system: str | None = None,
+        notes: bool = True,
     ) -> None:
-        """`servers`: the connectors this chat may use (turns/scope.py); empty is every one."""
+        """`servers`: the connectors this chat may use (turns/scope.py); empty is every one. `system`: the
+        prompt this chat's model is given instead of the assistant's (a research run's); `notes`: whether the
+        person's saved notes are read for it."""
         self._log, self._db, self._model, self._hub = log, db, model, hub
         self._settings, self._owner, self._clock, self._ids = settings, owner, clock, ids
-        self._servers = servers
+        self._servers, self._system, self._notes = servers, system, notes
         self._permits = permissions.Permissions(owner, servers)
         self._task: str | None = None
         self._round: _Round | None = None
@@ -186,11 +190,11 @@ class TurnRunner:
         streamed = _Streamed(message)
         try:
             permits = self._permits
-            system = system_prompt(
+            system = self._system or system_prompt(
                 self._servers or self._settings.offered_connectors, permits.reads_notes, permits.memory_tools
             )
             tools = permits.tools(await self._hub.model_tools())
-            index = await read_index(self._hub, self._owner) if permits.reads_notes else ""
+            index = await read_index(self._hub, self._owner) if permits.reads_notes and self._notes else ""
             head = with_notes(system, index)
             notes = notes_message(index) if index else None
             events = await self._compacted(events, head, tools)

@@ -8,7 +8,7 @@ from .models import Access, Chat
 def chats_of(owner: str) -> QuerySet[Chat]:
     """The chats an owner made or was let into, the latest activity first."""
     let_in = Access.objects.filter(visitor=owner).values("chat_id")
-    mine = Chat.objects.filter(Q(owner=owner) | Q(id__in=let_in))
+    mine = Chat.objects.filter(Q(owner=owner) | Q(id__in=let_in), parent="")
     return mine.annotate(last=Max("events__created_at")).order_by("-last", "-created_at")
 
 

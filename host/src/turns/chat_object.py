@@ -95,7 +95,10 @@ class Chat(DurableObject):
                 chat_id = await self.ctx.storage.get("chat_id")
             else:
                 await self.ctx.storage.put("chat_id", chat_id)
-            self._core = build_core(self.env, chat_id, self._pool, StorageAlarms(self.ctx.storage))
+            research = await self.ctx.storage.get("kind") == "research"
+            self._core = build_core(
+                self.env, chat_id, self._pool, StorageAlarms(self.ctx.storage), research=research
+            )
             self._recovery = asyncio.ensure_future(self._core.recover())
         return self._core
 
@@ -140,6 +143,15 @@ class Chat(DurableObject):
         if kind == kinds.CARD_CONTEXT:
             return json.dumps(await core.note(text))
         return json.dumps(await core.submit(kind, text, task or None, json.loads(scopes) if scopes else None))
+
+    async def research(self, run_id: str, question: str) -> str:
+        """Makes this object the chat of a research run and starts it on the question."""
+        await self.ctx.storage.put("kind", "research")
+        core = await self._core_for(run_id)
+        return json.dumps(await core.begin(question))  # type: ignore[attr-defined]
+
+    async def research_done(self, chat_id: str, run_id: str, text: str) -> str:
+        return json.dumps(await (await self._core_for(chat_id)).research_done(run_id, text))
 
     async def cancel(self, chat_id: str) -> str:
         return json.dumps(await (await self._core_for(chat_id)).cancel())

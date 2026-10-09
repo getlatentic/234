@@ -22,9 +22,31 @@ class Chat(models.Model):
     # The payer group the ledger caps this chat's spend in, with others' ('' for none): an outside personal
     # agent's issuer, for a chat it holds as itself (pact/identity.py).
     payer_group = models.CharField(max_length=32, blank=True, default="")
+    # The chat this one researches for ('' for a chat a person opened): a research run is a chat of its own,
+    # with its own log, which no list of chats shows (turns/research/).
+    parent = models.CharField(max_length=32, blank=True, default="")
 
     def __str__(self) -> str:
         return self.id
+
+
+class Research(models.Model):
+    """A question 234 researches on its own for a chat, in a chat of its own (turns/research/)."""
+
+    chat = models.OneToOneField(Chat, primary_key=True, on_delete=models.CASCADE, related_name="research")
+    parent = models.CharField(max_length=32, db_index=True)
+    owner = models.CharField(max_length=80)
+    question = models.CharField(max_length=500)
+    status = models.CharField(max_length=12, default="running")
+    created_at = models.BigIntegerField()
+    deadline_at = models.BigIntegerField()
+    finished_at = models.BigIntegerField(null=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["owner", "created_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.chat_id} for {self.parent}"
 
 
 class Access(models.Model):
