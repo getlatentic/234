@@ -7,6 +7,7 @@ content_type: procedure
 language: ha
 trust_tier: 1
 status: published
+keywords: [tax, tax identification number, registration, fee, office]
 retrieved_at: 2026-10-01
 reviewed_by: Fixture One
 reviewed_at: 2026-10-02

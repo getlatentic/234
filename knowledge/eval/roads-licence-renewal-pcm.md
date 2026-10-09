@@ -7,6 +7,7 @@ content_type: procedure
 language: pcm
 trust_tier: 1
 status: published
+keywords: [driver licence, renewal, fee, passport photograph]
 retrieved_at: 2026-10-01
 reviewed_by: Fixture One
 reviewed_at: 2026-10-02

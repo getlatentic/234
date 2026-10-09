@@ -30,6 +30,8 @@ class Question:
     source: str | None
     answer: str | None
     native_reviewed: bool
+    split: str = "dev"
+    split: str = "dev"
     forbidden: tuple[str, ...] = ()
 
 
@@ -66,7 +68,7 @@ def gold(question: Question, known: dict[str, Source]) -> list[str]:
     if question.source is None or question.answer is None:
         return []
     _, passages = rows_of(known[question.source])
-    wanted = fold(question.answer)
+    wanted = fold(question.answer.split("|")[0])
     return [p["id"] for p in passages if wanted in p["folded"]]
 
 
@@ -93,7 +95,7 @@ def knowledge_cases(folder: Path = EVAL_DIR) -> list[Case]:
         cases.append(
             Case(
                 q.id,
-                "knowledge",
+                "knowledge" if q.split == "dev" else "knowledge-held-out",
                 q.kind,
                 q.lang,
                 (turn,),

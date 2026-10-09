@@ -135,17 +135,51 @@ async def test_what_the_model_passes_cannot_choose_the_status(stack):
     assert result["isError"] and "status" in result["content"][0]["text"]
 
 
-async def test_filters_narrow_the_search(stack):
+async def test_a_filter_puts_its_matches_first_and_one_that_matches_nothing_changes_nothing(stack):
     wanted = {"query": "licence renew"}
-    for filters, count in (
-        ({"agency": "FRSC"}, 1),
-        ({"agency": "NIMC"}, 0),
-        ({"content_type": "fee"}, 0),
-        ({"content_type": "procedure"}, 1),
-        ({"trust_tier": 2}, 0),
+    for filters, ignored in (
+        ({"agency": "FRSC"}, False),
+        ({"agency": "frsc"}, False),
+        ({"content_type": "procedure"}, False),
+        ({"agency": "NIMC"}, True),
+        ({"content_type": "fee"}, True),
+        ({"trust_tier": 2}, True),
     ):
         result = await stack.call_as(OWNER, "knowledge", "search_knowledge", **wanted, **filters)
-        assert len(result["structuredContent"]["passages"]) == count, filters
+        data = result["structuredContent"]
+        assert [p["source_id"] for p in data["passages"]] == ["frsc-licence-renewal"], filters
+        assert data["filters_ignored"] is ignored, filters
+        assert result["content"][0]["text"].startswith("Passages after") is ignored
+
+
+async def test_a_filter_that_misses_the_right_source_does_not_hide_it(tmp_path):
+    stack = make_stack()
+    other = YORUBA.replace("jamb-yoruba", "jamb-licence").replace("Iforukosile", "Licence office")
+    other = other.replace(
+        "Ṣe iforúkọsílẹ̀ lórí ẹ̀rọ ayélujára ṣáájú ọjọ́ ìdánwò.", "The licence office opens early."
+    )
+    load_into(stack.db, write_corpus(tmp_path, frsc_licence_renewal=LICENCE, jamb_licence=other))
+    result = await stack.call_as(OWNER, "knowledge", "search_knowledge", query="licence", agency="JAMB")
+    sources = [p["source_id"] for p in result["structuredContent"]["passages"]]
+    assert sources[0] == "jamb-licence" and "frsc-licence-renewal" in sources
+    assert result["structuredContent"]["filters_ignored"] is True
+
+
+async def test_keywords_make_a_page_findable_in_another_language_and_are_never_shown(tmp_path):
+    stack = make_stack()
+    hausa = YORUBA.replace("jamb-yoruba", "tax-hausa").replace("language: yo", "language: ha")
+    hausa = hausa.replace("status: published\n", "status: published\nkeywords: [tax, registration fee]\n")
+    load_into(stack.db, write_corpus(tmp_path, tax_hausa=hausa))
+    result = await stack.call_as(OWNER, "knowledge", "search_knowledge", query="tax registration fee")
+    (passage,) = result["structuredContent"]["passages"]
+    assert passage["source_id"] == "tax-hausa" and "registration fee" not in passage["text"]
+
+
+async def test_a_filter_does_not_reach_a_source_that_is_not_published(stack):
+    result = await stack.call_as(
+        OWNER, "knowledge", "search_knowledge", query="enrolment unreviewed", agency="NIMC"
+    )
+    assert result["structuredContent"]["passages"] == []
 
 
 async def test_a_search_in_yoruba_without_the_marks_finds_the_page_that_has_them(stack):

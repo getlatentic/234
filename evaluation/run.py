@@ -8,7 +8,8 @@ Start the stack first (`tools/real-model.sh`), then, from `host/`:
     PORT_BASE=8920 PYTHONPATH=src:..:../checkout/src uv run python -u -m evaluation.run \\
         --split held-out --draws 3 --out ../evaluation/results/held-out.jsonl
 
-The knowledge split reads the invented corpus of knowledge/eval: start that stack with
+The knowledge splits (`knowledge` for development, `knowledge-held-out` for the numbers) read the invented
+corpus of knowledge/eval: start that stack with
 `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh` (gate.py holds the release gate).
 
 The memory split signs people in: start that stack with `AUTH=1 VISITOR_CAP=0 tools/real-model.sh` and
@@ -200,7 +201,11 @@ def metadata(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
 
 
 def pick(cases: list[Case], args: argparse.Namespace) -> list[Case]:
-    chosen = [c for c in cases if c.split == args.split or (args.split == "all" and c.split != "knowledge")]
+    chosen = [
+        c
+        for c in cases
+        if c.split == args.split or (args.split == "all" and not c.split.startswith("knowledge"))
+    ]
     if args.only:
         wanted = set(args.only.split(","))
         chosen = [c for c in chosen if c.id in wanted or c.category in wanted]
@@ -259,7 +264,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--split",
-        choices=["dev", "held-out", "tuning", "memory", "talk", "knowledge", "all"],
+        choices=["dev", "held-out", "tuning", "memory", "talk", "knowledge", "knowledge-held-out", "all"],
         default="held-out",
     )
     parser.add_argument("--draws", type=int, default=3)

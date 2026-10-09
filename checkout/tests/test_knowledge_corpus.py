@@ -57,6 +57,18 @@ def test_a_file_without_front_matter_or_with_missing_fields_says_so(tmp_path):
     assert problems_of(tmp_path, missing) == ["agency is missing"]
 
 
+def test_keywords_are_a_short_list_of_words(tmp_path):
+    words = LICENCE.replace("status: published\n", "status: published\nkeywords: [tax, fee]\n")
+    assert problems_of(tmp_path, words) == []
+    assert problems_of(
+        tmp_path, LICENCE.replace("status: published\n", "status: published\nkeywords: tax\n")
+    ) == ["keywords is a list of words and phrases"]
+    many = ", ".join(f"w{i}" for i in range(21))
+    assert problems_of(
+        tmp_path, LICENCE.replace("status: published\n", f"status: published\nkeywords: [{many}]\n")
+    ) == ["keywords has at most 20 entries"]
+
+
 def test_two_sources_cannot_share_an_id(tmp_path):
     folder = write_corpus(tmp_path, frsc_licence_renewal=LICENCE)
     (folder / "sub").mkdir()

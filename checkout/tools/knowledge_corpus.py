@@ -97,6 +97,15 @@ def _shape(source: Source, today: date) -> list[str]:
     return out
 
 
+def _keywords(source: Source) -> list[str]:
+    keywords = source.meta.get("keywords")
+    if keywords is None:
+        return []
+    if not isinstance(keywords, list) or not all(isinstance(k, str) and k.strip() for k in keywords):
+        return ["keywords is a list of words and phrases"]
+    return [] if len(keywords) <= 20 else ["keywords has at most 20 entries"]
+
+
 def _published(source: Source) -> list[str]:
     meta, out = source.meta, []
     if meta["status"] != "published":
@@ -124,7 +133,7 @@ def problems_of(source: Source, today: date | None = None) -> list[str]:
     today = today or date.today()
     if missing := _required(source.meta):
         return missing
-    out = _shape(source, today) + _published(source)
+    out = _shape(source, today) + _keywords(source) + _published(source)
     if not source.body.strip():
         out.append("the text is empty")
     elif len(source.body) > BODY_LIMIT:
@@ -161,6 +170,7 @@ def rows_of(source: Source) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         "reviewed_at": str(meta["reviewed_at"]) if meta.get("reviewed_at") else None,
         "checksum": digest,
     }
+    keywords = " ".join(str(k) for k in meta.get("keywords") or [])
     passages = [
         {
             "id": f"{source.id}#{order}",
@@ -168,7 +178,7 @@ def rows_of(source: Source) -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "start_offset": p.start,
             "end_offset": p.end,
             "text": p.text,
-            "folded": fold(p.text),
+            "folded": fold(f"{p.text} {keywords}"),
         }
         for order, p in enumerate(chunk(source.body))
     ]

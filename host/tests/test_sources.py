@@ -15,9 +15,13 @@ from .support import FakeAlarms, FakeHub, FakeSockets, ScriptedModel, tool_call
 from .test_metrics import settle
 
 SEARCH, SEND, STATUS = "knowledge__search_knowledge", "s__send", "s__status"
+SOURCE_LINE = "Source: Renewing a driver's licence — https://frsc.gov.ng/fees (read 2026-10-01)"
 PASSAGE = {
     "passage_id": "frsc-licence#0",
     "source_id": "frsc-licence",
+    "title": "Renewing a driver's licence",
+    "url": "https://frsc.gov.ng/fees",
+    "retrieved_at": "2026-10-01",
     "text": "The fee is 15,000 naira. See https://frsc.gov.ng/fees",
 }
 FOUND = {
@@ -146,18 +150,55 @@ async def test_an_answer_with_an_amount_or_link_nobody_gave_is_named_to_the_pers
     )  # fmt: skip
     await ask(made, "what is the fee")
     assert notices(await events_of(made)) == [
-        sources.NOT_IN_SOURCES.format(items="https://scam.example.com/pay, ₦20,000")
+        sources.NOT_IN_SOURCES.format(items="https://scam.example.com/pay, ₦20,000"),
+        SOURCE_LINE,
     ]
 
 
-async def test_a_grounded_answer_and_a_turn_that_never_searched_get_no_notice(chat, sql, clock):
+async def test_a_grounded_answer_is_followed_by_the_source_it_draws_on(chat, sql, clock):
     made, _, _ = core(
         chat, sql, clock, ("", [tool_call(SEARCH, {}, "c1")]), "It is 15,000 naira. https://frsc.gov.ng/fees"
     )
     await ask(made, "fee?")
+    assert notices(await events_of(made)) == [SOURCE_LINE]
+
+
+async def test_a_chat_that_never_searched_gets_no_note_whatever_it_says(chat, sql, clock):
     plain, _, _ = core(chat, sql, clock, "Airtime costs 100 naira at https://example.com")
     await ask(plain, "hi")
-    assert notices(await events_of(made)) == [] and notices(await events_of(plain)) == []
+    assert notices(await events_of(plain)) == []
+
+
+async def test_an_answer_that_does_not_draw_on_what_was_read_shows_no_source(chat, sql, clock):
+    made, _, _ = core(
+        chat, sql, clock, ("", [tool_call(SEARCH, {}, "c1")]), "The sources I have do not cover that."
+    )
+    await ask(made, "pilot licence?")
+    assert notices(await events_of(made)) == []
+
+
+def test_an_answer_draws_on_a_source_by_a_shared_number_or_three_long_words():
+    ref = {
+        "title": "T",
+        "url": None,
+        "date": "2026-10-01",
+        "terms": sorted(sources.terms_of(PASSAGE["text"])),
+    }
+    assert sources.drawn_on([ref], "It is 15,000 naira.") == [ref]
+    assert sources.drawn_on([ref], "It costs 9,000 naira.") == []
+    assert sources.drawn_on([ref], "A licence needs another document") == []
+    assert sources.source_line(ref) == "Source: T (read 2026-10-01)"
+
+
+def test_a_web_page_is_a_reference_with_its_address_and_day():
+    page = {
+        "url": "https://news.example.com/x",
+        "title": "",
+        "read_on": "2026-10-09",
+        "text": "Some words here",
+    }
+    (ref,) = sources.references({"structuredContent": {"page": page}})
+    assert (ref["title"], ref["url"], ref["date"]) == ("https://news.example.com/x",) * 2 + ("2026-10-09",)
 
 
 def test_only_the_knowledge_server_is_a_source():

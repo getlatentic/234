@@ -7,6 +7,7 @@ content_type: procedure
 language: yo
 trust_tier: 1
 status: published
+keywords: [exam, registration, fee, photograph, birth certificate]
 retrieved_at: 2026-10-01
 reviewed_by: Fixture One
 reviewed_at: 2026-10-02

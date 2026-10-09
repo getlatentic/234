@@ -17,6 +17,7 @@ from .kit import Strict, plain_result
 
 NAME = "knowledge"
 READ_HINTS = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}
+FILTERS_IGNORED = "Passages after the first ones do not match the filters; they are the next best."
 Agency = Annotated[str, Field(min_length=2, max_length=40, pattern=r"^[A-Za-z0-9 .&-]+$")]
 
 
@@ -24,9 +25,12 @@ class Search(Strict):
     query: Annotated[
         str, Field(min_length=2, max_length=200, description="What to look for, in the person's words.")
     ]
-    agency: Annotated[Agency | None, Field(description="Only this agency, for example FRSC or NIMC.")] = None
+    agency: Annotated[
+        Agency | None, Field(description="Only when the person named this agency, as written in the sources.")
+    ] = None
     content_type: Annotated[
-        Literal["guidance", "fee", "procedure", "notice", "form"] | None, Field(description="Only this kind.")
+        Literal["guidance", "fee", "procedure", "notice", "form"] | None,
+        Field(description="Only when the person asked for this kind of source; leave empty otherwise."),
     ] = None
     trust_tier: Annotated[
         Literal[1, 2, 3] | None, Field(description="Only this tier: 1 official, 2 agency partner, 3 outlet.")
@@ -47,12 +51,16 @@ class KnowledgeTools:
         self._store, self._audit = store, audit
 
     async def search(self, args: Search) -> ToolResult:
-        rows = await self._store.search(
+        rows, relaxed = await self._store.search(
             args.query, Filters(args.agency, args.content_type, args.trust_tier), args.limit
         )
         views = [passage_view(row) for row in rows]
-        self._audit.log("knowledge.search", found=len(views), agency=args.agency)
-        return plain_result(passages_text(views), {"untrusted": True, "passages": views})
+        self._audit.log("knowledge.search", found=len(views), agency=args.agency, filters_ignored=relaxed)
+        text = passages_text(views)
+        return plain_result(
+            f"{FILTERS_IGNORED}\n{text}" if relaxed else text,
+            {"untrusted": True, "passages": views, "filters_ignored": relaxed},
+        )
 
     async def open_source(self, args: OpenSource) -> ToolResult:
         rows = await self._store.open_passage(args.passage_id)

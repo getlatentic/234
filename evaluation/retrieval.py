@@ -33,7 +33,7 @@ async def recall(k: int = 5) -> tuple[float, dict[str, float], list[str]]:
     hits: dict[str, list[bool]] = defaultdict(list)
     missed = []
     for q in (q for q in questions() if q.kind != "abstain"):
-        found = await store.search(q.q, Filters(), k)
+        found, _ = await store.search(q.q, Filters(), k)
         ok = bool({p["passage_id"] for p in found} & set(gold(q, known)))
         hits[q.lang].append(ok)
         if not ok:

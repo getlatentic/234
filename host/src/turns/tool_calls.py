@@ -111,6 +111,7 @@ class ToolCalls:
         if sources.is_source(call["name"]) and not outcome.is_error:
             passages, found_in = sources.retrieved(outcome.result)
             logs.event(log, "retrieval", tool=outcome.tool, passages=len(passages), sources=found_in)
+            payload["sources"] = sources.references(outcome.result)
         card = self._card(outcome, task)
         await self._log.append_all([Draft(kinds.TOOL, payload, task), *([card] if card else [])])
         if card:

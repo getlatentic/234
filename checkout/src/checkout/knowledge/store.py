@@ -32,9 +32,13 @@ class Filters:
     content_type: str | None = None
     trust_tier: int | None = None
 
+    @property
+    def any(self) -> bool:
+        return any(v is not None for v in (self.agency, self.content_type, self.trust_tier))
+
     def clauses(self) -> tuple[str, tuple[Any, ...]]:
         pairs = (
-            ("s.agency", self.agency),
+            ("LOWER(s.agency)", self.agency.lower() if self.agency else None),
             ("s.content_type", self.content_type),
             ("s.trust_tier", self.trust_tier),
         )
@@ -49,11 +53,26 @@ def match_terms(query: str) -> str:
     return " OR ".join(f'"{w}"' for w in dict.fromkeys(words[:MAX_TERMS]))
 
 
+def _ids(rows: list[dict[str, Any]]) -> set[str]:
+    return {r["passage_id"] for r in rows}
+
+
 class KnowledgeStore:
     def __init__(self, db: Db) -> None:
         self._db = db
 
-    async def search(self, query: str, filters: Filters, limit: int = 5) -> list[dict[str, Any]]:
+    async def search(self, query: str, filters: Filters, limit: int = 5) -> tuple[list[dict[str, Any]], bool]:
+        """The best passages, those that match the filters first, and whether some do not. A filter is the
+        model's guess at where the answer is (it names an agency from memory): it puts passages first but does
+        not keep the others out, so a wrong guess does not hide the right passage or read as "the sources say
+        nothing"."""
+        found = await self._ranked(query, filters, limit)
+        if not filters.any:
+            return found, False
+        wider = [r for r in await self._ranked(query, Filters(), limit) if r["passage_id"] not in _ids(found)]
+        return [*found, *wider][:limit], bool(wider) and len(found) < limit
+
+    async def _ranked(self, query: str, filters: Filters, limit: int) -> list[dict[str, Any]]:
         terms = match_terms(query)
         if not terms:
             return []

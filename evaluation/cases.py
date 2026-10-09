@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 CASES_FILE = Path(__file__).with_name("cases.jsonl")
-SPLITS = ("dev", "held-out", "tuning", "memory", "talk", "knowledge")
+SPLITS = ("dev", "held-out", "tuning", "memory", "talk", "knowledge", "knowledge-held-out")
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
     "ask": {"mention"},

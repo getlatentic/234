@@ -39,9 +39,9 @@ CAPABILITIES = {
         "wait until they say they did, then send the request again",
     ),
     "knowledge": Capability(
-        "answer questions of fact about agencies and fees from published sources",
-        "such a question needs search_knowledge first: answer only from its passages with their link and "
-        "date, say so when none cover it",
+        "answer questions of fact about agencies and fees from sources",
+        "such a question needs search_knowledge first: answer only from its passages, never add or "
+        "convert their figures, and say so when none cover it",
     ),
     "web": Capability(
         "read a web page the person gives you",

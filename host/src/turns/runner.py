@@ -376,7 +376,7 @@ class TurnRunner:
         await self._close(events, turn, kinds.MAX_ROUNDS)
 
     async def _finish(self, events: list[Event], turn: Event) -> None:
-        await self._check_grounding(events)
+        await self._note_sources(events)
         replies = [e for e in events if e.type == kinds.ASSISTANT and e.task == self._task]
         if fold.cards_awaiting_approval(events, self._task or ""):
             reason = kinds.INPUT_REQUIRED
@@ -386,19 +386,27 @@ class TurnRunner:
             reason = kinds.COMPLETED
         await self._close(events, turn, reason)
 
-    async def _check_grounding(self, events: list[Event]) -> None:
-        """When the turn searched the sources, a link or an amount in its answer that none of them (and not
-        the person) gave is named to the person, who is told to check it with the agency."""
+    async def _note_sources(self, events: list[Event]) -> None:
+        """When the turn read sources: the links and amounts of its answer that no source (and not the
+        person) gave are named, and the sources the answer draws on are shown with their link and date."""
         mine = [e for e in events if e.task == self._task]
-        if not any(e.type == kinds.TOOL and e.payload.get("server") in sources.SOURCE_SERVERS for e in mine):
+        reads = [
+            e for e in mine if e.type == kinds.TOOL and e.payload.get("server") in sources.SOURCE_SERVERS
+        ]
+        if not reads:
             return
         answer = next((e.payload.get("text", "") for e in reversed(mine) if e.type == kinds.ASSISTANT), "")
-        read = " ".join(e.payload["result_text"] for e in mine if e.type == kinds.TOOL)
         said = " ".join(e.payload.get("text", "") for e in events if e.type == kinds.USER)
+        read = " ".join(e.payload["result_text"] for e in reads)
         if missing := sources.ungrounded(answer, read, said):
             logs.event(logger, "ungrounded", figures=len(missing))
-            text = sources.NOT_IN_SOURCES.format(items=", ".join(missing))
-            await self._log.append(kinds.NOTICE, {"level": "info", "text": text}, task=self._task)
+            await self._notice(sources.NOT_IN_SOURCES.format(items=", ".join(missing)))
+        references = [r for e in reads for r in e.payload.get("sources", [])]
+        for reference in sources.drawn_on(references, answer):
+            await self._notice(sources.source_line(reference))
+
+    async def _notice(self, text: str) -> None:
+        await self._log.append(kinds.NOTICE, {"level": "info", "text": text}, task=self._task)
 
     async def _close(self, events: list[Event], turn: Event, reason: str, **marks: Any) -> None:
         replies = [
