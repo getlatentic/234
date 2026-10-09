@@ -16,12 +16,14 @@ from .background import Background, build_background
 from .clock import Clock, SystemClock
 from .config import CONNECTORS, Settings
 from .connectors import airtime, food_order, pay, send_money
+from .connectors import knowledge as knowledge_connector
 from .connectors import memory as memory_connector
 from .connectors.kit import CardReader
 from .db import Db
 from .errors import ConfigError
 from .flows.context import Context
 from .jobs import HeldJobs
+from .knowledge.store import KnowledgeStore
 from .ledger import Ledger, Limits
 from .mcp.registry import Connector
 from .memory.context import MemoryContext
@@ -170,7 +172,7 @@ def memory_context(
 
 
 def build_connectors(
-    settings: Settings, contexts: Mapping[str, Context], memory: MemoryContext
+    settings: Settings, contexts: Mapping[str, Context], memory: MemoryContext, knowledge: KnowledgeStore
 ) -> dict[str, Connector]:
     card = card_reader(settings.card_file)
     alternatives = {name: card_reader(file) for name, file in settings.alt_cards}
@@ -180,6 +182,7 @@ def build_connectors(
         airtime.build_connector(contexts["airtime"], card),
         food_order.build_connector(contexts["food-order"], card, card_reader(MENU_FILE)),
         memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
+        knowledge_connector.build_connector(knowledge, memory.audit),
     )
     return {connector.name: connector for connector in built}
 
@@ -206,7 +209,9 @@ def build_app(
         ledger,
         PaystackSimStore(db),
         contexts,
-        build_connectors(settings, contexts, memory_context(settings, contexts, db, clock, audit)),
+        build_connectors(
+            settings, contexts, memory_context(settings, contexts, db, clock, audit), KnowledgeStore(db)
+        ),
         build_background(
             settings,
             db,
