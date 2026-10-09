@@ -4,12 +4,15 @@
 PYTHONPATH=src uv run python -m tools.knowledge_load check   exits 1 with the problems, 0 when sound
 PYTHONPATH=src uv run python -m tools.knowledge_load sql     replaces what the database holds
 PYTHONPATH=src uv run python -m tools.knowledge_load report  stale, unreviewed and retired sources
+
+`--dir FOLDER` reads another folder than knowledge/sources (the local stack loads knowledge/fixtures).
 """
 
 import sys
+from pathlib import Path
 from typing import Any
 
-from tools.knowledge_corpus import Source, is_stale, load_all, rows_of
+from tools.knowledge_corpus import SOURCES, Source, is_stale, load_all, rows_of
 
 SOURCE_COLUMNS = (
     "id", "agency", "title", "url", "content_type", "language", "trust_tier", "status",
@@ -61,8 +64,8 @@ def report(sources: list[Source]) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
-    sources = load_all()
     command = argv[0] if argv else "check"
+    sources = load_all(Path(argv[argv.index("--dir") + 1]) if "--dir" in argv else SOURCES)
     if problems := check(sources):
         print("\n".join(problems), file=sys.stderr)
         return 1

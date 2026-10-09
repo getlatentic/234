@@ -47,6 +47,7 @@ fi
 card=()
 [ "${1:-}" = "probe" ] && card=(--var CARD_FILE:probe-card.html)
 (cd "$root/checkout" && uv run pywrangler d1 migrations apply DB --local --persist-to "$state/checkout" > /dev/null 2>&1)
+(cd "$root/checkout" && PYTHONPATH=src uv run python -m tools.knowledge_load sql --dir ../knowledge/fixtures > "$state/knowledge.sql" && uv run pywrangler d1 execute DB --local --persist-to "$state/checkout" --file "$state/knowledge.sql" > /dev/null 2>&1)
 start checkout "$root/checkout" "$checkout_port" "$state/checkout.log" \
   --var ENABLE_TEST_ROUTES:1 --var "PUBLIC_BASE_URL:http://localhost:$checkout_port" \
   --var "HOST_PUBLIC_URL:http://localhost:$host_port" \
