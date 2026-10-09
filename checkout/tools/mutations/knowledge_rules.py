@@ -112,4 +112,18 @@ MUTATIONS: list[Mutation] = [
         "if False:",
         CORPUS,
     ),
+    checkout(
+        "knowledge: a filter puts its matches first without hiding the others",
+        "src/checkout/knowledge/store.py",
+        "return [*found, *wider][:limit], bool(wider) and len(found) < limit",
+        "return found[:limit], False",
+        SEARCH,
+    ),
+    checkout(
+        "knowledge: keywords are indexed",
+        "tools/knowledge_corpus.py",
+        '"folded": fold(f"{p.text} {keywords}"),',
+        '"folded": fold(p.text),',
+        CORPUS + SEARCH,
+    ),
 ]

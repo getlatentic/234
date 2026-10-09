@@ -8,6 +8,7 @@ cannot steer a payment, a transfer or a note. An answer's links and amounts must
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from itertools import combinations
 from typing import Any
 
 from . import kinds
@@ -26,6 +27,7 @@ AFTER_SOURCES = (
 SOURCE_LINE = "Source: {title} — {url} (read {date})"
 SOURCE_LINE_NO_LINK = "Source: {title} (read {date})"
 MAX_SHOWN = 3
+MAX_FIGURES = 24
 NOT_IN_SOURCES = "Not in the sources I read: {items}. Check with the agency before you rely on it."
 ELIDED = "[passages of an earlier question omitted: search again if they are needed]"
 
@@ -79,14 +81,14 @@ def retrieved(result: dict[str, Any]) -> tuple[list[str], list[str]]:
 
 
 _URL = re.compile(r"https?://[^\s)>\]\"']+", re.IGNORECASE)
-_AMOUNT = re.compile(
-    r"(?:₦|\bNGN\s?|\bN(?=\d))\s?(\d[\d,]*(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s?(?:naira)", re.I
-)
-_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_FIGURE = r"\d{1,3}(?:[,\u202f\u00a0 ]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
+_AMOUNT = re.compile(rf"(?:₦|\bNGN\s?|\bN(?=\d))\s?({_FIGURE})|({_FIGURE})\s?naira", re.I)
+_NUMBER = re.compile(_FIGURE)
+_GROUPING = re.compile(r"[,\u202f\u00a0 ]")
 
 
 def _digits(figure: str) -> str:
-    cleaned = figure.replace(",", "")
+    cleaned = _GROUPING.sub("", figure)
     return cleaned[:-3] if cleaned.endswith(".00") else cleaned
 
 
@@ -144,9 +146,18 @@ def amounts_in(text: str) -> list[str]:
     return [_digits(m.group(1) or m.group(2)) for m in _AMOUNT.finditer(text)]
 
 
+def _with_totals(numbers: set[str]) -> set[str]:
+    """The numbers, and the sum and the difference of any two different ones: an answer may add or subtract
+    figures it was given (a fee and its late fee), but a figure no two of them make is not theirs."""
+    values = sorted({int(n) for n in numbers if n.isdigit()})[:MAX_FIGURES]
+    totals = {a + b for a, b in combinations(values, 2)} | {b - a for a, b in combinations(values, 2)}
+    return numbers | {str(v) for v in totals}
+
+
 def ungrounded(answer: str, read: str, said: str) -> list[str]:
-    """The links and amounts in `answer` that are in neither what the turn read nor what the person said."""
-    known_numbers = {_digits(n) for n in _NUMBER.findall(read + " " + said)}
+    """The links and amounts in `answer` that are in neither what the turn read nor what the person said,
+    nor the sum or difference of two of them."""
+    known_numbers = _with_totals({_digits(n) for n in _NUMBER.findall(read + " " + said)})
     known_links = {_address(u) for u in _URL.findall(read)}
     links = [u.rstrip(".,;:") for u in _URL.findall(answer) if _address(u) not in known_links]
     figures = [

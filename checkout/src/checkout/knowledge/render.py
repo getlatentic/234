@@ -7,6 +7,7 @@ from typing import Any
 from .allowlist import check_domain
 from .sanitise import clean, quoted
 
+NOTHING_FOUND = "No source covers that. Tell the person so, and give no fee, figure or link from memory."
 TIERS = {1: "official", 2: "agency partner", 3: "reputable outlet"}
 
 
@@ -46,4 +47,4 @@ def passages_text(views: list[dict[str, Any]]) -> str:
         where = f"{view['url'] or 'no link'}, retrieved {view['retrieved_at']}, {TIERS[view['trust_tier']]}"
         header = f"[{number}] {view['title']} ({view['agency']}; {where}); id {view['passage_id']}"
         blocks.append(f"{header}\n{quoted(view['text'])}")
-    return "\n\n".join(blocks) if blocks else "No source says anything about that."
+    return "\n\n".join(blocks) if blocks else NOTHING_FOUND

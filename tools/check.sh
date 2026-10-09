@@ -68,6 +68,7 @@ inside host 120 uv run ruff check src tests ../evaluation
 inside host 300 uv run pytest -q
 inside host 120 uv run ruff format --check src tests ../evaluation
 inside host 120 uv run pytest -q -c ../evaluation/pytest.ini ../evaluation/tests
+inside host 120 env PYTHONPATH=..:src:../checkout/src:../checkout uv run python -m evaluation.retrieval
 limit 300 node "$root/conformance/card-states.mjs" checks
 limit 120 node --test "$root/conformance/menu-logic.test.mjs" "$root/conformance/lib.test.mjs" "$root/conformance/palette.test.mjs" "$root/conformance/tool-status.test.mjs"
 limit 120 node "$root/conformance/markdown-unit.mjs"

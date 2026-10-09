@@ -114,11 +114,12 @@ def test_the_digits_of_an_amount_are_read_however_it_is_written():
     assert knowledge_score._has_answer("It costs ₦12500.", "12,500")
     assert knowledge_score._has_answer("It costs 12,500.00 naira", "12,500")
     assert not knowledge_score._has_answer("It costs 112,500 naira", "12,500")
+    assert knowledge_score._has_answer("It costs ₦12 500.", "12,500")
     assert knowledge_score._has_answer("It is valid for Three Years.", "three years")
 
 
 def test_an_unknown_question_is_answered_by_saying_the_sources_do_not_cover_it():
-    calls = [searched("No source says anything about that.")]
+    calls = [searched("No source covers that.")]
     assert score("A01", answer("I could not find that in my sources, so I cannot say.", calls)).ok
     guessed = score("A01", answer("A pilot's licence costs about 500,000 naira.", calls))
     assert not guessed.ok and "states an amount" in " ".join(guessed.problems[0])
@@ -158,6 +159,12 @@ def test_an_answer_may_be_one_of_several_wordings():
     assert knowledge_score._has_answer("Within 5 days.", "kwanaki biyar|5")
     assert knowledge_score._has_answer("kwanaki biyar", "kwanaki biyar|5")
     assert not knowledge_score._has_answer("kwana shida", "kwanaki biyar|5")
+
+
+def test_an_abstention_may_say_the_sources_do_not_show_it():
+    assert score("A01", answer("The sources I have don\u2019t show that fee.", [])).ok
+    assert score("A01", answer("None of the sources include it.", [])).ok
+    assert not score("A01", answer("The agency decides case by case.", [])).ok
 
 
 def test_an_abstention_may_say_it_cannot_look_the_fee_up():

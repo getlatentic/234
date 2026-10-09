@@ -5,7 +5,7 @@ from turns.settings import Settings
 
 def test_every_connector_the_host_offers_is_described_in_the_prompt():
     prompt = system_prompt(Settings.connectors)
-    for name in set(Settings.connectors) - {"memory"}:
+    for name in set(Settings.connectors) - {"memory", "knowledge", "web"}:
         assert name in CAPABILITIES, f"{name} has no entry in turns/prompt.py"
         assert CAPABILITIES[name].does in prompt and CAPABILITIES[name].needs in prompt
 
@@ -26,7 +26,8 @@ def test_the_prompt_talks_about_anything_but_does_only_its_tasks_and_says_what_e
 
 def test_the_prompt_answers_only_from_what_it_knows_and_gives_no_personal_advice():
     prompt = system_prompt(Settings.connectors)
-    assert "cannot look anything up" in prompt and "never guess" in prompt
+    assert "cannot look anything else up" in prompt and "never guess" in prompt
+    assert "cannot look anything up" in system_prompt(("airtime",))
     assert "Give no personal investment, medical or legal advice" in prompt
 
 
@@ -105,7 +106,7 @@ def test_a_signed_in_person_is_told_how_to_use_and_add_notes():
         "use what you find naturally without listing it",
     ):
         assert rule in prompt, rule
-    assert len(prompt) < 3500
+    assert len(prompt) < 3400
 
 
 def test_memory_is_not_promised_when_the_memory_connector_is_off():

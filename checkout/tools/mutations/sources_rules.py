@@ -93,4 +93,32 @@ MUTATIONS: list[Mutation] = [
         "",
         SOURCES,
     ),
+    host(
+        "sources: the person is shown the source an answer draws on",
+        "turns/runner.py",
+        "for reference in sources.drawn_on(references, answer):",
+        "for reference in []:",
+        SOURCES,
+    ),
+    host(
+        "sources: a source an answer shares little with is not shown",
+        "turns/sources.py",
+        "or len(shared) >= 3:",
+        "or len(shared) >= 1:",
+        SOURCES,
+    ),
+    host(
+        "sources: a total of two figures that were read is theirs",
+        "turns/sources.py",
+        "return numbers | {str(v) for v in totals}",
+        "return numbers",
+        SOURCES,
+    ),
+    host(
+        "sources: a figure no two read figures make is not theirs",
+        "turns/sources.py",
+        "for a, b in combinations(values, 2)} | {b - a for a, b in combinations(values, 2)}",
+        "for a in values for b in values} | {b - a for a in values for b in values}",
+        SOURCES,
+    ),
 ]

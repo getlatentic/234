@@ -28,7 +28,7 @@ FOUND = {
     "content": [{"type": "text", "text": "[1] FRSC https://frsc.gov.ng/fees\n> The fee is 15,000 naira."}],
     "structuredContent": {"untrusted": True, "passages": [PASSAGE]},
 }
-NOTHING = {"content": [{"type": "text", "text": "No source says anything about that."}]}
+NOTHING = {"content": [{"type": "text", "text": "No source covers that."}]}
 
 
 def core(chat, sql, clock, *script, results=None, **changes):
@@ -70,6 +70,17 @@ def test_a_link_or_an_amount_the_turn_did_not_read_or_hear_is_named():
     assert sources.ungrounded("It is N15000.00 naira, so 15,000 naira", read, "") == []
     assert sources.ungrounded("Paying ₦5,000 as you said", read, "send 5,000 to Ada") == []
     assert sources.ungrounded("No figure or link here.", "", "") == []
+    assert sources.ungrounded("It costs ₦3 000 and 12\u202f500 naira.", "3,000 and 12,500", "") == []
+    assert sources.ungrounded("It costs ₦3 100.", "3,000", "") == ["₦3,100"]
+
+
+def test_a_total_or_difference_of_two_figures_read_is_theirs_and_a_double_or_other_figure_is_not():
+    read = "The fee is 12,500 naira and the late fee is 5,000 naira."
+    assert sources.ungrounded("In all ₦17,500.", read, "") == []
+    assert sources.ungrounded("That is ₦7,500 more.", read, "") == []
+    assert sources.ungrounded("In all ₦25,000.", read, "") == ["₦25,000"]
+    assert sources.ungrounded("In all ₦10,000.", read, "") == ["₦10,000"]
+    assert sources.ungrounded("In all ₦20,000.", "The fee is 10,000 naira.", "") == ["₦20,000"]
 
 
 async def test_a_turn_that_keeps_searching_is_stopped_and_answers(chat, sql, clock):
@@ -186,7 +197,7 @@ def test_an_answer_draws_on_a_source_by_a_shared_number_or_three_long_words():
     }
     assert sources.drawn_on([ref], "It is 15,000 naira.") == [ref]
     assert sources.drawn_on([ref], "It costs 9,000 naira.") == []
-    assert sources.drawn_on([ref], "A licence needs another document") == []
+    assert sources.drawn_on([ref], "Pay naira at https") == []
     assert sources.source_line(ref) == "Source: T (read 2026-10-01)"
 
 

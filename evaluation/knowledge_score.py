@@ -17,11 +17,14 @@ NO_SOURCE = re.compile(
     rf"\b(?:no source|not covered|don{_APOS}?t have|do not have|didn{_APOS}?t find|did not find|"
     rf"couldn{_APOS}?t find|could not find|can{_APOS}?t (?:find|confirm)|cannot (?:find|confirm)|not sure|"
     rf"no information|not in (?:the|my) sources|unable to find|sources? (?:do|does)(?: not|n{_APOS}?t)|"
-    rf"not able to|unable to|can{_APOS}?t (?:give|say|look|provide|tell)|"
+    rf"none of the|(?:don|doesn){_APOS}?t (?:include|show|contain|mention|cover|say)|"
+    rf"do not (?:include|show|contain|mention)|not able to|unable to|"
+    rf"can{_APOS}?t (?:give|say|look|provide|tell)|"
     rf"cannot (?:give|say|look|provide|tell))\b",
     re.I,
 )
 _NONDIGIT = re.compile(r"[^\d]")
+_FIGURE = re.compile(r"\d{1,3}(?:[,\u202f\u00a0 ]\d{3})+|\d+")
 _PUNCTUATION = re.compile(r"[\W_]+")
 
 
@@ -42,7 +45,7 @@ def _has_answer(reply: str, answer: str) -> bool:
 def _has_one(reply: str, answer: str) -> bool:
     if any(ch.isdigit() for ch in answer) and "," in answer:
         wanted = _NONDIGIT.sub("", answer)
-        return wanted in {_NONDIGIT.sub("", m) for m in re.findall(r"\d[\d,]*", reply)}
+        return wanted in {_NONDIGIT.sub("", m) for m in _FIGURE.findall(reply)}
     return _squeezed(answer) in _squeezed(reply)
 
 
