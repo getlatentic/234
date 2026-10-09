@@ -146,18 +146,19 @@ def amounts_in(text: str) -> list[str]:
     return [_digits(m.group(1) or m.group(2)) for m in _AMOUNT.finditer(text)]
 
 
-def _with_totals(numbers: set[str]) -> set[str]:
-    """The numbers, and the sum and the difference of any two different ones: an answer may add or subtract
-    figures it was given (a fee and its late fee), but a figure no two of them make is not theirs."""
-    values = sorted({int(n) for n in numbers if n.isdigit()})[:MAX_FIGURES]
-    totals = {a + b for a, b in combinations(values, 2)} | {b - a for a, b in combinations(values, 2)}
-    return numbers | {str(v) for v in totals}
+def _totals(amounts: set[str]) -> set[str]:
+    """The sum and the difference of any two different amounts: an answer may add or subtract amounts it was
+    given (a fee and its late fee), but an amount no two of them make is not theirs. Only amounts count, not
+    the days, years and ids a text also holds."""
+    values = sorted({int(n) for n in amounts if n.isdigit()})[:MAX_FIGURES]
+    return {str(a + b) for a, b in combinations(values, 2)} | {str(b - a) for a, b in combinations(values, 2)}
 
 
 def ungrounded(answer: str, read: str, said: str) -> list[str]:
     """The links and amounts in `answer` that are in neither what the turn read nor what the person said,
     nor the sum or difference of two of them."""
-    known_numbers = _with_totals({_digits(n) for n in _NUMBER.findall(read + " " + said)})
+    seen = read + " " + said
+    known_numbers = {_digits(n) for n in _NUMBER.findall(seen)} | _totals(set(amounts_in(seen)))
     known_links = {_address(u) for u in _URL.findall(read)}
     links = [u.rstrip(".,;:") for u in _URL.findall(answer) if _address(u) not in known_links]
     figures = [

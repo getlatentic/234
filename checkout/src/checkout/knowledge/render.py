@@ -7,7 +7,10 @@ from typing import Any
 from .allowlist import check_domain
 from .sanitise import clean, quoted
 
-NOTHING_FOUND = "No source covers that. Tell the person so, and give no fee, figure or link from memory."
+NOTHING_FOUND = (
+    "No source covers that. For a government service, fee or procedure, tell the person so and give no "
+    "figure or link from memory; for any other question, answer as you would without this search."
+)
 TIERS = {1: "official", 2: "agency partner", 3: "reputable outlet"}
 
 

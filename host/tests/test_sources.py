@@ -81,6 +81,9 @@ def test_a_total_or_difference_of_two_figures_read_is_theirs_and_a_double_or_oth
     assert sources.ungrounded("In all ₦25,000.", read, "") == ["₦25,000"]
     assert sources.ungrounded("In all ₦10,000.", read, "") == ["₦10,000"]
     assert sources.ungrounded("In all ₦20,000.", "The fee is 10,000 naira.", "") == ["₦20,000"]
+    dates = "Read 2026-10-01, page 40000, id 10000. The fee is 10,000 naira and the late fee 5,000 naira."
+    assert sources.ungrounded("In all ₦50,000.", dates, "") == ["₦50,000"]
+    assert sources.ungrounded("In all ₦15,000.", dates, "") == []
 
 
 async def test_a_turn_that_keeps_searching_is_stopped_and_answers(chat, sql, clock):

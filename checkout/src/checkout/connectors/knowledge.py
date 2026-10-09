@@ -98,8 +98,8 @@ def build_connector(store: KnowledgeStore, audit: Audit) -> Connector:
                 "Search the sources",
                 "Use this first for any question about a government service, fee, requirement or procedure. "
                 "Passages of the curated guidance that match the question, with source, link, date and tier. "
-                "Answer only from them (a total of figures they give is fine; show the parts), and say so if none "
-                "cover it.",
+                "Answer only from them (a total of figures they give is fine; show the parts), and say so "
+                "if none cover it.",
                 Search,
                 tools.search,
             ),

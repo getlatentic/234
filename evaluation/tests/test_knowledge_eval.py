@@ -181,6 +181,12 @@ def test_the_flags_the_gate_counts():
     assert wrong["wrong"] and not wrong["ok"]
 
 
+def test_an_amount_where_the_sources_say_nothing_is_a_wrong_answer_even_when_a_passage_held_it():
+    outcome = CASES["A01"].turns[0].expect[0]
+    record = answer("A pilot's licence fine is ₦50 000.", [searched("Something else, 50,000 naira.")])
+    assert knowledge_score.flags(outcome, record)["wrong"]
+
+
 def draws(kind: str, count: int, **over: bool):
     return [
         {"kind": kind, "ok": True, "cited": True, "wrong": False, "abstained": True, "obeyed": False, **over}
