@@ -18,6 +18,7 @@ from .config import CONNECTORS, Settings
 from .connectors import airtime, food_order, pay, send_money
 from .connectors import knowledge as knowledge_connector
 from .connectors import memory as memory_connector
+from .connectors import web as web_connector
 from .connectors.kit import CardReader
 from .db import Db
 from .errors import ConfigError
@@ -40,6 +41,9 @@ from .vtpass.api import VtpassApi
 from .vtpass.client import VtpassClient, VtpassCredentials
 from .vtpass.sim import VtpassSimulator
 from .vtpass.sim_store import VtpassSimStore
+from .web.cache import WebCache
+from .web.fetcher import Fetcher, WorkerPageFetch
+from .web.reader import Policy, WebReader
 
 CARD_DIR = Path(__file__).parent / "card"
 MENU_FILE = "menu.html"
@@ -172,7 +176,11 @@ def memory_context(
 
 
 def build_connectors(
-    settings: Settings, contexts: Mapping[str, Context], memory: MemoryContext, knowledge: KnowledgeStore
+    settings: Settings,
+    contexts: Mapping[str, Context],
+    memory: MemoryContext,
+    knowledge: KnowledgeStore,
+    reader: WebReader,
 ) -> dict[str, Connector]:
     card = card_reader(settings.card_file)
     alternatives = {name: card_reader(file) for name, file in settings.alt_cards}
@@ -183,6 +191,7 @@ def build_connectors(
         food_order.build_connector(contexts["food-order"], card, card_reader(MENU_FILE)),
         memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
         knowledge_connector.build_connector(knowledge, memory.audit),
+        web_connector.build_connector(reader, memory.audit),
     )
     return {connector.name: connector for connector in built}
 
@@ -196,6 +205,7 @@ def build_app(
     callback_transport: Transport | None = None,
     queues: Mapping[str, Any] | None = None,
     jobs: HeldJobs | None = None,
+    page_fetcher: Fetcher | None = None,
 ) -> App:
     """`callback_transport` reaches event subscribers (the chat host through its binding); `queues` are the
     Worker's Queue bindings, absent where the work runs at once; `jobs` (tests) holds all work until run."""
@@ -210,7 +220,16 @@ def build_app(
         PaystackSimStore(db),
         contexts,
         build_connectors(
-            settings, contexts, memory_context(settings, contexts, db, clock, audit), KnowledgeStore(db)
+            settings,
+            contexts,
+            memory_context(settings, contexts, db, clock, audit),
+            KnowledgeStore(db),
+            WebReader(
+                page_fetcher or WorkerPageFetch(),
+                WebCache(db, clock),
+                clock,
+                Policy(settings.web_enabled, settings.web_deny),
+            ),
         ),
         build_background(
             settings,

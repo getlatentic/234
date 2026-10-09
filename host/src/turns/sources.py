@@ -14,7 +14,7 @@ from . import kinds
 from .eventlog import Event
 from .hub import SEPARATOR
 
-SOURCE_SERVERS = frozenset({"knowledge"})
+SOURCE_SERVERS = frozenset({"knowledge", "web"})
 SEARCH_BUDGET = (
     "SEARCH_BUDGET: This turn has searched as many times as it may. Answer from the passages you have, "
     "or say the sources do not cover it."

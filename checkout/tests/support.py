@@ -125,7 +125,7 @@ class Stack:
         return answer["result"]
 
 
-def make_stack(**settings: Any) -> Stack:
+def make_stack(page_fetcher: Any = None, **settings: Any) -> Stack:
     clock = FakeClock()
     lines: list[str] = []
     base = {
@@ -137,7 +137,9 @@ def make_stack(**settings: Any) -> Stack:
     }
     db = SqliteDb()
     jobs = HeldJobs()
-    app = build_app(Settings(**base), db, clock, Audit([lines.append], clock), jobs=jobs)
+    app = build_app(
+        Settings(**base), db, clock, Audit([lines.append], clock), jobs=jobs, page_fetcher=page_fetcher
+    )
     return Stack(app, clock, db, lines, jobs)
 
 

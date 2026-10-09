@@ -79,4 +79,18 @@ MUTATIONS: list[Mutation] = [
         "pass",
         SOURCES,
     ),
+    host(
+        "sources: a page of the web is a source",
+        "turns/sources.py",
+        'SOURCE_SERVERS = frozenset({"knowledge", "web"})',
+        'SOURCE_SERVERS = frozenset({"knowledge"})',
+        SOURCES,
+    ),
+    host(
+        "sources: a source's tool event is marked untrusted",
+        "turns/tool_calls.py",
+        '**({"untrusted": True} if sources.is_source(call["name"]) else {}),',
+        "",
+        SOURCES,
+    ),
 ]

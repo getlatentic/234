@@ -103,6 +103,7 @@ class ToolCalls:
             "arguments": arguments or {},
             "result_text": outcome.text,
             "is_error": outcome.is_error,
+            **({"untrusted": True} if sources.is_source(call["name"]) else {}),
             "duration_ms": took,
             **({"code": code} if code else {}),
             **marks,

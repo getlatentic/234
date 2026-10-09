@@ -105,7 +105,7 @@ def test_a_signed_in_person_is_told_how_to_use_and_add_notes():
         "use what you find naturally without listing it",
     ):
         assert rule in prompt, rule
-    assert len(prompt) < 3450
+    assert len(prompt) < 3500
 
 
 def test_memory_is_not_promised_when_the_memory_connector_is_off():

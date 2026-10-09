@@ -39,6 +39,7 @@ from tools.mutations import (
     transfer_and_food,
     turn_resilience_rules,
     vtpass_number_rules,
+    web_rules,
 )
 from tools.mutations.model import Mutation
 
@@ -70,6 +71,7 @@ MUTATIONS: list[Mutation] = [
     *log_rules.MUTATIONS,
     *knowledge_rules.MUTATIONS,
     *sources_rules.MUTATIONS,
+    *web_rules.MUTATIONS,
     *payer_group_rules.MUTATIONS,
     *turn_resilience_rules.MUTATIONS,
     *connected_rules.MUTATIONS,

@@ -15,6 +15,7 @@ from .errors import ConfigError
 from .memory.settings import MemorySettings
 from .paystack.api import PAYSTACK_API_URL
 from .vtpass.client import VtpassCredentials
+from .web.reader import DEFAULT_DENY
 
 CONNECTORS = ("paystack-pay", "send-money", "airtime", "food-order")
 MEMORY_CONNECTOR = "memory"
@@ -97,6 +98,10 @@ class Settings:
     host_public_url: str | None = None
     """The chat host's public origin, so the simulated checkout page can link back to the chat."""
     memory: MemorySettings = field(default_factory=MemorySettings)
+    web_enabled: bool = True
+    """The web tool reads pages (`WEB_ENABLED=0` is the kill switch)."""
+    web_deny: tuple[str, ...] = DEFAULT_DENY
+    """Sites the web tool refuses, with subdomains (`WEB_DENY`, comma-separated, added to the default)."""
 
     @classmethod
     def from_env(cls, read: Read) -> Settings:
@@ -139,7 +144,13 @@ class Settings:
             host_binding=env.text("HOST_BINDING"),
             host_public_url=_origin_from(env, "HOST_PUBLIC_URL"),
             memory=MemorySettings.from_env(read),
+            web_enabled=env.text("WEB_ENABLED") != "0",
+            web_deny=(*DEFAULT_DENY, *_domains(env.text("WEB_DENY"))),
         )
+
+
+def _domains(raw: str | None) -> tuple[str, ...]:
+    return tuple(d.strip().lower() for d in (raw or "").split(",") if d.strip())
 
 
 class _Env:
