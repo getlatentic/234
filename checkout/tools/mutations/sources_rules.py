@@ -61,8 +61,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "sources: the person's own amount is not named",
         "turns/sources.py",
-        'for n in _NUMBER.findall(read + " " + said)}',
-        "for n in _NUMBER.findall(read)}",
+        'seen = read + " " + said',
+        "seen = read",
         SOURCES,
     ),
     host(
@@ -110,15 +110,15 @@ MUTATIONS: list[Mutation] = [
     host(
         "sources: a total of two figures that were read is theirs",
         "turns/sources.py",
-        "return numbers | {str(v) for v in totals}",
-        "return numbers",
+        " | _totals(set(amounts_in(seen)))",
+        "",
         SOURCES,
     ),
     host(
         "sources: a figure no two read figures make is not theirs",
         "turns/sources.py",
-        "for a, b in combinations(values, 2)} | {b - a for a, b in combinations(values, 2)}",
-        "for a in values for b in values} | {b - a for a in values for b in values}",
+        "return {str(a + b) for a, b in combinations(values, 2)} | {str(b - a) for a, b in",
+        "return {str(a + b) for a in values for b in values} | {str(b - a) for a, b in",
         SOURCES,
     ),
 ]
