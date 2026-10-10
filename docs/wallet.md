@@ -42,6 +42,11 @@ The webhook `collection.succeeded`, verified by its HMAC-SHA256 signature over `
 make, or for another amount, credits nothing and is logged. **234 bears Bachs' fee** (1%, at most NGN 300): the wallet
 is credited the full amount the person paid.
 
+
+A Bachs webhook whose timestamp is more than five minutes old is refused (a replay), and Bachs is answered 2xx only
+after the `fund` entry exists, so a lost write is delivered again. A top-up whose webhook never arrives is checked
+with Bachs by the minute cron, as Paystack payments are now (`provider_hooks/rechecks.py`), if Bachs offers a lookup
+by checkout: to confirm with Bachs.
 ## Withdrawing
 
 Bachs pays out only to 234's own bank account, so a withdrawal is a transfer from 234's Paystack balance, through the
@@ -49,6 +54,11 @@ send-money machinery that exists: the account is resolved, and its name must mat
 `withdraw` entry (guarded debit) goes first, then the transfer with the entry id as its idempotency key; success
 settles it, failure writes `withdraw_back`. A card with the one-time token approves it.
 
+
+A withdrawal has three outcomes, not two. A transfer that timed out or answers `pending` is undecided: it stays open
+until a Paystack event or the minute re-check settles it, and it is never sent again under a new idempotency key
+while it is undecided. `transfer.success` settles it; `transfer.failed` and `transfer.reversed` (a transfer that
+succeeded and came back) write `withdraw_back`.
 ## Where the money is, and the float
 
 The sum of all wallets is what 234 owes. The money arrives in 234's Bachs balance; 234 pays VTpass and Paystack from
@@ -97,3 +107,9 @@ the caps, and tops up Paystack and VTpass. No BVN for a wallet.
 - **The licence for holding people's balances.** Bachs' public pages state none for itself and list wallets and money
   transmission among unsupported businesses: ask Bachs in writing whether this use is accepted, and which licence
   covers 234 holding balances for people.
+
+## Not copied from elsewhere
+
+From a public "build a digital wallet" series (2021): card numbers never pass through 234 (Paystack's own page takes
+them); a payment is credited from a verified webhook or a re-check, never from the charge's first answer; the amount
+credited is the provider's, never one the caller sends; no provider call happens inside an open database transaction.
