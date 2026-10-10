@@ -2,6 +2,7 @@
 """Cloudflare Worker entrypoint: the four MCP connectors, the simulated checkout page, D1 ledger."""
 
 import asyncio
+import json
 from urllib.parse import urlsplit
 
 from workers import Response, WorkerEntrypoint
@@ -13,6 +14,7 @@ from checkout.db import D1
 from checkout.errors import ConfigError
 from checkout.http import handle
 from checkout.transport import BindingFetch, WorkerFetch
+from checkout.web.settings import trouble
 
 _app: App | None = None
 QUEUES = ("PROVIDER_JOBS", "EVENT_JOBS")
@@ -43,6 +45,8 @@ def _app_for(entry: WorkerEntrypoint) -> App:
     env = entry.env
     if _app is None:
         settings = Settings.from_env(_read_setting(env))
+        if why := trouble(_read_setting(env)):
+            print(json.dumps({"event": "web.search.off", "why": why}), flush=True)
         callbacks = HostRouted(
             settings.host_public_url, _host_binding(env, settings), WorkerFetch(follow_redirects=False)
         )

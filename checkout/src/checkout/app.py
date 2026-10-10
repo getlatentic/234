@@ -8,6 +8,7 @@ network in test/sandbox mode and over a simulator otherwise.
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from .connectors import knowledge as knowledge_connector
 from .connectors import memory as memory_connector
 from .connectors import web as web_connector
 from .connectors.kit import CardReader
+from .connectors.web import WebSearch
 from .db import Db
 from .errors import ConfigError
 from .flows.context import Context
@@ -44,6 +46,8 @@ from .vtpass.sim_store import VtpassSimStore
 from .web.cache import WebCache
 from .web.fetcher import Fetcher, WorkerPageFetch
 from .web.reader import Policy, WebReader
+from .web.search import GatewaySearch
+from .web.search_budget import SearchBudget
 
 CARD_DIR = Path(__file__).parent / "card"
 MENU_FILE = "menu.html"
@@ -181,6 +185,8 @@ def build_connectors(
     memory: MemoryContext,
     knowledge: KnowledgeStore,
     reader: WebReader,
+    search: WebSearch | None = None,
+    clock: Clock | None = None,
 ) -> dict[str, Connector]:
     card = card_reader(settings.card_file)
     alternatives = {name: card_reader(file) for name, file in settings.alt_cards}
@@ -191,9 +197,21 @@ def build_connectors(
         food_order.build_connector(contexts["food-order"], card, card_reader(MENU_FILE)),
         memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
         knowledge_connector.build_connector(knowledge, memory.audit),
-        web_connector.build_connector(reader, memory.audit),
+        web_connector.build_connector(reader, memory.audit, search, clock),
     )
     return {connector.name: connector for connector in built}
+
+
+def web_search_for(settings: Settings, db: Db, clock: Clock, transport: Transport) -> WebSearch | None:
+    """Web search, when a gateway and its key are set (web/settings.py)."""
+    found = settings.web_search
+    if found is None:
+        return None
+    moment = lambda: datetime.fromtimestamp(clock.now() / 1000, UTC)  # noqa: E731
+    gateway = GatewaySearch(
+        transport, found.credentials, found.gateway_url, found.target, found.region, moment
+    )
+    return WebSearch(gateway, SearchBudget(db, clock, found.per_day), WebCache(db, clock), clock)
 
 
 def build_app(
@@ -230,6 +248,8 @@ def build_app(
                 clock,
                 Policy(settings.web_enabled, settings.web_deny),
             ),
+            web_search_for(settings, db, clock, transport or WorkerFetch()),
+            clock,
         ),
         build_background(
             settings,

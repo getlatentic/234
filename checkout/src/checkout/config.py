@@ -16,6 +16,7 @@ from .memory.settings import MemorySettings
 from .paystack.api import PAYSTACK_API_URL
 from .vtpass.client import VtpassCredentials
 from .web.reader import DEFAULT_DENY
+from .web.settings import SearchSettings
 
 CONNECTORS = ("paystack-pay", "send-money", "airtime", "food-order")
 MEMORY_CONNECTOR = "memory"
@@ -100,6 +101,8 @@ class Settings:
     memory: MemorySettings = field(default_factory=MemorySettings)
     web_enabled: bool = True
     """The web tool reads pages (`WEB_ENABLED=0` is the kill switch)."""
+    web_search: SearchSettings | None = None
+    """Web search through an AgentCore Gateway (web/settings.py); none, and the web connector only fetches."""
     web_deny: tuple[str, ...] = DEFAULT_DENY
     """Sites the web tool refuses, with subdomains (`WEB_DENY`, comma-separated, added to the default)."""
 
@@ -145,6 +148,7 @@ class Settings:
             host_public_url=_origin_from(env, "HOST_PUBLIC_URL"),
             memory=MemorySettings.from_env(read),
             web_enabled=env.text("WEB_ENABLED") != "0",
+            web_search=SearchSettings.from_env(read),
             web_deny=(*DEFAULT_DENY, *_domains(env.text("WEB_DENY"))),
         )
 

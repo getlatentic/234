@@ -255,3 +255,28 @@ async def test_the_compaction_summary_is_shown_that_a_source_answered_and_never_
     await ask(made, "what is the fee")
     seen = transcript(await events_of(made))
     assert "[Tool result]: ok" in seen and "retrieved" not in seen and "The fee is 15,000" not in seen
+
+
+def test_the_results_of_a_web_search_are_references_with_their_address_and_day():
+    hits = [
+        {
+            "title": "Renewing",
+            "url": "https://a.example.com/x",
+            "published": "2026-09-01T00:00:00Z",
+            "text": "The fee is 12,500 naira.",
+        },
+        {
+            "title": "News",
+            "url": "https://b.example.com/y",
+            "published": None,
+            "text": "Other words entirely here.",
+        },
+    ]
+    refs = sources.references({"structuredContent": {"results": hits, "searched_on": "2026-10-10"}})
+    assert [(r["url"], r["date"]) for r in refs] == [
+        ("https://a.example.com/x", "2026-09-01"),
+        ("https://b.example.com/y", "2026-10-10"),
+    ]
+    drawn = sources.drawn_on(refs, "It costs 12,500 naira.")
+    assert [r["title"] for r in drawn] == ["Renewing"]
+    assert sources.source_line(drawn[0]) == "Source: Renewing — https://a.example.com/x (read 2026-09-01)"

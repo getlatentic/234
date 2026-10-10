@@ -7,6 +7,7 @@
 #   tools/deploy.sh                       checks, then deploys the three Workers (the sandbox first) and smoke-tests them (curl only)
 #   tools/deploy.sh init                  creates the two D1 databases when they do not exist
 #   tools/deploy.sh secret host NAME      sets one of the owner's secrets from stdin (the value is never printed)
+#   tools/deploy.sh secret connectors NAME   the same for the connectors' web search (tools/aws-search.sh)
 #   tools/deploy.sh rotate NAME           a new value for a secret made here: token (host to connectors, set on both),
 #                                         EVENTS_SECRET (the host's events key), PACT_SIGNING_KEY (the host's
 #                                         PACT Delegated key: tokens and receipts it signed stop verifying),
@@ -72,6 +73,7 @@ CONNECTORS_URL="https://$CONNECTORS_WORKER.$SUBDOMAIN.workers.dev"
 SANDBOX_URL="https://$SANDBOX_WORKER.$SUBDOMAIN.workers.dev"
 CUSTOM_URL=${CUSTOM_DOMAIN:+https://$CUSTOM_DOMAIN}
 OWNER_SECRETS="LLM_BASE_URL LLM_MODEL LLM_API_KEY"
+CONNECTOR_SECRETS="SEARCH_GATEWAY_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY"
 AUTH_FILE=${AUTH_FILE:-$root/.env.auth.local}
 AUTH_NAMES="FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN"
 AUTH_ENABLED=""
@@ -478,7 +480,8 @@ cmd_init() {
 cmd_secret() {  # host|connectors NAME: the value comes on stdin, loses one pair of quotes, and is put without being shown
   local target=$1 name=$2 value allowed=""
   [ "$target" = host ] && allowed=$OWNER_SECRETS
-  case " $allowed " in *" $name "*) ;; *) die "$name is not a secret to set by hand on $target (the owner's are $OWNER_SECRETS, on the host)" ;; esac
+  [ "$target" = connectors ] && allowed=$CONNECTOR_SECRETS
+  case " $allowed " in *" $name "*) ;; *) die "$name is not a secret to set by hand on $target (the owner's are $OWNER_SECRETS on the host, and $CONNECTOR_SECRETS on the connectors)" ;; esac
   value=$(tr -d '\r\n')
   value=${value#\"}; value=${value%\"}; value=${value#\'}; value=${value%\'}
   [ -n "$value" ] || die "nothing came on stdin for $name (did grep find the line?): nothing was set"
@@ -562,7 +565,7 @@ cmd=${1:-deploy}
 case "$cmd" in
   deploy) deploy_all ;;
   init) cmd_init ;;
-  secret) [ $# -eq 3 ] || die "usage: tools/deploy.sh secret host NAME < value"; cmd_secret "$2" "$3" ;;
+  secret) [ $# -eq 3 ] || die "usage: tools/deploy.sh secret host|connectors NAME < value"; cmd_secret "$2" "$3" ;;
   rotate) cmd_rotate "${2:?what to rotate}" ;;
   upload) cmd_upload "${2:?host, connectors or sandbox}" ;;
   names) cmd_names ;;

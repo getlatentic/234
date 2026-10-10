@@ -120,6 +120,14 @@ def references(result: dict[str, Any]) -> list[dict[str, Any]]:
             {"title": p["title"], "url": p.get("url"), "date": p["retrieved_at"], "terms": set()},
         )
         entry["terms"] |= terms_of(p["text"])
+    for hit in data.get("results") or []:
+        date = (hit.get("published") or data.get("searched_on") or "")[:10]
+        found[hit["url"]] = {
+            "title": hit["title"],
+            "url": hit["url"],
+            "date": date,
+            "terms": terms_of(hit["text"]),
+        }
     if page := data.get("page"):
         found[page["url"]] = {
             "title": page["title"] or page["url"],

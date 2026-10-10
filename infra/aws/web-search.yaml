@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  234's web search: an Amazon Bedrock AgentCore Gateway (MCP, IAM inbound) with the managed web-search connector as
+  its target, and one IAM user that may invoke that gateway and nothing else. The user's access key is not made
+  here (a key in a stack output is a key in a log): tools/aws-search.sh makes it and puts it straight into the
+  connectors Worker's secrets. us-east-1 only: the Web Search tool is offered there (docs/web.md).
+
+Parameters:
+  GatewayName:
+    Type: String
+    Default: ask234-web-search
+    AllowedPattern: "^[a-zA-Z0-9_-]{1,100}$"
+  TargetName:
+    Type: String
+    Default: web-search-tool
+    Description: Names the gateway target, and so the tool (<target>___WebSearch). 234 expects the default.
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9_-]*$"
+  CallerName:
+    Type: String
+    Default: ask234-web-search-caller
+    AllowedPattern: "^[a-zA-Z0-9_+=,.@-]{1,64}$"
+
+Rules:
+  OnlyInUsEast1:
+    Assertions:
+      - Assert: !Equals [!Ref "AWS::Region", us-east-1]
+        AssertDescription: The Web Search tool is offered in us-east-1 only.
+
+Resources:
+  GatewayServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: What the gateway acts as when it calls the managed Web Search tool.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:gateway/*"
+      Policies:
+        - PolicyName: InvokeWebSearch
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeWebSearch
+                Resource: !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:aws:tool/web-search.v1"
+
+  Gateway:
+    Type: AWS::BedrockAgentCore::Gateway
+    Properties:
+      Name: !Ref GatewayName
+      Description: Web search for 234, called with IAM (SigV4).
+      ProtocolType: MCP
+      AuthorizerType: AWS_IAM
+      RoleArn: !GetAtt GatewayServiceRole.Arn
+
+  WebSearchTarget:
+    Type: AWS::BedrockAgentCore::GatewayTarget
+    Properties:
+      GatewayIdentifier: !GetAtt Gateway.GatewayIdentifier
+      Name: !Ref TargetName
+      Description: The managed Web Search connector.
+      CredentialProviderConfigurations:
+        - CredentialProviderType: GATEWAY_IAM_ROLE
+      TargetConfiguration:
+        Mcp:
+          Connector:
+            Source:
+              ConnectorId: web-search
+            Configurations:
+              - Name: WebSearch
+                ParameterValues: {}
+
+  Caller:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref CallerName
+      Policies:
+        - PolicyName: InvokeThisGatewayOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: bedrock-agentcore:InvokeGateway
+                Resource: !GetAtt Gateway.GatewayArn
+
+Outputs:
+  GatewayUrl:
+    Description: The MCP endpoint, for SEARCH_GATEWAY_URL.
+    Value: !GetAtt Gateway.GatewayUrl
+  CallerName:
+    Value: !Ref Caller
