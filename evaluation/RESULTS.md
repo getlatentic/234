@@ -232,6 +232,14 @@ that the chat answered in about ten seconds; two answered with `search_knowledge
 short path when one search is enough), and one said it could not browse the web though `web_fetch` was offered.
 This is not a measurement: no case set exists for when to start a run.
 
+**Web search.** With `web_search` offered, the prompt says live and recent facts are searched, not declined.
+Real model, live AWS gateway, 2026-10-10: the `talk` split 32/36, and TALK-08 ("who won the Super Eagles match
+yesterday?"), which now expects a search, searched and answered with source lines in 3 of 3 draws. The payment
+held-out split, 77 x 3: **196/231 (84.8%)**, against 201/231 with the sources and 207/231 before them. Each step is
+inside the noise of 231 draws, but the slide is three steps long; its dangerous findings were a data plan code the
+connector refused (no card) and one false-claim phrase (no card). Files: `talk-search.jsonl`,
+`held-out-search-prompt.jsonl`.
+
 Files: `knowledge-1`…`5`, `knowledge-heldout-1`…`4`, `knowledge-heldout-final`, `-final2`, `knowledge-dev-final`,
 `held-out-final`, `held-out-knowledge-prompt`, `talk-final`, `talk-final2`, `subset-*`. Reproduce: start the stack with
 `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh`, then `evaluation.run --split knowledge-held-out --draws 12`.
