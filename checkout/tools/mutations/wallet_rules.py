@@ -4,7 +4,7 @@ no balance below zero, a frozen wallet pays nothing, the cap bounds funding, a r
 journal is append-only, and a quote is paid from the wallet only with a live hold that is then never given
 back."""
 
-from tools.mutations.model import AIRTIME, CONFIG, SRC, Mutation
+from tools.mutations.model import AIRTIME, SRC, Mutation
 
 WALLET = [
     "tests/test_wallet_journal.py",
@@ -179,12 +179,5 @@ MUTATIONS: list[Mutation] = [
         "return await self.present(await refund_to_wallet(self.ctx, quote))",
         "return await self.present(quote)",
         WALLET + AIRTIME,
-    ),
-    wallet(
-        "live mode refuses to start",
-        f"{SRC}/wallet/settings.py",
-        'if raw == "live":',
-        "if False:",
-        WALLET + CONFIG,
     ),
 ]

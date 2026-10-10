@@ -5,8 +5,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-KEY_SHAPED = re.compile(r"\b(?:sk|pk)_(?:test|live)_[A-Za-z0-9]{8,}")
-THE_SIMULATORS_OWN_KEY = "sk_test_simulated"
+KEY_SHAPED = re.compile(r"\b(?:sk|pk)_(?:test|live|sandbox)_[A-Za-z0-9]{8,}")
+THE_SIMULATORS_OWN_KEYS = ("sk_test_simulated", "sk_sandbox_simulated")
 
 
 def test_no_source_file_holds_a_key_shaped_string():
@@ -15,7 +15,7 @@ def test_no_source_file_holds_a_key_shaped_string():
         for path in (ROOT / folder).rglob("*"):
             if path.suffix in {".py", ".sql", ".html", ".md"} and "__pycache__" not in path.parts:
                 for match in KEY_SHAPED.findall(path.read_text()):
-                    if match != THE_SIMULATORS_OWN_KEY:
+                    if match not in THE_SIMULATORS_OWN_KEYS:
                         offenders.append(f"{path.relative_to(ROOT)}: {match[:12]}...")
     for name in ("wrangler.jsonc", "pyproject.toml"):
         offenders += [f"{name}: {m[:12]}..." for m in KEY_SHAPED.findall((ROOT / name).read_text())]

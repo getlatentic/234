@@ -19,6 +19,7 @@ from .flows.context import Context
 from .jobs import HeldJobs, InlineJobs, Job, QueueJobs
 from .provider_hooks.rechecks import Rechecks
 from .transport import Reply, Transport
+from .wallet.topups import TopUps
 
 
 class HostRouted:
@@ -40,6 +41,7 @@ class Background:
     events: Events
     delivery: Delivery
     rechecks: Rechecks
+    topups: TopUps
 
     async def run(self, job: Job) -> None:
         """One job of either queue. A recheck can end a quote, whose events are then handed on."""
@@ -50,8 +52,10 @@ class Background:
             await self.delivery.deliver(job["event"], job["subscription"])
 
     async def minute(self) -> None:
-        """The Cron Trigger's: pending quotes asked again, overdue ones expired, due events handed on."""
+        """The Cron Trigger's: pending quotes asked again, overdue quotes and top-ups expired, due events
+        handed on."""
         await self.rechecks.sweep()
+        await self.topups.expire_due()
         await self.delivery.drain()
         await self.delivery.prune()
 
@@ -62,6 +66,7 @@ def build_background(
     clock: Clock,
     audit: Audit,
     contexts: Mapping[str, Context],
+    topups: TopUps,
     transport: Transport,
     queues: Mapping[str, Any] | None = None,
     jobs: HeldJobs | None = None,
@@ -69,7 +74,7 @@ def build_background(
     """`jobs`, for tests, takes every job of both kinds and keeps it until it is run."""
     events = Events(Subscriptions(db), transport, clock, allow_loopback=settings.enable_test_routes)
     background = Background(
-        events, Delivery(db, transport, clock, audit), Rechecks(db, dict(contexts), clock, audit)
+        events, Delivery(db, transport, clock, audit), Rechecks(db, dict(contexts), clock, audit), topups
     )
     if jobs is not None:
         jobs.run = background.run
