@@ -102,8 +102,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "pact: a Brand's chat is shown only its connectors' tools",
         "turns/permissions.py",
-        "return scope.within(shown(tools, self.memory_tools, self.reads_notes), self.servers)",
-        "return shown(tools, self.memory_tools, self.reads_notes)",
+        "return scope.within(offered, self.servers)",
+        "return offered",
         PACT,
     ),
     host(

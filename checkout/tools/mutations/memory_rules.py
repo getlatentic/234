@@ -149,9 +149,9 @@ MUTATIONS: list[Mutation] = [
         "AND owner = ?",
     ),
     Mutation(
-        "a call to the memory connector without a memory owner is refused",
+        "a call to the memory or wallet connector without a memory owner is refused",
         f"{SRC}/http.py",
-        "if given is None and calls_a_tool and connector == MEMORY_CONNECTOR:",
+        "if given is None and calls_a_tool and connector in ACCOUNT_CONNECTORS:",
         "if False:",
         ["tests/test_memory_owners.py"],
     ),

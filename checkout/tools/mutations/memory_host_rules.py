@@ -85,17 +85,17 @@ MUTATIONS: list[Mutation] = [
         ["tests/test_chat_core.py"],
     ),
     host(
-        "a card calls the memory connector only for an account's chat",
+        "a card calls the memory or wallet connector only for an account's chat",
         "turns/card_calls.py",
-        "if server == MEMORY_SERVER and not (self._has_memory and await self._has_memory()):",
+        "if server in ACCOUNT_ONLY and not account:",
         "if False:",
         CARDS,
     ),
     host(
         "the memory connector is told the owner of the notes in a header of its own",
         "turns/hub.py",
-        "notes=server == MEMORY_SERVER",
-        "notes=False",
+        "notes=account or server == MEMORY_SERVER",
+        "notes=account",
         HUB,
     ),
     host(
@@ -108,8 +108,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "a guest of a shared chat cannot change the owner's notes from a card",
         "chat/views/cards.py",
-        'if body.get("server") == MEMORY_SERVER and chat.owner != request.owner:',
-        "if False:",
+        "    if server == MEMORY_SERVER:\n        return OWNER_ONLY",
+        "    if False:\n        return OWNER_ONLY",
         VIEWS,
     ),
     host(

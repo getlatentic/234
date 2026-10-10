@@ -107,8 +107,8 @@ MUTATIONS: list[Mutation] = [
     host(
         "nothing the model or a card sends becomes the owner of a call",
         "turns/hub.py",
-        '"tools/call", params, _owner_key(owner), notes=server == MEMORY_SERVER',
-        '"tools/call", params, arguments.get("owner", owner), notes=server == MEMORY_SERVER',
+        '"tools/call", params, _owner_key(owner), notes=account or server == MEMORY_SERVER',
+        '"tools/call", params, arguments.get("owner", owner), notes=account or server == MEMORY_SERVER',
         OWNER,
     ),
     host(
@@ -135,15 +135,15 @@ MUTATIONS: list[Mutation] = [
     host(
         "a card's calls are made for the chat's owner",
         "turns/card_calls.py",
-        "result = await self._hub.call_app_tool(server, name, arguments, await self._owner())",
-        'result = await self._hub.call_app_tool(server, name, arguments, "0" * 32)',
+        "result = await self._hub.call_app_tool(server, name, arguments, await self._owner(), account)",
+        'result = await self._hub.call_app_tool(server, name, arguments, "0" * 32, account)',
         OWNER,
     ),
     host(
         "a payment webhook's refresh is made for the chat's owner",
         "turns/card_calls.py",
-        'card["server"], "verify_quote", {"quote_id": quote_id}, await self._owner()',
-        'card["server"], "verify_quote", {"quote_id": quote_id}, "0" * 32',
+        '"verify_quote",\n                {"quote_id": quote_id},\n                await self._owner(),',
+        '"verify_quote",\n                {"quote_id": quote_id},\n                "0" * 32,',
         OWNER,
     ),
     host(
