@@ -141,6 +141,11 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
 Treasury model: payments into 234's Bachs account, balances in 234's ledger. 234 bears Bachs' collection fee, sets
 the caps, and tops up Paystack and VTpass. No BVN for a wallet.
 
+Disputes on card top-ups (2026-10-11): the disputed amount is always held in the wallet; withdrawals are blocked
+while a dispute is open, spending inside 234 is not; the wallet is frozen only when it cannot cover the hold; no
+wallet goes below ₦0, and a shortfall on a lost dispute is 234's loss, written off in the reconciliation; 234 pays
+Bachs' $15 dispute fee. Not built yet (getlatentic/planning#641).
+
 ## Still open before real money
 
 - **The licence for holding people's balances.** Bachs' public pages state none for itself and list wallets and money
