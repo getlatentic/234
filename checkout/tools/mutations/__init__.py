@@ -45,6 +45,7 @@ from tools.mutations import (
     wallet_card_rules,
     wallet_rules,
     web_rules,
+    withdrawal_rules,
 )
 from tools.mutations.model import Mutation
 
@@ -86,4 +87,5 @@ MUTATIONS: list[Mutation] = [
     *wallet_rules.MUTATIONS,
     *topup_rules.MUTATIONS,
     *wallet_card_rules.MUTATIONS,
+    *withdrawal_rules.MUTATIONS,
 ]

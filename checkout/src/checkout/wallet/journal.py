@@ -30,6 +30,18 @@ CAPPED_KIND = "fund"
 wallet already held, and refusing it would lose that money."""
 
 BALANCE_SQL = "(SELECT COALESCE(SUM(sign * amount_kobo), 0) FROM wallet_entry WHERE owner = ?)"
+
+
+def withdrawn_since(owner: str) -> str:
+    """What `owner` (a column or a placeholder) took out since the `?` that follows, less what came back."""
+    return (
+        "(SELECT COALESCE(SUM(d.amount_kobo), 0) FROM wallet_entry AS d "
+        f"WHERE d.owner = {owner} AND d.kind = 'withdraw' AND d.created_at >= ? "
+        "AND NOT EXISTS (SELECT 1 FROM wallet_entry AS b WHERE b.owner = d.owner "
+        "AND b.kind = 'withdraw_back' AND b.ref = d.ref))"
+    )
+
+
 _INSERT = (
     "INSERT INTO wallet_entry (id, owner, kind, sign, amount_kobo, ref, quote_id, created_at) "
     "SELECT ?, ?, ?, ?, ?, ?, ?, ? "

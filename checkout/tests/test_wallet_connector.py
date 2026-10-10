@@ -21,6 +21,8 @@ class TestWhatAHostSees:
             "wallet_balance": ["model"],
             "wallet_view": ["app"],
             "start_topup": ["app"],
+            "start_withdrawal": ["app"],
+            "withdraw": ["app"],
         }
         assert tools["wallet_balance"]["annotations"]["readOnlyHint"] is True
         assert tools["wallet_balance"]["inputSchema"].get("properties", {}) == {}
