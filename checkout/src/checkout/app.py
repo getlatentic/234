@@ -48,6 +48,7 @@ from .vtpass.sim_store import VtpassSimStore
 from .wallet.journal import Journal
 from .wallet.spending import WalletSpending
 from .wallet.topups import TopUps
+from .wallet.withdrawals import Withdrawals
 from .web.cache import WebCache
 from .web.fetcher import Fetcher, WorkerPageFetch
 from .web.reader import Policy, WebReader
@@ -75,6 +76,7 @@ class App:
     connectors: Mapping[str, Connector]
     background: Background
     funding: Funding
+    withdrawals: Withdrawals
 
 
 def card_reader(name: str) -> CardReader:
@@ -188,6 +190,14 @@ def memory_context(
     return MemoryContext(send.memory, proposals, send.paystack, audit, clock)
 
 
+def withdrawals_for(
+    settings: Settings, contexts: Mapping[str, Context], journal: Journal, db: Db, clock: Clock, audit: Audit
+) -> Withdrawals:
+    """Withdrawals are paid as transfers are, through the send-money connector's Paystack."""
+    paystack = contexts["send-money"].paystack
+    return Withdrawals(db, clock, journal, paystack, settings.approval_secret, audit)
+
+
 def build_connectors(
     settings: Settings,
     contexts: Mapping[str, Context],
@@ -195,6 +205,7 @@ def build_connectors(
     knowledge: KnowledgeStore,
     reader: WebReader,
     topups: TopUps,
+    withdrawals: Withdrawals,
     db: Db,
     search: WebSearch | None = None,
     clock: Clock | None = None,
@@ -209,7 +220,9 @@ def build_connectors(
         memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
         knowledge_connector.build_connector(knowledge, memory.audit),
         web_connector.build_connector(reader, memory.audit, search, clock),
-        wallet_connector.build_connector(topups, db, memory.audit, card_reader(WALLET_CARD_FILE)),
+        wallet_connector.build_connector(
+            topups, withdrawals, db, memory.audit, card_reader(WALLET_CARD_FILE)
+        ),
     )
     return {connector.name: connector for connector in built}
 
@@ -243,6 +256,7 @@ def build_app(
     audit = audit or Audit([print_sink], clock)
     ledger, contexts = build_contexts(settings, db, clock, audit, transport)
     funding = build_funding(settings, db, clock, audit, transport or WorkerFetch())
+    withdrawals = withdrawals_for(settings, contexts, funding.topups.journal, db, clock, audit)
     return App(
         settings,
         db,
@@ -262,6 +276,7 @@ def build_app(
                 Policy(settings.web_enabled, settings.web_deny),
             ),
             funding.topups,
+            withdrawals,
             db,
             web_search_for(settings, db, clock, transport or WorkerFetch()),
             clock,
@@ -273,9 +288,11 @@ def build_app(
             audit,
             contexts,
             funding.topups,
+            withdrawals.outcomes,
             callback_transport or WorkerFetch(follow_redirects=False),
             queues,
             jobs,
         ),
         funding,
+        withdrawals,
     )

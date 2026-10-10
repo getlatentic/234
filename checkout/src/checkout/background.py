@@ -20,6 +20,7 @@ from .jobs import HeldJobs, InlineJobs, Job, QueueJobs
 from .provider_hooks.rechecks import Rechecks
 from .transport import Reply, Transport
 from .wallet.topups import TopUps
+from .wallet.withdrawal_outcome import WithdrawalOutcomes
 
 
 class HostRouted:
@@ -48,12 +49,14 @@ class Background:
         if job["kind"] == "recheck":
             await self.rechecks.run(job["quote"])
             await self.delivery.drain()
+        elif job["kind"] == "withdrawal":
+            await self.rechecks.run_withdrawal(job["withdrawal"])
         elif job["kind"] == "deliver":
             await self.delivery.deliver(job["event"], job["subscription"])
 
     async def minute(self) -> None:
-        """The Cron Trigger's: pending quotes asked again, overdue quotes and top-ups expired, due events
-        handed on."""
+        """The Cron Trigger's: pending quotes and undecided withdrawals asked again, overdue quotes,
+        withdrawals and top-ups expired, due events handed on."""
         await self.rechecks.sweep()
         await self.topups.expire_due()
         await self.delivery.drain()
@@ -67,6 +70,7 @@ def build_background(
     audit: Audit,
     contexts: Mapping[str, Context],
     topups: TopUps,
+    withdrawals: WithdrawalOutcomes,
     transport: Transport,
     queues: Mapping[str, Any] | None = None,
     jobs: HeldJobs | None = None,
@@ -74,7 +78,10 @@ def build_background(
     """`jobs`, for tests, takes every job of both kinds and keeps it until it is run."""
     events = Events(Subscriptions(db), transport, clock, allow_loopback=settings.enable_test_routes)
     background = Background(
-        events, Delivery(db, transport, clock, audit), Rechecks(db, dict(contexts), clock, audit), topups
+        events,
+        Delivery(db, transport, clock, audit),
+        Rechecks(db, dict(contexts), clock, audit, withdrawals),
+        topups,
     )
     if jobs is not None:
         jobs.run = background.run

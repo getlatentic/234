@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Checking a quote again with its provider, as its owner, outside any request of that owner: when a webhook
 names it, and every minute for a payment still pending (a webhook can be lost). Only an approved quote is
-checked: the others have ended or have not started, and a webhook about them changes nothing."""
+checked: the others have ended or have not started, and a webhook about them changes nothing.
+
+A wallet withdrawal is checked the same way: a Paystack transfer event names it by its reference, and every
+minute each one still undecided is asked about again (wallet/withdrawal_outcome.py)."""
 
 from ..audit import Audit
 from ..clock import Clock
@@ -13,6 +16,8 @@ from ..flows.payment import PaymentFlow
 from ..flows.transfer import TransferFlow
 from ..jobs import Jobs
 from ..owner import acting_for
+from ..wallet.withdrawal_outcome import WithdrawalOutcomes
+from .references import is_withdrawal_id
 
 FLOWS = {
     "paystack-pay": PaymentFlow,
@@ -25,8 +30,16 @@ SWEEP_LIMIT = 50
 
 
 class Rechecks:
-    def __init__(self, db: Db, contexts: dict[str, Context], clock: Clock, audit: Audit) -> None:
+    def __init__(
+        self,
+        db: Db,
+        contexts: dict[str, Context],
+        clock: Clock,
+        audit: Audit,
+        withdrawals: WithdrawalOutcomes,
+    ) -> None:
         self._db, self._contexts, self._clock, self._audit = db, contexts, clock, audit
+        self.withdrawals = withdrawals
         self.jobs: Jobs | None = None
 
     async def _pending(self, quote_id: str) -> dict | None:
@@ -34,11 +47,15 @@ class Rechecks:
         row = await self._db.row("SELECT owner, connector, state FROM quotes WHERE id = ?", quote_id)
         return row if row and row["state"] == "approved" and row["connector"] in FLOWS else None
 
-    async def ask(self, quote_id: str | None, source: str) -> bool:
-        if quote_id is None or await self._pending(quote_id) is None or self.jobs is None:
-            self._audit.log("recheck.skipped", quote=quote_id, source=source)
+    async def ask(self, subject: str | None, source: str) -> bool:
+        """`subject` is what a provider's reference names: a quote, or a wallet withdrawal."""
+        if self.jobs is not None and is_withdrawal_id(subject):
+            await self.jobs.send({"kind": "withdrawal", "withdrawal": subject, "source": source})
+            return True
+        if subject is None or await self._pending(subject) is None or self.jobs is None:
+            self._audit.log("recheck.skipped", quote=subject, source=source)
             return False
-        await self.jobs.send({"kind": "recheck", "quote": quote_id, "source": source})
+        await self.jobs.send({"kind": "recheck", "quote": subject, "source": source})
         return True
 
     async def run(self, quote_id: str) -> None:
@@ -49,9 +66,17 @@ class Rechecks:
             await FLOWS[row["connector"]](self._contexts[row["connector"]]).verify(quote_id)
         self._audit.log("recheck.done", quote=quote_id)
 
+    async def run_withdrawal(self, withdrawal_id: str) -> None:
+        found = await self.withdrawals.recheck(withdrawal_id)
+        self._audit.log("recheck.done", withdrawal=withdrawal_id, state=found.state if found else None)
+
     async def sweep(self) -> int:
-        """Every approved quote that has waited a while is asked about again, and every open quote past its
-        time is expired, so its ending is told though nobody reads it (a read expires a quote too)."""
+        """Every approved quote and undecided withdrawal that has waited a while is asked about again, and
+        every open quote or withdrawal past its time is expired, so a quote's ending is told though nobody
+        reads it (a read expires a quote too)."""
+        await self.withdrawals.expire_due()
+        for withdrawal_id in await self.withdrawals.undecided_ids():
+            await self.ask(withdrawal_id, "sweep")
         await self._db.execute(
             "UPDATE quotes SET state = 'expired' WHERE state = 'open' AND expires_at <= ?", self._clock.now()
         )

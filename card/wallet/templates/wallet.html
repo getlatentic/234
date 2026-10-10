@@ -22,6 +22,40 @@
         <button type="button" data-action="add" class="btn-primary w-auto shrink-0">Add money</button>
       </div>
       <button type="button" data-action="pay" data-slot="pay" class="btn-secondary" hidden></button>
+      <button type="button" data-action="withdraw" data-slot="withdraw" class="btn-secondary" hidden>Withdraw</button>
+    </div>
+    <p data-slot="status" role="status" class="m-0 text-sm text-ink-2" hidden></p>
+    <p data-slot="notice" role="alert" class="m-0 text-sm font-medium text-bad" hidden></p>
+  </article>
+</template>
+<template id="t-withdraw">
+  <article class="grid grid-cols-1 gap-4 rounded-card border border-line bg-raised p-5">
+    <h2 class="m-0 text-base font-semibold">Withdraw</h2>
+    <div class="grid grid-cols-1 gap-2">
+      <label for="out-amount" class="sr-only">Amount in naira</label>
+      <input id="out-amount" data-slot="out-amount" placeholder="Amount (₦)" inputmode="numeric" autocomplete="off" maxlength="9" class="field min-h-11 py-3 tabular-nums">
+      <label for="out-bank" class="sr-only">Bank</label>
+      <input id="out-bank" data-slot="out-bank" placeholder="Bank" autocomplete="off" maxlength="60" class="field min-h-11 py-3">
+      <label for="out-account" class="sr-only">Account number</label>
+      <input id="out-account" data-slot="out-account" placeholder="Account number" inputmode="numeric" autocomplete="off" maxlength="10" class="field min-h-11 py-3 tabular-nums">
+    </div>
+    <div class="flex gap-2">
+      <button type="button" data-action="check" class="btn-primary">Next</button>
+      <button type="button" data-action="back" class="btn-secondary">Cancel</button>
+    </div>
+    <p data-slot="notice" role="alert" class="m-0 text-sm font-medium text-bad" hidden></p>
+  </article>
+</template>
+<template id="t-confirm">
+  <article class="grid grid-cols-1 gap-4 rounded-card border border-line bg-raised p-5">
+    <div>
+      <h2 class="m-0 text-sm font-normal text-ink-3">Withdraw <span data-slot="amount" class="tabular-nums"></span> to</h2>
+      <p data-slot="name" class="m-0 text-xl font-semibold wrap-anywhere"></p>
+      <p data-slot="account" class="m-0 text-sm text-ink-2 tabular-nums"></p>
+    </div>
+    <div class="flex gap-2">
+      <button type="button" data-action="confirm" class="btn-primary">Withdraw</button>
+      <button type="button" data-action="back" class="btn-secondary">Cancel</button>
     </div>
     <p data-slot="notice" role="alert" class="m-0 text-sm font-medium text-bad" hidden></p>
   </article>

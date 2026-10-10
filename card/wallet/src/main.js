@@ -1,18 +1,32 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The wallet card: the balance and the latest entries as the server holds them, and Add money, which asks the
-// server for a checkout and opens it. Money arrives only through the checkout's webhook; the card then reads the
-// wallet again until it shows.
+// The wallet card: the balance and the latest entries as the server holds them; Add money, which asks the
+// server for a checkout and opens it; and Withdraw: the amount, the bank and the account number, then the name
+// the bank gives for the account, which the person confirms by pressing Withdraw. Money arrives only through the
+// checkout's webhook and leaves only on that press; the card reads the wallet again until either shows.
 const POLL_MS = 3000;
 const POLL_FOR_MS = 30 * 60 * 1000;
 const MIN_NAIRA = 100;
 const root = document.getElementById("root");
-const state = { cardId: null, wallet: null, topup: null, busy: false, notice: "", amount: "", until: 0 };
+const state = {
+  cardId: null,
+  wallet: null,
+  topup: null,
+  withdrawal: null,
+  token: null,
+  view: "wallet",
+  busy: false,
+  notice: "",
+  fields: { amount: "", "out-amount": "", "out-bank": "", "out-account": "" },
+  until: 0,
+};
 
 const fromTemplate = (id) => document.getElementById(id).content.firstElementChild.cloneNode(true);
 const slot = (node, name) => node.querySelector(`[data-slot="${name}"]`);
 const show = (node, on) => node.toggleAttribute("hidden", !on);
 const plainError = (text) => (text ?? "").replace(/^[A-Z][A-Z_]+:\s*/, "");
 const textOf = (result) => result.content?.find((block) => block.type === "text")?.text;
+const naira = (text) => Number((text ?? "").replace(/[\s,₦]/g, ""));
+const sending = () => state.withdrawal?.state === "sent";
 
 function setText(node, name, text) {
   const target = slot(node, name);
@@ -27,16 +41,38 @@ function entryOf(entry) {
   return line;
 }
 
-function draw() {
+function walletView() {
   const card = fromTemplate("t-wallet");
-  setText(card, "balance", state.wallet.balance);
-  slot(card, "entries").replaceChildren(...state.wallet.entries.map(entryOf));
-  slot(card, "amount").value = state.amount;
+  const { wallet } = state;
+  setText(card, "balance", wallet.balance);
+  slot(card, "entries").replaceChildren(...wallet.entries.map(entryOf));
   setText(card, "pay", state.topup ? `Pay ${state.topup.amount}` : "");
-  setText(card, "notice", state.notice);
+  show(slot(card, "withdraw"), wallet.balanceKobo > 0 && !wallet.frozen);
+  setText(card, "status", sending() ? `${state.withdrawal.status} ${state.withdrawal.amount}` : "");
+  return card;
+}
+
+function confirmView() {
+  const card = fromTemplate("t-confirm");
+  const { withdrawal } = state;
+  slot(card, "amount").textContent = withdrawal.amount;
+  slot(card, "name").textContent = withdrawal.accountName;
+  slot(card, "account").textContent = `${withdrawal.bank} ${withdrawal.accountMasked}`;
+  return card;
+}
+
+const views = { wallet: walletView, withdraw: () => fromTemplate("t-withdraw"), confirm: confirmView };
+
+function draw() {
   const focused = document.activeElement?.dataset?.slot;
+  const card = views[state.view]();
+  for (const [name, value] of Object.entries(state.fields)) {
+    const field = slot(card, name);
+    if (field) field.value = value;
+  }
+  setText(card, "notice", state.notice);
   root.replaceChildren(card);
-  if (focused === "amount") slot(card, "amount").focus();
+  if (focused && slot(card, focused)) slot(card, focused).focus();
   syncBusy();
 }
 
@@ -54,7 +90,21 @@ function showNotice(text) {
   root.replaceChildren(notice);
 }
 
-// A result names its card and carries the wallet as it stands; a top-up also carries its checkout.
+function keepWithdrawal(result, data) {
+  if (!data.withdrawal) return;
+  state.withdrawal = data.withdrawal;
+  const token = result._meta?.withdrawalToken;
+  if (token) {
+    state.token = token;
+    state.view = "confirm";
+  } else if (data.withdrawal.state !== "open") {
+    state.view = "wallet";
+    state.until = Date.now() + POLL_FOR_MS;
+  }
+}
+
+// A result names its card and carries the wallet as it stands; a top-up carries its checkout, and a withdrawal
+// its account and how it stands.
 function apply(result) {
   if (result.isError) return showNotice(textOf(result));
   const data = result.structuredContent;
@@ -64,6 +114,7 @@ function apply(result) {
   state.wallet = data.wallet;
   if (data.topup) state.topup = data.topup;
   if (arrived) state.topup = null;
+  keepWithdrawal(result, data);
   state.notice = "";
   draw();
 }
@@ -94,36 +145,71 @@ const openPayment = () =>
   );
 
 async function addMoney() {
-  state.amount = slot(root, "amount").value.replace(/[\s,₦]/g, "");
-  const naira = Number(state.amount);
-  if (!Number.isInteger(naira) || naira < MIN_NAIRA) return showNotice(`Enter at least ₦${MIN_NAIRA}.`);
-  await act(() => call("start_topup", { amount_naira: naira }));
+  const amount = naira(state.fields.amount);
+  if (!Number.isInteger(amount) || amount < MIN_NAIRA) return showNotice(`Enter at least ₦${MIN_NAIRA}.`);
+  await act(() => call("start_topup", { amount_naira: amount }));
   if (!state.topup?.checkoutUrl || state.notice) return;
-  state.amount = "";
+  state.fields.amount = "";
   state.until = Date.now() + POLL_FOR_MS;
   draw();
   await openPayment();
 }
 
-const actions = { add: addMoney, pay: () => state.topup && openPayment() };
+function goTo(view) {
+  state.view = view;
+  state.notice = "";
+  draw();
+}
+
+async function checkAccount() {
+  const amount = naira(state.fields["out-amount"]);
+  if (!Number.isInteger(amount) || amount < MIN_NAIRA) return showNotice(`Enter at least ₦${MIN_NAIRA}.`);
+  const account = state.fields["out-account"].replace(/[\s-]/g, "");
+  if (!/^\d{10}$/.test(account)) return showNotice("Enter the 10 digit account number.");
+  if (!state.fields["out-bank"].trim()) return showNotice("Enter the bank.");
+  await act(() => call("start_withdrawal", { amount_naira: amount, bank: state.fields["out-bank"].trim(), account_number: account }));
+}
+
+async function confirmWithdrawal() {
+  const { withdrawal, token } = state;
+  const args = { withdrawal_id: withdrawal.id, withdrawal_token: token, displayed_amount_kobo: withdrawal.amountKobo, confirmed_name: withdrawal.accountName };
+  await act(() => call("withdraw", args));
+  if (state.view !== "wallet") return;
+  state.token = null;
+  for (const name of ["out-amount", "out-bank", "out-account"]) state.fields[name] = "";
+  draw();
+}
+
+const actions = {
+  add: addMoney,
+  pay: () => state.topup && openPayment(),
+  withdraw: () => goTo("withdraw"),
+  check: checkAccount,
+  confirm: confirmWithdrawal,
+  back: () => goTo("wallet"),
+};
 
 root.addEventListener("click", (event) => {
   const name = event.target.closest("button[data-action]")?.dataset.action;
   if (name && state.wallet && !state.busy) actions[name]?.();
 });
 root.addEventListener("input", (event) => {
-  if (event.target.dataset.slot === "amount") state.amount = event.target.value;
+  const name = event.target.dataset.slot;
+  if (name in state.fields) state.fields[name] = event.target.value;
 });
-// A sandboxed view may not submit forms, so the amount goes by the button or by Enter in its field.
+// A sandboxed view may not submit forms, so each form goes by its button or by Enter in its fields.
 root.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && event.target.dataset.slot === "amount" && !state.busy) addMoney();
+  if (event.key !== "Enter" || state.busy || !(event.target.dataset.slot in state.fields)) return;
+  (state.view === "withdraw" ? checkAccount : addMoney)();
 });
 
 let polling = false;
 setInterval(() => {
-  if (!state.topup || polling || state.busy || Date.now() > state.until) return;
+  const waiting = state.topup || sending();
+  if (!waiting || polling || state.busy || Date.now() > state.until) return;
   polling = true;
-  call("wallet_view", {}).finally(() => {
+  const args = sending() ? { withdrawal_id: state.withdrawal.id } : {};
+  call("wallet_view", args).finally(() => {
     polling = false;
   });
 }, POLL_MS);

@@ -2,7 +2,9 @@
 // The wallet in a real browser against the stack started with AUTH=1: a visitor has none and is offered no wallet
 // tool; a signed-in person opens the wallet card, adds money on the simulated Bachs page and sees the balance
 // arrive; the airtime card offers "Pay from wallet" only while the wallet covers the quote, pays from it with no
-// checkout, and the wallet card shows the balance go down. Accessibility (contrast, 44px targets, no sideways
+// checkout, and the wallet card shows the balance go down; Withdraw on the wallet card resolves the account, asks the
+// person to confirm the bank's name for it, pays it through the simulated Paystack transfer, and the balance goes
+// down with the history saying so. Accessibility (contrast, 44px targets, no sideways
 // scroll) is checked at 320px in both themes. Screenshots: docs/screens/wallet-*.png.
 //
 // The sign-in is the host's own endpoint with a token from the Firebase Auth emulator (as chat-memory.mjs).
@@ -141,6 +143,34 @@ console.log("\nthe airtime card offers the wallet and pays from it");
   check((await entriesOf(wallet))[0] === "Paid airtime -₦500", `its newest entry says what was paid (${(await entriesOf(wallet))[0]})`);
 }
 
+async function withdrawOn(card, naira) {
+  await card.getByRole("button", { name: "Withdraw" }).click();
+  await card.getByLabel("Amount in naira").fill(String(naira));
+  await card.getByLabel("Bank").fill("GTBank");
+  await card.getByLabel("Account number").fill("0123456789");
+  await card.getByRole("button", { name: "Next" }).click();
+  await card.getByText("SIMULATED ACCOUNT 6789").waitFor({ timeout: 15000 });
+}
+
+console.log("\nAda withdraws to her bank account on the wallet card");
+{
+  const { page } = ada;
+  await reset();
+  const card = await openWallet(page);
+  await card.locator('[data-slot="balance"]', { hasText: "₦4,500" }).waitFor({ timeout: 10000 });
+  await withdrawOn(card, 1000);
+  const heading = (await card.locator("h2").innerText()).replace(/\s+/g, " ").trim();
+  check(heading === "Withdraw ₦1,000 to", `the card asks to confirm the name the bank gave (${heading})`);
+  check((await card.getByText("Guaranty Trust Bank ******6789").count()) === 1, "with the bank and the account number masked");
+  await page.screenshot({ path: `${screens}wallet-withdraw-confirm-chat.png` });
+  await card.getByRole("button", { name: "Withdraw" }).click();
+  await card.locator('[data-slot="balance"]', { hasText: "₦3,500" }).waitFor({ timeout: 15000 });
+  check(true, "Withdraw takes ₦1,000 from the wallet: ₦3,500");
+  check((await entriesOf(card))[0] === "Withdrawn -₦1,000", `the newest entry says so (${(await entriesOf(card))[0]})`);
+  check(await card.locator('[data-slot="status"]').isHidden(), "the simulated Paystack transfer succeeded at once: no Sending line");
+  await page.screenshot({ path: `${screens}wallet-withdrawn-chat.png` });
+}
+
 console.log("\na quote the wallet does not cover is not offered it");
 {
   const { page } = ada;
@@ -149,7 +179,7 @@ console.log("\na quote the wallet does not cover is not offered it");
   const card = approvalCard(page);
   await card.getByRole("button", { name: "Approve" }).waitFor({ timeout: 25000 });
   await page.waitForTimeout(1500);
-  check((await card.getByRole("button", { name: /Pay from wallet/ }).count()) === 0, "₦6,000 against ₦4,500: Approve and the checkout only");
+  check((await card.getByRole("button", { name: /Pay from wallet/ }).count()) === 0, "₦6,000 against ₦3,500: Approve and the checkout only");
   await card.getByRole("button", { name: "Decline" }).click();
   await ada.context.close();
 }
@@ -171,6 +201,20 @@ for (const scheme of ["light", "dark"]) {
   const wide = await inner.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   check(!wide, `${scheme}: nothing in the card scrolls sideways at 320px`);
   await walletFrames(page).last().screenshot({ path: `${screens}wallet-card-${scheme}-320.png` });
+  await card.getByRole("button", { name: "Withdraw" }).click();
+  await card.getByLabel("Account number").waitFor({ timeout: 5000 });
+  const form = await inner.evaluate(() => [...document.querySelectorAll("button:not([hidden]), input")].map((el) => el.getBoundingClientRect().height));
+  check(form.length === 5 && form.every((h) => h >= 44), `${scheme}: the withdraw form's fields and buttons are 44px targets (${form})`);
+  check((await inner.evaluate(`(${contrastReport.toString()})()`)).length === 0, `${scheme}: the withdraw form meets WCAG AA`);
+  await card.getByLabel("Amount in naira").fill("500");
+  await card.getByLabel("Bank").fill("GTBank");
+  await card.getByLabel("Account number").fill("0123456789");
+  await card.getByRole("button", { name: "Next" }).click();
+  await card.getByText("SIMULATED ACCOUNT 6789").waitFor({ timeout: 15000 });
+  check((await inner.evaluate(`(${contrastReport.toString()})()`)).length === 0, `${scheme}: the name to confirm meets WCAG AA`);
+  check(!(await inner.evaluate(() => document.documentElement.scrollWidth > innerWidth)), `${scheme}: the confirmation does not scroll sideways`);
+  await walletFrames(page).last().screenshot({ path: `${screens}wallet-withdraw-${scheme}-320.png` });
+  await card.getByRole("button", { name: "Cancel" }).click();
   await say(page, "Airtime ₦500 to 0703 123 4567 on MTN");
   const approval = approvalCard(page);
   await approval.getByRole("button", { name: "Pay from wallet" }).waitFor({ timeout: 25000 });

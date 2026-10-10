@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import json
 
-from .references import quote_id_in
+from .references import quote_id_in, withdrawal_id_in
 
 SIGNATURE_HEADER = "x-paystack-signature"
 EVENTS = ("charge.success", "transfer.success", "transfer.failed", "transfer.reversed")
@@ -26,7 +26,7 @@ def is_genuine(body: bytes, signature: str, key: str) -> bool:
 
 
 def quote_of(body: bytes) -> str | None:
-    """The quote a webhook is about, or None for an event this app does not act on."""
+    """The quote or wallet withdrawal a webhook is about, or None for an event this app does not act on."""
     try:
         event = json.loads(body)
     except ValueError:
@@ -34,4 +34,7 @@ def quote_of(body: bytes) -> str | None:
     if not isinstance(event, dict) or event.get("event") not in EVENTS:
         return None
     data = event.get("data")
-    return quote_id_in(data.get("reference")) if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    reference = data.get("reference")
+    return withdrawal_id_in(reference) or quote_id_in(reference)

@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design; build steps 1 to 4 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 to 5 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -59,6 +59,15 @@ A withdrawal has three outcomes, not two. A transfer that timed out or answers `
 until a Paystack event or the minute re-check settles it, and it is never sent again under a new idempotency key
 while it is undecided. `transfer.success` settles it; `transfer.failed` and `transfer.reversed` (a transfer that
 succeeded and came back) write `withdraw_back`.
+
+234 knows no legal name for an account (a sign-in gives an email and a name the person chose), so the person
+matches the name: the wallet card shows the name the bank gives for the account, and Withdraw sends that name
+back; the money is taken only when it is exactly the resolved name, and `name_confirmed_at` records when.
+Withdrawals are blocked while `wallet_withdrawal_block` holds an unlifted row for the owner
+(`wallet/withdrawal_block.py`); nothing writes one yet: a dispute will (#641).
+
+A Paystack account that asks for a one-time code on transfers leaves every withdrawal undecided (234 cannot
+type the code for a person), so withdrawals need transfer OTP turned off on 234's Paystack account.
 ## Where the money is, and the float
 
 The sum of all wallets is what 234 owes. The money arrives in 234's Bachs balance; 234 pays VTpass and Paystack from
@@ -134,7 +143,29 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    wallet, the balance goes down); guards `checkout/tools/mutations/wallet_card_rules.py`. Withdrawing is
    step 5. A guest of a shared chat sees "Pay from wallet" on an approval card the owner made, never the
    balance, and any wallet call of theirs is refused.
-5. Withdrawal through Paystack. 6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.
+5. **Built, simulated.** Withdrawal through Paystack, on the wallet card alone: the model has no tool that
+   starts or approves one. `checkout/migrations/0014_wallet_withdrawal.sql` (`wallet_withdrawal`: open →
+   sent → succeeded | failed | reversed, open → expired; a decided withdrawal stays decided, and a success may
+   only become reversed, by trigger; `wallet_withdrawal_block`). `checkout/src/checkout/wallet/withdrawals.py`:
+   `start_withdrawal` (card) checks the caps, the balance, the freeze and the block early, resolves the
+   account with the transfer flow's lookup (`flows/holder.py`, `bank_choice.py`), makes the Paystack
+   recipient and opens the withdrawal, its token (HMAC of the id with the approval secret) in `_meta` only;
+   `withdraw` (card) checks the token, then one batch: the `withdraw` entry (ref = the withdrawal id), one
+   INSERT whose WHERE holds the owner's open, unexpired withdrawal, the amount and name the card showed, the
+   per-withdrawal cap, the unfrozen and unblocked wallet, the balance, and today's withdrawals (Lagos day,
+   less what came back) within the daily cap; then `open → sent` only while that entry exists. Only the call
+   that moved it sends the transfer, with the withdrawal id as its reference. `wallet/withdrawal_outcome.py`:
+   success settles it; failed or reversed changes the state and writes `withdraw_back` in one batch, once; a
+   timeout or `pending` leaves it `sent`. Paystack's `transfer.*` events (`provider_hooks/paystack.py`,
+   `references.py`) and the minute's sweep (`provider_hooks/rechecks.py`) ask Paystack about the reference;
+   a withdrawal Paystack never answered for and has no transfer of is sent again under the same reference by
+   one caller at a time (`sending_since`). `wallet/withdrawal_refusal.py` says why one was refused. The
+   connector's tools are in `connectors/wallet.py` and `wallet_withdraw.py`; the card (`card/wallet/`) has
+   Withdraw (amount, bank, account number, Next; the bank's name, Withdraw) and says Withdrawn or Returned.
+   Tests `checkout/tests/test_wallet_withdraw*.py`, `test_wallet_withdrawal_{races,outcomes}.py`,
+   `conformance/chat-wallet.mjs` (withdraw on the card, the balance and the history); guards
+   `checkout/tools/mutations/withdrawal_rules.py`.
+6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.
 
 ## Decided (2026-10-10)
 
