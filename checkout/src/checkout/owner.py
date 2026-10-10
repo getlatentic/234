@@ -10,7 +10,8 @@ An outside personal agent's chats also carry a payer group in `x-ledger-group` (
 people one agent speaks for are owners of their own, and the group caps what they spend together each day.
 
 Memory has a header of its own, `x-memory-owner`, which the host sends only for a signed-in account. The
-memory connector reads that owner and no other, so a call with none, an anonymous visitor's, reaches no note.
+memory connector reads that owner and no other, so a call with none, an anonymous visitor's, reaches no note;
+the wallet reads it too (wallet/access.py), so a visitor reaches no wallet.
 """
 
 import re

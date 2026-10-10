@@ -3,7 +3,7 @@
 
 from django.conf import settings
 
-from turns.hub import MEMORY_SERVER
+from turns.hub import MEMORY_SERVER, WALLET_SERVER
 
 MONEY_SCOPE = "payments"
 MEMORY_SCOPE = "memory"
@@ -30,7 +30,8 @@ def name_of(connector: str) -> str:
 
 
 def connectors() -> tuple[str, ...]:
-    return tuple(settings.CONNECTORS)
+    """The wallet is offered in 234's own chat alone: an outside client has no way to it."""
+    return tuple(name for name in settings.CONNECTORS if name != WALLET_SERVER)
 
 
 def scope_of(connector: str) -> str:

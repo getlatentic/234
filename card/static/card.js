@@ -113,6 +113,8 @@
     switch (q.phase) {
       case "awaiting_approval": {
         const node = fromTemplate("t-approval");
+        if (q.wallet) setText(node, "wallet", `Pay from wallet (${q.wallet.balance})`);
+        else slot(node, "wallet").remove();
         return node;
       }
       case "awaiting_checkout": return fromTemplate("t-checkout");
@@ -290,15 +292,19 @@
     if (!ok) apply({ message: 'The checkout window was blocked. Press "Open checkout again".' });
   }
 
+  const approval = (more = {}) => ({
+    approval_token: state.token ?? "",
+    displayed_amount_kobo: state.quote.amount.kobo,
+    readback_confirmed: true,
+    ...more,
+  });
+
   const actionsByName = {
     approve: async () => {
-      const outcome = await run("approve_quote", {
-        approval_token: state.token ?? "",
-        displayed_amount_kobo: state.quote.amount.kobo,
-        readback_confirmed: true,
-      });
+      const outcome = await run("approve_quote", approval());
       if (outcome.quote?.checkoutUrl) openCheckout();
     },
+    "approve-wallet": () => run("approve_quote", approval({ funding: "wallet" })),
     decline: () => run("decline_quote", { approval_token: state.token ?? "" }),
     correct: () => sendCorrection(),
     "open-checkout": () => openCheckout(),

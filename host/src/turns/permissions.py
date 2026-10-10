@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from . import kinds, scope, sources
+from . import kinds, scope, sources, wallet
 from .eventlog import Event
 from .hub import MEMORY_SERVER, SEPARATOR, ToolOutcome, refused
 from .ledger_owner import is_account
@@ -72,7 +72,8 @@ class Permissions:
         return self.account or self.scopes is not None
 
     def tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        return scope.within(shown(tools, self.memory_tools, self.reads_notes), self.servers)
+        offered = wallet.kept(shown(tools, self.memory_tools, self.reads_notes), self.account)
+        return scope.within(offered, self.servers)
 
     def needed(self, qualified: str) -> str | None:
         """The scope a call needs in this turn, if any."""
@@ -92,6 +93,8 @@ class Permissions:
             return Refusal(refused(server, tool, NEEDS_PERMISSION.format(scopes=needed)), (needed,))
         if is_memory_tool(qualified) and not self.account:
             return Refusal(refused(server, tool, NOT_AN_ACCOUNT))
+        if wallet.is_wallet_tool(qualified) and not self.account:
+            return Refusal(refused(server, tool, wallet.NOT_AN_ACCOUNT))
         return None
 
 

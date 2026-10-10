@@ -21,6 +21,9 @@ TASK_HEADER = "x-task-id"
 ACCOUNT_META = "com.getlatentic.234/account"
 MEMORY_OWNER_HEADER = "x-memory-owner"
 MEMORY_SERVER = "memory"
+WALLET_SERVER = "wallet"
+ACCOUNT_SERVERS = frozenset({MEMORY_SERVER, WALLET_SERVER})
+"""The connectors for a signed-in account only: the host offers and relays them to nobody else."""
 SEPARATOR = "__"
 PROTOCOL_VERSION = "2025-11-25"
 MIME_TYPE = "text/html;profile=mcp-app"
@@ -296,12 +299,14 @@ class Hub:
     async def _tool_call(
         self, server: str, name: str, arguments: dict[str, Any], owner: str, account: bool = False
     ) -> dict[str, Any]:
-        """A connector the host serves itself is also told whether `owner` is a signed-in account."""
+        """A connector is told in the memory header that `owner` is a signed-in account (the wallet and an
+        approval card need to know); one the host serves itself is told in `_meta`. The memory connector
+        is always sent it: the host lets only an account's calls reach memory."""
         params: dict[str, Any] = {"name": name, "arguments": arguments}
         if server in self._local:
             params["_meta"] = {ACCOUNT_META: account}
         return await self._server(server).request(
-            "tools/call", params, _owner_key(owner), notes=server == MEMORY_SERVER
+            "tools/call", params, _owner_key(owner), notes=account or server == MEMORY_SERVER
         )
 
     async def keyed(self, qualified: str) -> bool:
@@ -356,14 +361,14 @@ class Hub:
         return ToolOutcome(server, name, result, card_uri_of(tool))
 
     async def call_app_tool(
-        self, server: str, name: str, arguments: dict[str, Any], owner: str
+        self, server: str, name: str, arguments: dict[str, Any], owner: str, account: bool = False
     ) -> dict[str, Any]:
         """A card's own call. It reaches only the server that served the card, and only tools that
         server offers to cards."""
         tool = await self._find(server, name)
         if "app" not in visibility_of(tool):
             raise HubError(f"{name} is not available to cards.")
-        return await self._tool_call(server, name, arguments, owner)
+        return await self._tool_call(server, name, arguments, owner, account)
 
     async def ping(self, server: str) -> None:
         """MCP's own liveness request, after the handshake: the connector is reachable and answering."""

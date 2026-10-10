@@ -174,6 +174,7 @@ test("every colour in a built stylesheet is a token's", () => {
     `${root}checkout/src/checkout/card/card.html`,
     `${root}checkout/src/checkout/card/menu.html`,
     `${root}checkout/src/checkout/card/memory.html`,
+    `${root}checkout/src/checkout/card/wallet.html`,
     `${root}host/src/turns/reach/card.html`,
     `${root}checkout/src/checkout/tokens_css.py`,
   ];

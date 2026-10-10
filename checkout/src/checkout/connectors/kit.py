@@ -4,7 +4,7 @@ the mode banner. Each connector adds its own model tools and its instructions.""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,6 +22,7 @@ from ..mcp.registry import (
 from ..modes import describe_mode
 from ..paystack.inline import INLINE_CHECKOUT_CSP
 from ..present import summarise
+from ..wallet.access import wallet_owner
 
 MODE_URI = "paystack-demo://mode"
 
@@ -77,6 +78,7 @@ class ApproveQuote(Strict):
     approval_token: Annotated[str, Field(min_length=1, max_length=200)]
     displayed_amount_kobo: int
     readback_confirmed: bool | None = None
+    funding: Literal["checkout", "wallet"] = "checkout"
 
 
 class VerifyQuote(Strict):
@@ -222,9 +224,12 @@ class CardConnector:
         flow = self.flow
 
         async def approve(args: ApproveQuote) -> ToolResult:
-            view = await flow.approve(
-                args.quote_id, args.approval_token, args.displayed_amount_kobo, args.readback_confirmed
-            )
+            terms = (args.quote_id, args.approval_token, args.displayed_amount_kobo, args.readback_confirmed)
+            if args.funding == "wallet":
+                wallet_owner()
+                view = await flow.approve_from_wallet(*terms)
+            else:
+                view = await flow.approve(*terms)
             return card_result(view, summarise(view), await flow.card_meta(args.quote_id))
 
         async def verify(args: VerifyQuote) -> ToolResult:

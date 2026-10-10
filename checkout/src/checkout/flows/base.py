@@ -13,6 +13,7 @@ from ..money import Kobo, format_naira
 from ..present import present_quote
 from ..wallet.spending import WalletSpending
 from .context import Context, QuoteIssued
+from .wallet_leg import wallet_offer
 
 
 def _masked_target(quote: Quote) -> dict[str, Any]:
@@ -38,7 +39,10 @@ class CardFlow(ABC):
 
     async def present(self, quote: Quote) -> dict[str, Any]:
         budget = await self.ctx.ledger.budget()
-        return present_quote(quote, budget, self.ctx.modes, self.ctx.clock, self.ctx.food_step_seconds)
+        view = present_quote(quote, budget, self.ctx.modes, self.ctx.clock, self.ctx.food_step_seconds)
+        if offer := await wallet_offer(self.ctx, quote):
+            view["wallet"] = offer
+        return view
 
     async def make_quote(self, work: Callable[[], Awaitable[tuple[Quote, bool]]]) -> QuoteIssued:
         """Makes a quote and records that it was made, or that it was refused and why."""
@@ -93,6 +97,14 @@ class CardFlow(ABC):
     async def approve(
         self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
     ) -> dict[str, Any]: ...
+
+    async def approve_from_wallet(
+        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
+    ) -> dict[str, Any]:
+        """The approval, paid from the person's wallet instead of a checkout, where the flow offers it."""
+        raise DomainError(
+            "WALLET_UNAVAILABLE", "Paying from the wallet is not offered here. Nothing was taken."
+        )
 
     @abstractmethod
     async def verify(self, quote_id: str, checkout_closed: bool = False) -> dict[str, Any]: ...

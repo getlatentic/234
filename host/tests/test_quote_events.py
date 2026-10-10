@@ -50,7 +50,7 @@ async def test_without_the_settings_or_with_a_refusal_the_card_is_kept_and_polls
 async def test_an_ending_refreshes_the_card_and_the_model_answers_it_once(core):
     c = await quote_card(core, **EVENTS)
 
-    async def call_app_tool(server, name, arguments, owner):
+    async def call_app_tool(server, name, arguments, owner, account=False):
         return quote_result("succeeded", token=None)
 
     c.hub.call_app_tool = call_app_tool
@@ -72,7 +72,7 @@ async def test_an_ending_refreshes_the_card_and_the_model_answers_it_once(core):
 async def test_the_model_reads_an_ending_as_an_event_not_as_the_person(core):
     c = await quote_card(core, **EVENTS)
 
-    async def call_app_tool(server, name, arguments, owner):
+    async def call_app_tool(server, name, arguments, owner, account=False):
         return quote_result("succeeded", token=None)
 
     c.hub.call_app_tool = call_app_tool

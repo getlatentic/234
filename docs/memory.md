@@ -122,7 +122,7 @@ On the `memory` connector (`connectors/memory.py`), with the schemas and annotat
 
 **Saving is never silent.** `Proposals.apply` is the only code that writes a note, and its statement reads the validated content from the proposal row, only while it is pending, unexpired and the owner's, and only while the owner has room. The card is given a token (a keyed digest of the owner and the proposal id) in `_meta`, as the payment cards are given theirs; it is in no text, no `structuredContent` and nothing the model or another client reads, and a save without it, or with another proposal's, is refused. A save twice is one note; a discarded or expired proposal writes nothing.
 
-**Owner.** The connector reads the memory owner from `x-memory-owner` and nowhere else (not the arguments, not `_meta`, not the ledger header). The host sends that header only to the `memory` connector, only for a chat that belongs to a signed-in account. A call to the connector without it is refused, whatever the tool.
+**Owner.** The connector reads the memory owner from `x-memory-owner` and nowhere else (not the arguments, not `_meta`, not the ledger header). The host sends that header only for a chat that belongs to a signed-in account: to every connector that account's turns and cards call, so the wallet (docs/wallet.md) and the approval card know the call is an account's; the memory connector reads it, and the others ignore it. A call to the connector without it is refused, whatever the tool.
 
 ## Recipients
 

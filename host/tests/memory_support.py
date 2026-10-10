@@ -73,7 +73,9 @@ class MemoryHub:
         server, _, tool = qualified.partition("__")
         return ToolOutcome(server, tool, self.results[qualified], None)
 
-    async def call_app_tool(self, server: str, name: str, arguments: dict, owner: str) -> dict[str, Any]:
+    async def call_app_tool(
+        self, server: str, name: str, arguments: dict, owner: str, account: bool = False
+    ) -> dict[str, Any]:
         self.calls.append((server, name, arguments))
         self.owners.append(owner)
         if self.index_fails:

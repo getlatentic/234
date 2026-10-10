@@ -137,6 +137,11 @@ def test_each_connector_has_its_resource_metadata_and_scope(sign_in_on, client):
     assert client.get("/.well-known/oauth-protected-resource/mcp/nope").status_code == 404
 
 
+def test_the_wallet_is_no_resource_of_an_outside_client(sign_in_on, client):
+    assert client.get("/.well-known/oauth-protected-resource/mcp/wallet").status_code == 404
+    assert client.post("/mcp/wallet").status_code == 404
+
+
 def test_the_gateway_challenges_a_call_without_a_token(sign_in_on, backend):
     answer = gateway(None)
     assert answer.status_code == 401

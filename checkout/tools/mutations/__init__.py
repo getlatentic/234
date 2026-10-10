@@ -42,6 +42,7 @@ from tools.mutations import (
     transfer_and_food,
     turn_resilience_rules,
     vtpass_number_rules,
+    wallet_card_rules,
     wallet_rules,
     web_rules,
 )
@@ -84,4 +85,5 @@ MUTATIONS: list[Mutation] = [
     *reach_rules.MUTATIONS,
     *wallet_rules.MUTATIONS,
     *topup_rules.MUTATIONS,
+    *wallet_card_rules.MUTATIONS,
 ]

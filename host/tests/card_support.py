@@ -57,6 +57,7 @@ class CardHub:
         self.views = views or {SEARCH: MENU, MAKE: APPROVAL}
         self.app_calls: list[tuple[str, str, dict]] = []
         self.owners: list[str] = []
+        self.accounts: list[bool] = []
 
     async def model_tools(self):
         return [{"type": "function", "function": {"name": name, "parameters": {}}} for name in self.model]
@@ -71,9 +72,10 @@ class CardHub:
         server, _, tool = qualified.partition("__")
         return ToolOutcome(server, tool, self.model[qualified], self.views.get(qualified))
 
-    async def call_app_tool(self, server: str, name: str, arguments: dict, owner: str):
+    async def call_app_tool(self, server: str, name: str, arguments: dict, owner: str, account: bool = False):
         self.app_calls.append((server, name, arguments))
         self.owners.append(owner)
+        self.accounts.append(account)
         answer = self.app[name]
         if isinstance(answer, Exception):
             raise answer

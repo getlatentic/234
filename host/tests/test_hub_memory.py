@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The memory connector is told the owner of the notes in a header of its own, and no other connector is."""
+"""The memory connector is told the owner of the notes in a header of its own; another connector is told it
+only for an account's call (tests/test_wallet.py)."""
 
 import json
 

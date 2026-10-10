@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design; build steps 1 to 3 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 to 4 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -92,8 +92,7 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    written only while no quote of that id is marked as paid from the wallet, so the two exclude each other in
    SQL. A wallet-paid quote starts no Paystack checkout. A refund ends the quote as `failed` with the money back
    in the wallet. Tests `checkout/tests/test_wallet_spending.py`; guards `checkout/tools/mutations/wallet_rules.py`.
-   Not yet reachable by a person: the `approve_quote` card tool takes no `funding` until step 4, and a hold
-   orphaned by a crash between hold and claim waits for the reaper of step 6.
+   A hold orphaned by a crash between hold and claim waits for the reaper of step 6.
 3. **Built, simulated; the sandbox adapter is written but not yet exercised against Bachs.** The top-up and its
    webhook: `checkout/migrations/0012_wallet_topup.sql` (`wallet_topup`, open → paid | expired) and
    `0013_bachs_simulator.sql`; `checkout/src/checkout/wallet/topups.py` (start: one guarded INSERT requiring the
@@ -109,10 +108,32 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    Bachs delivers it again. The stand-in's pay page (`/sim/bachs/<checkout>`, `sim_bachs.py`) sends a signed
    `collection.succeeded` through the same hook. A genuine collection for an expired top-up is still credited.
    Tests `checkout/tests/test_bachs_*.py`, `test_wallet_topup*.py`; guards `checkout/tools/mutations/topup_rules.py`.
-   Not yet: a person cannot start a top-up until the wallet card of step 4; a credit the cap refuses for good
+   Not yet: a credit the cap refuses for good
    (past Bachs' retries) waits for reconciliation in step 6; the re-check of a top-up whose webhook never arrives
    waits on whether Bachs offers a lookup by checkout.
-4. The `wallet_balance` tool and the wallet card (balance, add money, withdraw).
+4. **Built, simulated.** The `wallet` connector and its card, and paying airtime from the wallet on the
+   approval card. `checkout/src/checkout/connectors/wallet.py`: one model tool, `wallet_balance` (read-only:
+   the balance as a line, and the card), and two the card calls, `wallet_view` and `start_topup` (whole naira,
+   ₦100 to ₦1,000,000; the cap and the freeze are the top-up's own). Every call acts for the signed-in account
+   (`wallet/access.py`): the memory owner header, which the host sends only for an account's calls, naming
+   the same key as the ledger owner; the Worker refuses a wallet call without it (`http.py`), and the wallet
+   row is opened the first time that account asks, never for a visitor. `wallet/view.py` says the latest
+   entries in plain words (Added, Paid airtime, Returned). `approve_quote` takes an optional `funding`
+   (`checkout`, the default and the checkout as before, or `wallet`); it is an app-only tool, so only a card
+   passes it, and `wallet` needs the account. The approval card is offered "Pay from wallet (₦balance)"
+   (`flows/wallet_leg.py`, `wallet_offer`) only for an account whose balance covers an open quote; a refusal
+   (`WALLET_SHORT`, `WALLET_FROZEN`) shows on the card as one line. The card is `card/wallet/` (balance, the
+   last five entries, Add money opening the Bachs checkout, then reading the wallet until the money shows).
+   The host (`host/src/turns/wallet.py`, `permissions.py`, `card_calls.py`, `hub.py`) shows and relays the
+   wallet to an account's turns and cards alone, tells every connector when a call is an account's, refuses a
+   guest of a shared chat any wallet call and any approval paid from the wallet (`chat/views/cards.py`), and
+   offers no wallet to an outside OAuth client (`oauth/resources.py`). The system prompt names no wallet: the
+   tool's description is the model's guide. Tests `checkout/tests/test_wallet_{connector,approval_card}.py`,
+   `host/tests/test_wallet.py`, `conformance/card-states.mjs` (the offer on the card) and
+   `conformance/chat-wallet.mjs` (signed in: add money on the simulated Bachs page, pay airtime from the
+   wallet, the balance goes down); guards `checkout/tools/mutations/wallet_card_rules.py`. Withdrawing is
+   step 5. A guest of a shared chat sees the owner's offer and its balance on an approval card the owner made,
+   though any wallet call of theirs is refused.
 5. Withdrawal through Paystack. 6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.
 
 ## Decided (2026-10-10)

@@ -187,6 +187,11 @@ class AirtimeFlow(CardFlow):
         quote, _ = await self.authorise_approval(quote_id, token, displayed_amount_kobo)
         return await self.present(await begin_checkout(self.ctx, quote))
 
+    async def approve_from_wallet(
+        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
+    ) -> dict[str, Any]:
+        return await self.approve(quote_id, token, displayed_amount_kobo, readback_confirmed, "wallet")
+
     async def verify(self, quote_id: str, checkout_closed: bool = False) -> dict[str, Any]:
         quote = await self.ctx.ledger.require(quote_id, self.connector)
         checked = await check_payment(self.ctx, quote, checkout_closed)

@@ -5,7 +5,8 @@ usage: python tests/fake_model.py [port]   (default 9911)
 It is not a model: it recognises "pay <amount> to <merchant> for <thing>" and answers around the
 tool results it is given, so the host, the connectors and the cards can be exercised with no key. Each tool
 call it makes has an id of its own, as a real model's do.
-"airtime <amount> to <number> on <network>" asks for an airtime quote.
+"airtime <amount> to <number> on <network>" asks for an airtime quote; "my wallet" shows the wallet card
+(scripted_wallet.py).
 "status of <quote id>" asks for that quote's status.
 "reuse key: <request>" (with an airtime or pay request) sends the same idempotency key every time, as a model
 that is not told better does; "twice: <request>" makes the same call twice in one reply.
@@ -37,6 +38,7 @@ import scripted_memory
 import scripted_recall
 import scripted_research
 import scripted_summary
+import scripted_wallet
 
 REQUESTS: list[dict] = []
 PAY = re.compile(
@@ -81,6 +83,8 @@ def answer(messages: list[dict], tools: list[dict] | None = None) -> dict:
         return reached
     if researched := scripted_research.answer(messages, tools or []):
         return researched
+    if wallet := scripted_wallet.answer(messages, tools or []):
+        return wallet
     return scripted_intents.answer(messages, tools or []) or _answer(messages, tools or [])
 
 

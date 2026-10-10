@@ -15,10 +15,10 @@ from typing import Any
 
 import httpx
 
-from . import kinds
+from . import kinds, wallet
 from .db import Db
 from .eventlog import EventLog
-from .hub import MEMORY_SERVER, Hub, HubError, card_uri_of
+from .hub import MEMORY_SERVER, WALLET_SERVER, Hub, HubError, card_uri_of
 from .memory import NOT_AN_ACCOUNT
 
 CARD_FIELDS = ("content", "structuredContent")
@@ -26,6 +26,7 @@ SPAWNED = "spawned"
 ORDER_READY = "Order ready to approve"
 _REF_KEYS = ("quote_id", "card_id", "proposal_id")
 _STATE_KEYS = ("quote", "memory", "sign_in")
+ACCOUNT_ONLY = {MEMORY_SERVER: NOT_AN_ACCOUNT, WALLET_SERVER: wallet.NOT_AN_ACCOUNT}
 
 Note = Callable[[str], Awaitable[dict[str, Any]]]
 Owner = Callable[[], Awaitable[str]]
@@ -70,7 +71,8 @@ class CardCalls:
     ) -> None:
         """`owner` says whose money this chat's cards touch: the key of the chat's owner, whoever is
         looking at the card. `has_memory` says whether the chat's owner is an account: only then may a card
-        call the memory connector."""
+        call the memory or the wallet connector, and only then is a connector told the call is an
+        account's."""
         self._db, self._log, self._hub, self._note, self._owner = db, log, hub, note, owner
         self._has_memory = has_memory
         self._opening = asyncio.Lock()
@@ -95,13 +97,17 @@ class CardCalls:
         if card is None or card["server"] != server:
             raise HubError("This chat has no card for that request.")
         await self._own_tool(server, name, card["resource_uri"])
-        if server == MEMORY_SERVER and not (self._has_memory and await self._has_memory()):
-            raise HubError(NOT_AN_ACCOUNT)
-        result = await self._hub.call_app_tool(server, name, arguments, await self._owner())
+        account = await self._account()
+        if server in ACCOUNT_ONLY and not account:
+            raise HubError(ACCOUNT_ONLY[server])
+        result = await self._hub.call_app_tool(server, name, arguments, await self._owner(), account)
         if view := _opened_view(server, result):
             return await self._open(ref, server, name, view, result)
         await self.push_state(ref, result)
         return result
+
+    async def _account(self) -> bool:
+        return bool(self._has_memory and await self._has_memory())
 
     async def refresh(self, quote_id: str) -> bool:
         """Asks the connector how a quote stands (a payment webhook arrived) and pushes it to the card."""
@@ -110,7 +116,11 @@ class CardCalls:
             return False
         try:
             result = await self._hub.call_app_tool(
-                card["server"], "verify_quote", {"quote_id": quote_id}, await self._owner()
+                card["server"],
+                "verify_quote",
+                {"quote_id": quote_id},
+                await self._owner(),
+                await self._account(),
             )
         except HubError, httpx.HTTPError:
             return False

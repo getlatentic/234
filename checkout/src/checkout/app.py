@@ -19,6 +19,7 @@ from .config import CONNECTORS, Settings
 from .connectors import airtime, food_order, pay, send_money
 from .connectors import knowledge as knowledge_connector
 from .connectors import memory as memory_connector
+from .connectors import wallet as wallet_connector
 from .connectors import web as web_connector
 from .connectors.kit import CardReader
 from .connectors.web import WebSearch
@@ -46,6 +47,7 @@ from .vtpass.sim import VtpassSimulator
 from .vtpass.sim_store import VtpassSimStore
 from .wallet.journal import Journal
 from .wallet.spending import WalletSpending
+from .wallet.topups import TopUps
 from .web.cache import WebCache
 from .web.fetcher import Fetcher, WorkerPageFetch
 from .web.reader import Policy, WebReader
@@ -55,6 +57,7 @@ from .web.search_budget import SearchBudget
 CARD_DIR = Path(__file__).parent / "card"
 MENU_FILE = "menu.html"
 MEMORY_CARD_FILE = "memory.html"
+WALLET_CARD_FILE = "wallet.html"
 SIMULATED_KEY = "sk_test_simulated"
 SIMULATED_VTPASS = VtpassCredentials("simulated", "simulated", "simulated")
 FOOD_MERCHANT = "Simulated merchant: not Chowdeck"
@@ -191,6 +194,8 @@ def build_connectors(
     memory: MemoryContext,
     knowledge: KnowledgeStore,
     reader: WebReader,
+    topups: TopUps,
+    db: Db,
     search: WebSearch | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Connector]:
@@ -204,6 +209,7 @@ def build_connectors(
         memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
         knowledge_connector.build_connector(knowledge, memory.audit),
         web_connector.build_connector(reader, memory.audit, search, clock),
+        wallet_connector.build_connector(topups, db, memory.audit, card_reader(WALLET_CARD_FILE)),
     )
     return {connector.name: connector for connector in built}
 
@@ -255,6 +261,8 @@ def build_app(
                 clock,
                 Policy(settings.web_enabled, settings.web_deny),
             ),
+            funding.topups,
+            db,
             web_search_for(settings, db, clock, transport or WorkerFetch()),
             clock,
         ),
