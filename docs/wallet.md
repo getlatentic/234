@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design; build steps 1 and 2 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 to 3 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -36,8 +36,8 @@ quote. The model never touches the wallet: its one tool, `wallet_balance`, reads
 ## Funding
 
 No account per person and no BVN: every top-up is one Bachs checkout for an amount, made by 234 with the top-up's id
-and the owner in its reference, paid into 234's Bachs account (signed-in accounts only: a visitor has no wallet).
-The webhook `collection.succeeded`, verified by its HMAC-SHA256 signature over `{timestamp}.{raw_body}`
+as its reference and a digest of the owner in its metadata, paid into 234's Bachs account (signed-in accounts
+only: a visitor has no wallet). The webhook `collection.succeeded`, verified by its HMAC-SHA256 signature over `{timestamp}.{raw_body}`
 (`X-Bachs-Signature-V2`), becomes a `fund` entry with `ref = the top-up id`; a webhook for a checkout 234 did not
 make, or for another amount, credits nothing and is logged. **234 bears Bachs' fee** (1%, at most NGN 300): the wallet
 is credited the full amount the person paid.
@@ -75,15 +75,16 @@ the ledger on every spend. A PACT agent's own chats (`p:` owners) have no wallet
 
 ## Modes
 
-`WALLET_MODE=simulated|sandbox|live`, as the Paystack modes are. Simulated is a Bachs stand-in in the connectors
+`BACHS_MODE=simulated|sandbox|live`, as the Paystack modes are. Simulated is a Bachs stand-in in the connectors
 Worker (a pay-in page like the Paystack simulator's, signed webhooks). Sandbox uses `sandbox-api.bachs.io` with the
-sandbox key. Live refuses to start without an explicit flag and the answers below.
+sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook endpoint's signing secret
+(`BACHS_WEBHOOK_SECRET`). Live refuses to start, and a live key is refused in any mode.
 
 ## Build order
 
 1. **Built.** The journal, the guarded debit and credit, the invariants, and tests that race spends (no Bachs):
    `checkout/migrations/0011_wallet.sql`, `checkout/src/checkout/wallet/journal.py` and `settings.py`
-   (`WALLET_MODE`, the caps; `live` refuses to start), tests `checkout/tests/test_wallet_{journal,races,settings}.py`.
+   (the caps), tests `checkout/tests/test_wallet_{journal,races,settings}.py`.
 2. **Built.** Spend from the wallet in the airtime flow (hold, claim, release, refund), simulated:
    `checkout/src/checkout/wallet/spending.py`, `flows/wallet_leg.py`, and `AirtimeFlow.approve(..., funding="wallet")`.
    The wallet's claim is the quote's own `open → approved` UPDATE (`Ledger.claim_approval` with `ClaimTerms`),
@@ -93,7 +94,24 @@ sandbox key. Live refuses to start without an explicit flag and the answers belo
    in the wallet. Tests `checkout/tests/test_wallet_spending.py`; guards `checkout/tools/mutations/wallet_rules.py`.
    Not yet reachable by a person: the `approve_quote` card tool takes no `funding` until step 4, and a hold
    orphaned by a crash between hold and claim waits for the reaper of step 6.
-3. The Bachs stand-in and webhook, then the sandbox adapter (top-up checkout, signature check).
+3. **Built, simulated; the sandbox adapter is written but not yet exercised against Bachs.** The top-up and its
+   webhook: `checkout/migrations/0012_wallet_topup.sql` (`wallet_topup`, open → paid | expired) and
+   `0013_bachs_simulator.sql`; `checkout/src/checkout/wallet/topups.py` (start: one guarded INSERT requiring the
+   owner's unfrozen wallet and the balance plus the amount within the cap, then the Bachs checkout with the top-up
+   id as reference and Idempotency-Key, the owner only as a digest in its metadata; a checkout Bachs could not make
+   leaves the top-up expired; the minute cron expires the rest) and `topup_credit.py` (the collection must name
+   234's checkout, owner digest, `SUCCEEDED`, NGN and exactly the amount, or it credits nothing and is audited;
+   then `fund` with `ref = top-up id`, and one UPDATE marks it paid only while that entry exists).
+   `checkout/src/checkout/bachs/` holds the client (`POST /v1/checkout-sessions`, sandbox keys only), the
+   signature check (any `v1`, at most five minutes old, at most 30 s ahead), the event reader, `BACHS_MODE`, and
+   the simulator. `POST /hooks/bachs` (`provider_hooks/bachs.py`) answers 400 to an unverified delivery, 2xx only
+   once the `fund` entry exists or the delivery can never credit, and 503 when the cap refuses the credit today, so
+   Bachs delivers it again. The stand-in's pay page (`/sim/bachs/<checkout>`, `sim_bachs.py`) sends a signed
+   `collection.succeeded` through the same hook. A genuine collection for an expired top-up is still credited.
+   Tests `checkout/tests/test_bachs_*.py`, `test_wallet_topup*.py`; guards `checkout/tools/mutations/topup_rules.py`.
+   Not yet: a person cannot start a top-up until the wallet card of step 4; a credit the cap refuses for good
+   (past Bachs' retries) waits for reconciliation in step 6; the re-check of a top-up whose webhook never arrives
+   waits on whether Bachs offers a lookup by checkout.
 4. The `wallet_balance` tool and the wallet card (balance, add money, withdraw).
 5. Withdrawal through Paystack. 6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.
 

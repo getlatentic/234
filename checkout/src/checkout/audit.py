@@ -13,7 +13,7 @@ from .clock import Clock, SystemClock
 from .mask import mask_phone
 from .owner import current_owner, current_task
 
-_KEY_LIKE = re.compile(r"\b(?:sk_(?:test|live)_|pk_(?:test|live)_|SK_|PK_)[A-Za-z0-9]+")
+_KEY_LIKE = re.compile(r"\b(?:sk_(?:test|live|sandbox)_|pk_(?:test|live)_|SK_|PK_)[A-Za-z0-9]+")
 _LONG_DIGITS = re.compile(r"(?<![A-Za-z0-9])\d{7,}(?![A-Za-z0-9])")
 
 Sink = Callable[[str], None]

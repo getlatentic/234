@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The wallet's settings (wallet/settings.py): the mode, and the caps 234 sets."""
+"""The wallet's settings (wallet/settings.py): the caps 234 sets."""
 
 import pytest
 
@@ -12,28 +12,17 @@ def load(**env: str) -> WalletSettings:
     return Settings.from_env({"APPROVAL_SECRET": "x-not-real", **env}.get).wallet
 
 
-def test_defaults_are_simulated_with_the_caps_of_the_design():
-    assert load() == WalletSettings("simulated", 20_000_000, 5_000_000, 10_000_000)
+def test_defaults_are_the_caps_of_the_design():
+    assert load() == WalletSettings(20_000_000, 5_000_000, 10_000_000)
 
 
-def test_reads_the_mode_and_the_caps():
+def test_reads_the_caps():
     wallet = load(
-        WALLET_MODE="Sandbox",
         WALLET_BALANCE_CAP_KOBO="5000000",
         WALLET_WITHDRAWAL_KOBO="100000",
         WALLET_WITHDRAWALS_DAILY_KOBO="200000",
     )
-    assert wallet == WalletSettings("sandbox", 5_000_000, 100_000, 200_000)
-
-
-def test_live_refuses_to_start():
-    with pytest.raises(ConfigError, match="WALLET_MODE=live is refused"):
-        load(WALLET_MODE="live")
-
-
-def test_an_unknown_mode_refuses_to_start():
-    with pytest.raises(ConfigError, match="WALLET_MODE must be one of"):
-        load(WALLET_MODE="real")
+    assert wallet == WalletSettings(5_000_000, 100_000, 200_000)
 
 
 @pytest.mark.parametrize("raw", ["0", "-1", "1.5", "lots"])

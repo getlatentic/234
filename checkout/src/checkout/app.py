@@ -25,6 +25,7 @@ from .connectors.web import WebSearch
 from .db import Db
 from .errors import ConfigError
 from .flows.context import Context
+from .funding import Funding, build_funding
 from .jobs import HeldJobs
 from .knowledge.store import KnowledgeStore
 from .ledger import Ledger, Limits
@@ -70,6 +71,7 @@ class App:
     contexts: Mapping[str, Context]
     connectors: Mapping[str, Connector]
     background: Background
+    funding: Funding
 
 
 def card_reader(name: str) -> CardReader:
@@ -234,6 +236,7 @@ def build_app(
     clock = clock or SystemClock()
     audit = audit or Audit([print_sink], clock)
     ledger, contexts = build_contexts(settings, db, clock, audit, transport)
+    funding = build_funding(settings, db, clock, audit, transport or WorkerFetch())
     return App(
         settings,
         db,
@@ -261,8 +264,10 @@ def build_app(
             clock,
             audit,
             contexts,
+            funding.topups,
             callback_transport or WorkerFetch(follow_redirects=False),
             queues,
             jobs,
         ),
+        funding,
     )

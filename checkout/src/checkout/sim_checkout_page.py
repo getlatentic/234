@@ -60,7 +60,7 @@ PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="{favicon}">
-<title>Simulated Paystack checkout</title>
+<title>{title}</title>
 <style>{css}</style>
 <main>
 <p class="mode"><span class="dot" aria-hidden="true"></span>Simulated: no money moves</p>
@@ -72,7 +72,7 @@ PAGE = """<!doctype html>
 </html>"""
 
 FORM = (
-    '<form method="post" action="/sim/checkout/{ref}/{action}{query}">'
+    '<form method="post" action="{base}/{ref}/{action}{query}">'
     '<button class="{style}">{label}</button></form>'
 )
 CHOICES = (
@@ -97,10 +97,17 @@ POLICY = (
 )
 
 
-def buttons(reference: str, query: str) -> str:
+def buttons(
+    reference: str,
+    query: str,
+    base: str = "/sim/checkout",
+    choices: tuple[tuple[str, str, str], ...] = CHOICES,
+) -> str:
     forms = (
-        FORM.format(ref=escape(reference), action=action, query=escape(query), style=style, label=label)
-        for action, style, label in CHOICES
+        FORM.format(
+            base=base, ref=escape(reference), action=action, query=escape(query), style=style, label=label
+        )
+        for action, style, label in choices
     )
     return '<div class="actions">\n' + "\n".join(forms) + "\n</div>"
 
@@ -110,8 +117,16 @@ def state(kind: str, word: str, chat_url: str | None) -> str:
     return STATE.format(kind=kind, glyph=GLYPHS[kind], word=word, link=link)
 
 
-def page(who: str, amount: str, body: str, *, closing: bool) -> str:
+def page(
+    who: str, amount: str, body: str, *, closing: bool, title: str = "Simulated Paystack checkout"
+) -> str:
     script = f"<script>{CLOSE_SCRIPT}</script>" if closing else ""
     return PAGE.format(
-        css=CSS, favicon=FAVICON_URI, who=escape(who), amount=escape(amount), body=body, script=script
+        title=escape(title),
+        css=CSS,
+        favicon=FAVICON_URI,
+        who=escape(who),
+        amount=escape(amount),
+        body=body,
+        script=script,
     )

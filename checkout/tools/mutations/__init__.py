@@ -38,6 +38,7 @@ from tools.mutations import (
     search_rules,
     sources_rules,
     token_rules,
+    topup_rules,
     transfer_and_food,
     turn_resilience_rules,
     vtpass_number_rules,
@@ -82,4 +83,5 @@ MUTATIONS: list[Mutation] = [
     *connected_rules.MUTATIONS,
     *reach_rules.MUTATIONS,
     *wallet_rules.MUTATIONS,
+    *topup_rules.MUTATIONS,
 ]

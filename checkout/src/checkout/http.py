@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The Worker's HTTP surface, free of the Workers runtime so tests can call it directly:
-one MCP endpoint per connector, the simulated Paystack checkout page, and test routes."""
+one MCP endpoint per connector, the providers' webhooks, the simulated Paystack and Bachs checkout pages,
+and test routes."""
 
 import hmac
 from collections.abc import Mapping
@@ -32,6 +33,7 @@ from .owner import (
 )
 from .provider_hooks.http import paystack_hook, paystack_keys, vtpass_hook
 from .responses import HttpResponse, json_response
+from .sim_bachs import handle_bachs_checkout
 from .sim_checkout import handle_checkout
 from .testing_routes import handle_test
 
@@ -153,6 +155,8 @@ async def _provider_hook(app: App, provider: str, headers: dict[str, str], raw: 
         return await paystack_hook(rechecks, keys, headers, raw)
     if provider == "vtpass":
         return await vtpass_hook(rechecks, raw)
+    if provider == "bachs":
+        return await app.funding.hook.answer(headers, raw)
     return HttpResponse(404, "Not found")
 
 
@@ -168,6 +172,8 @@ async def handle(
         return await _provider_hook(app, parts[1], headers, raw)
     if parts[0] == "sim" and len(parts) >= 3 and parts[1] == "checkout":
         return await handle_checkout(app, method, path, headers, query)
+    if parts[0] == "sim" and len(parts) >= 3 and parts[1] == "bachs":
+        return await handle_bachs_checkout(app, method, path, headers)
     if parts[0] == "test" and app.settings.enable_test_routes:
         return await handle_test(app, method, path, query)
     return HttpResponse(404, "Not found")

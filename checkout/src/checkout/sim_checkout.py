@@ -29,7 +29,7 @@ CHAT_PATH = re.compile(r"/c/[0-9a-f]{32}/?")
 OUTCOMES = {"success": ("paid", "Paid"), "failed": ("declined", "Declined"), "closed": ("closed", "Closed")}
 
 
-def _same_origin(app: App, headers: dict[str, str]) -> bool:
+def same_origin(app: App, headers: dict[str, str]) -> bool:
     """A finish button posts from this page; a post from another page is refused."""
     origin = headers.get("origin")
     if origin is None:
@@ -87,7 +87,7 @@ async def handle_checkout(
         return HttpResponse(404, "Unknown checkout", HTML_HEADERS)
     outcome = None
     if method == "POST" and len(parts) == 4 and parts[3] in ("pay", "decline", "close"):
-        if not _same_origin(app, headers):
+        if not same_origin(app, headers):
             return HttpResponse(403, "Refused: this page only takes its own buttons", HTML_HEADERS)
         changed = await _press(app, reference, parts[3])
         transaction = await sim.transaction(reference) or transaction
