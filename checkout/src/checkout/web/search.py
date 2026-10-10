@@ -7,6 +7,7 @@ The gateway's tool is `<target>___WebSearch`, taking `query` (200 characters at 
 25), and giving `results` of `text` (a snippet), `url`, `title` and `publishedDate`."""
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
@@ -17,11 +18,12 @@ from . import safe_url
 from .sigv4 import Credentials, signed_headers
 
 SERVICE = "bedrock-agentcore"
-PROTOCOL = "2025-06-18"
+PROTOCOL = "2025-03-26"
 QUERY_CHARS = 200
 SNIPPET_CHARS = 500
 MAX_RESULTS = 10
 TIMEOUT_SECONDS = 15
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
 UNAVAILABLE = "SEARCH_UNAVAILABLE: Web search did not answer. Say so, and do not answer from memory."
 
 
@@ -59,6 +61,13 @@ def _json_of(reply: Reply) -> dict[str, Any]:
     return message if isinstance(message, dict) else {}
 
 
+def _day(value: object) -> str | None:
+    """The ISO day a result was published, when it says so in that form: the gateway also says "unknown" and
+    writes dates as "01:14PM, Friday, August 14 2026, PDT"."""
+    found = _ISO_DAY.match(str(value or ""))
+    return found.group() if found else None
+
+
 def hits_of(result: dict[str, Any]) -> list[Hit]:
     """The results a WebSearch call gave: in `structuredContent`, or as JSON in the first content block."""
     data = result.get("structuredContent")
@@ -72,13 +81,13 @@ def hits_of(result: dict[str, Any]) -> list[Hit]:
     for item in (data.get("results") if isinstance(data, dict) else None) or []:
         url = str(item.get("url", ""))
         if safe_url.problem(url) is None:
-            published = item.get("publishedDate")
+            published = _day(item.get("publishedDate"))
             found.append(
                 Hit(
                     str(item.get("title") or url)[:200],
                     url,
                     str(item.get("text", ""))[:SNIPPET_CHARS],
-                    str(published) if published else None,
+                    published,
                 )
             )
     return found[:MAX_RESULTS]

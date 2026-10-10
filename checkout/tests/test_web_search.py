@@ -23,7 +23,13 @@ RESULTS = {
             "title": "Renewing",
             "publishedDate": "2026-09-01T00:00:00Z",
         },
-        {"text": "x" * 900, "url": "https://news.example.com/a", "title": "News"},
+        {"text": "x" * 900, "url": "https://news.example.com/a", "title": "News", "publishedDate": "unknown"},
+        {
+            "text": "x",
+            "url": "https://dated.example.com/",
+            "title": "Odd",
+            "publishedDate": "01:14PM, Friday, August 14 2026, PDT",
+        },
         {"text": "no", "url": "http://insecure.example.com/", "title": "Plain http"},
         {"text": "no", "url": "https://169.254.169.254/latest", "title": "Metadata"},
     ]
@@ -40,7 +46,7 @@ def gateway(results=RESULTS, as_text=False, event_stream=False, status=200, fail
         if status != 200:
             return Reply(status, "denied", "text/plain")
         if method == "initialize":
-            message = {"jsonrpc": "2.0", "id": sent.body["id"], "result": {"protocolVersion": "2025-06-18"}}
+            message = {"jsonrpc": "2.0", "id": sent.body["id"], "result": {"protocolVersion": "2025-03-26"}}
         else:
             result = (
                 {"content": [{"type": "text", "text": json.dumps(results)}]}
@@ -93,7 +99,7 @@ async def test_a_search_makes_signed_mcp_calls_to_the_gateway_and_leaks_no_secre
     assert call.url == GATEWAY and "host" not in call.headers
     assert call.headers["authorization"].startswith(f"AWS4-HMAC-SHA256 Credential={KEY}/")
     assert "/us-east-1/bedrock-agentcore/aws4_request" in call.headers["authorization"]
-    assert call.headers["mcp-protocol-version"] == "2025-06-18" and "x-amz-date" in call.headers
+    assert call.headers["mcp-protocol-version"] == "2025-03-26" and "x-amz-date" in call.headers
     everything = json.dumps([[c.url, c.headers, c.body] for c in transport.calls])
     assert SECRET not in everything
 
@@ -105,7 +111,9 @@ async def test_results_are_quoted_data_with_their_address_and_day_and_unsafe_add
     assert [r["url"] for r in data["results"]] == [
         "https://fixture-roads.gov.ng/renew",
         "https://news.example.com/a",
+        "https://dated.example.com/",
     ]
+    assert [r["published"] for r in data["results"]] == ["2026-09-01", None, None]
     assert len(data["results"][1]["text"]) == 500
     text = result["content"][0]["text"]
     assert (
@@ -119,7 +127,7 @@ async def test_results_are_quoted_data_with_their_address_and_day_and_unsafe_add
 )
 async def test_the_result_may_come_as_json_text_or_as_a_server_sent_event(kind):
     result = await search(stack_with(gateway(**kind)))
-    assert len(result["structuredContent"]["results"]) == 2
+    assert len(result["structuredContent"]["results"]) == 3
 
 
 async def test_no_results_say_so():
@@ -134,7 +142,7 @@ async def test_the_same_question_within_the_hour_is_not_asked_again_and_costs_no
     )
     await search(stack)
     again = await search(stack, query="  Licence  RENEWAL fee ")
-    assert len(again["structuredContent"]["results"]) == 2
+    assert len(again["structuredContent"]["results"]) == 3
     assert [c.body.get("method") for c in transport.calls].count("tools/call") == 1
     assert await stack.db.row("SELECT used FROM web_search_use") == {"used": 1}
 
@@ -205,7 +213,7 @@ async def test_a_gateway_that_answers_with_an_error_result_gives_a_refusal():
         if sent.body.get("method") == "notifications/initialized":
             return Reply(202, "", None)
         result = (
-            {"protocolVersion": "2025-06-18"}
+            {"protocolVersion": "2025-03-26"}
             if sent.body["method"] == "initialize"
             else {"isError": True, "content": []}
         )

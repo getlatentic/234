@@ -40,13 +40,14 @@ cmd_up() {
 
 cmd_key() {
   local user url count id secret
-  user=$(output caller_name); url=$(output gateway_url)
+  user=$(output caller_name); url=$(output gateway_url); url=${url%/}
   [ -n "$user" ] || die "nothing made yet: run up first"
   [ ! -e "$file" ] || die "$file exists; delete the key it holds (see down) and the file before making another"
   count=$(aws_ iam list-access-keys --user-name "$user" --query 'length(AccessKeyMetadata)' --output text)
   [ "$count" -lt 2 ] || die "$user already has two access keys"
   umask 077
   read -r id secret < <(aws_ iam create-access-key --user-name "$user" --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text)
+  [[ $url == */mcp ]] || url=$url/mcp  # the provider's output is the gateway's address; MCP is served at /mcp
   printf 'SEARCH_GATEWAY_URL=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' "$url" "$id" "$secret" > "$file"
   say "key ${id:0:4}... kept in $file (mode 600)"
 }

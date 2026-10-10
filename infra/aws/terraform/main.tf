@@ -96,7 +96,8 @@ resource "aws_bedrockagentcore_gateway_target" "web_search" {
           connector_id = "web-search"
         }
         configuration {
-          name = "WebSearch"
+          name             = "WebSearch"
+          parameter_values = jsonencode({})
         }
       }
     }
