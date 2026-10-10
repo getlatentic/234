@@ -8,7 +8,7 @@ statement that only applies while the quote is still approved. A caller that fin
 reports the quote as it stands; the card's next poll picks up the result.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from ..amount_floor import assert_above_floor
 from ..errors import DomainError
@@ -25,8 +25,11 @@ from .checkout_leg import STEP_STALE_MS, begin_checkout, check_payment
 from .context import Context, QuoteIssued
 from .inputs import assert_idempotency_key, confirm_stated_amount
 from .provider_error import as_domain_error
+from .wallet_leg import refund_to_wallet, wallet_of
 
 KOBO_PER_NAIRA = 100
+
+Funding = Literal["checkout", "wallet"]
 
 
 def _assert_airtime_amount(amount_kobo: Kobo) -> None:
@@ -164,7 +167,12 @@ class AirtimeFlow(CardFlow):
         return await self.make_quote(work)
 
     async def approve(
-        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
+        self,
+        quote_id: str,
+        token: str,
+        displayed_amount_kobo: Kobo,
+        readback_confirmed: bool | None = None,
+        funding: Funding = "checkout",
     ) -> dict[str, Any]:
         if readback_confirmed is not True:
             self.ctx.audit.log("approval.denied", quote=quote_id, why="read-back")
@@ -173,15 +181,19 @@ class AirtimeFlow(CardFlow):
                 "The person must confirm the number and amount they were read back before this can be "
                 "approved.",
             )
+        if funding == "wallet":
+            await self.authorise_approval(quote_id, token, displayed_amount_kobo, wallet_of(self.ctx))
+            return await self.verify(quote_id)
         quote, _ = await self.authorise_approval(quote_id, token, displayed_amount_kobo)
         return await self.present(await begin_checkout(self.ctx, quote))
 
     async def verify(self, quote_id: str, checkout_closed: bool = False) -> dict[str, Any]:
         quote = await self.ctx.ledger.require(quote_id, self.connector)
         checked = await check_payment(self.ctx, quote, checkout_closed)
-        if not checked.paid or checked.quote.state != "approved":
-            return await self.present(checked.quote)
-        return await self.present(await self._deliver(checked.quote))
+        quote = checked.quote
+        if checked.paid and quote.state == "approved":
+            quote = await self._deliver(quote)
+        return await self.present(await refund_to_wallet(self.ctx, quote))
 
     async def _fulfilment(self, quote: Quote) -> dict[str, Any]:
         """The order's request id and how many times VTpass has been asked, fixed once per quote."""

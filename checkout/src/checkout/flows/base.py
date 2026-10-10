@@ -11,6 +11,7 @@ from ..ledger import Quote
 from ..mask import mask_account, mask_phone
 from ..money import Kobo, format_naira
 from ..present import present_quote
+from ..wallet.spending import WalletSpending
 from .context import Context, QuoteIssued
 
 
@@ -57,10 +58,10 @@ class CardFlow(ABC):
         return QuoteIssued(await self.present(quote), self.ctx.ledger.approval_token(quote.id), replayed)
 
     async def authorise_approval(
-        self, quote_id: str, token: str, displayed_amount_kobo: Kobo
+        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, wallet: WalletSpending | None = None
     ) -> tuple[Quote, bool]:
         """The token proves the call came from the card the person was looking at, and the displayed
-        amount proves the card and the server agree on it."""
+        amount proves the card and the server agree on it. With `wallet`, the wallet pays for the approval."""
         ledger, audit = self.ctx.ledger, self.ctx.audit
         if not ledger.check_approval_token(quote_id, token):
             audit.log("approval.denied", quote=quote_id, why="token")
@@ -77,9 +78,15 @@ class CardFlow(ABC):
                 f"The card showed {format_naira(displayed_amount_kobo)} but this quote is for "
                 f"{format_naira(quote.amount_kobo)}. Nothing was approved.",
             )
-        quote, claimed = await ledger.claim_approval(quote.id, self.connector)
+        if wallet is None:
+            quote, claimed = await ledger.claim_approval(quote.id, self.connector)
+        else:
+            quote, claimed = await wallet.pay(ledger, quote)
         if claimed:
-            audit.log("approval.claimed", quote=quote.id, kind=quote.kind, amount_kobo=quote.amount_kobo)
+            paid_by = {"funding": "wallet"} if wallet else {}
+            audit.log(
+                "approval.claimed", quote=quote.id, kind=quote.kind, amount_kobo=quote.amount_kobo, **paid_by
+            )
         return quote, claimed
 
     @abstractmethod

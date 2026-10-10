@@ -15,6 +15,7 @@ from .errors import ConfigError
 from .memory.settings import MemorySettings
 from .paystack.api import PAYSTACK_API_URL
 from .vtpass.client import VtpassCredentials
+from .wallet.settings import WalletSettings
 from .web.reader import DEFAULT_DENY
 from .web.settings import SearchSettings
 
@@ -99,6 +100,7 @@ class Settings:
     host_public_url: str | None = None
     """The chat host's public origin, so the simulated checkout page can link back to the chat."""
     memory: MemorySettings = field(default_factory=MemorySettings)
+    wallet: WalletSettings = field(default_factory=WalletSettings)
     web_enabled: bool = True
     """The web tool reads pages (`WEB_ENABLED=0` is the kill switch)."""
     web_search: SearchSettings | None = None
@@ -147,6 +149,7 @@ class Settings:
             host_binding=env.text("HOST_BINDING"),
             host_public_url=_origin_from(env, "HOST_PUBLIC_URL"),
             memory=MemorySettings.from_env(read),
+            wallet=WalletSettings.from_env(read),
             web_enabled=env.text("WEB_ENABLED") != "0",
             web_search=SearchSettings.from_env(read),
             web_deny=(*DEFAULT_DENY, *_domains(env.text("WEB_DENY"))),

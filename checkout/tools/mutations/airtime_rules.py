@@ -11,8 +11,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         "airtime is delivered only after the payment is confirmed",
         f"{SRC}/flows/airtime.py",
-        'if not checked.paid or checked.quote.state != "approved":',
-        'if checked.quote.state != "approved":',
+        'if checked.paid and quote.state == "approved":',
+        'if quote.state == "approved":',
         AIRTIME,
     ),
     Mutation(

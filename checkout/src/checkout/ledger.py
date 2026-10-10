@@ -46,6 +46,15 @@ class Limits:
 
 
 @dataclass(frozen=True)
+class ClaimTerms:
+    """What a funding source adds to the one approval of a quote: progress written by the same UPDATE, and
+    a condition on the quote row (`quotes`) that must hold in its WHERE."""
+
+    progress: dict[str, Any]
+    condition: str
+
+
+@dataclass(frozen=True)
 class Budget:
     per_payment_kobo: Kobo
     daily_kobo: Kobo
@@ -297,28 +306,33 @@ class Ledger:
             raise RuntimeError(f"quote {quote_id} vanished")
         return quote
 
-    async def claim_approval(self, quote_id: str, connector: str) -> tuple[Quote, bool]:
+    async def claim_approval(
+        self, quote_id: str, connector: str, terms: ClaimTerms | None = None
+    ) -> tuple[Quote, bool]:
         """The one approval a quote can have. A later claim finds the first and changes nothing.
 
         The UPDATE holds every rule: the caller's own quote, still open, not expired, within the
         per-payment limit, the caller's approved spend today plus this quote within the daily limit,
         and, for a quote made in a payer group, the group's approved spend today plus this quote within
-        the group's limit. The event row rides in the same batch, inserted only when the UPDATE changed a
-        row.
+        the group's limit, and the funding source's `terms`. The event row rides in the same batch,
+        inserted only when the UPDATE changed a row.
         """
         now, owner = self._clock.now(), self.owner()
+        funded = terms or ClaimTerms({}, "1")
         results = await self._db.batch(
             [
                 (
-                    "UPDATE quotes SET state = 'approved', approved_at = ? "
+                    "UPDATE quotes SET state = 'approved', approved_at = ?, "
+                    "progress = json_patch(progress, ?) "
                     "WHERE id = ? AND owner = ? AND connector = ? AND state = 'open' AND expires_at > ? "
                     "AND amount_kobo <= ? AND amount_kobo + (SELECT COALESCE(SUM(amount_kobo), 0) "
                     f"FROM quotes WHERE owner = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ? "
                     "AND (payer_group = '' OR amount_kobo + (SELECT COALESCE(SUM(g.amount_kobo), 0) "
                     "FROM quotes AS g WHERE g.payer_group = quotes.payer_group AND g.approved_at >= ? "
-                    f"AND g.state IN ({_SPENDING_SQL})) <= ?)",
+                    f"AND g.state IN ({_SPENDING_SQL})) <= ?) AND ({funded.condition})",
                     (
                         now,
+                        json.dumps(funded.progress),
                         quote_id,
                         owner,
                         connector,

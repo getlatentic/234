@@ -10,6 +10,7 @@ from ..ids import transaction_reference
 from ..ledger import Quote
 from ..money import format_naira
 from ..paystack.api import CheckoutRequest, PaystackError, TransactionCheck
+from ..wallet.spending import paid_from_wallet
 from .context import Context
 from .provider_error import as_domain_error
 
@@ -26,7 +27,7 @@ async def begin_checkout(ctx: Context, quote: Quote) -> Quote:
     """Starts the checkout for an approved quote. If Paystack never took the request, the approval is
     put back so the person can approve again and nothing stays reserved."""
     ledger = ctx.ledger
-    if quote.state != "approved" or "checkoutUrl" in quote.progress:
+    if quote.state != "approved" or "checkoutUrl" in quote.progress or paid_from_wallet(quote):
         return quote
     if not await ledger.acquire_step(quote.id, STEP_STALE_MS):
         raise DomainError(

@@ -12,6 +12,7 @@ from ..memory.store import MemoryStore
 from ..modes import Modes
 from ..paystack.api import PaystackApi
 from ..vtpass.api import VtpassApi
+from ..wallet.spending import WalletSpending
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,8 @@ class Context:
     """The card may pay in Paystack's popup: real Paystack test mode, and the switch is on."""
     memory: MemoryStore | None = None
     """Where a saved recipient is read from, when a transfer names one."""
+    wallet: WalletSpending | None = None
+    """Pays an approved quote from the owner's wallet instead of a checkout (docs/wallet.md)."""
 
 
 @dataclass(frozen=True)
