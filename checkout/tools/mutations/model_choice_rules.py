@@ -2,7 +2,7 @@
 """What the model cannot choose: the bank a transfer goes to (named by the person, resolved by the connector's
 table), the smallest amount of any quote, and, in the host, the bank code it is not shown."""
 
-from tools.mutations.model import AIRTIME, SRC, TRANSFER, Mutation
+from tools.mutations.model import AIRTIME, LEDGER_SRC, SRC, TRANSFER, Mutation
 from tools.mutations.model import host_mutation as host
 
 NAMES = ["tests/test_bank_names.py"]
@@ -76,7 +76,7 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         "every quote of every connector passes the floor where it is made",
-        f"{SRC}/ledger.py",
+        f"{LEDGER_SRC}/spend.py",
         "        assert_above_floor(amount)\n",
         "",
         FLOOR,

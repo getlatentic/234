@@ -1,66 +1,65 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Each visitor's own daily limit: what scopes the ledger by owner, and that only the host names the owner."""
 
-from tools.mutations.model import SRC, Mutation
+from tools.mutations.model import LEDGER_SRC, SRC, Mutation
 
 BOOKS = ["tests/test_ledger_owners.py", "tests/test_ledger_races.py"]
 CALLS = ["tests/test_owner_tools.py"]
 CHECKOUT = ["tests/test_owner_checkout.py"]
-LEDGER_FILE = f"{SRC}/ledger.py"
 
 MUTATIONS: list[Mutation] = [
     Mutation(
         "the daily sum counts only the owner's approved spend (quote time and cards)",
-        LEDGER_FILE,
-        'f"WHERE owner = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})",',
-        'f"WHERE ? IS NOT NULL AND approved_at >= ? AND state IN ({_SPENDING_SQL})",',
+        f"{LEDGER_SRC}/spend.py",
+        'f"WHERE owner = ? AND approved_at >= ? AND state IN ({SPENDING_SQL})",',
+        'f"WHERE ? IS NOT NULL AND approved_at >= ? AND state IN ({SPENDING_SQL})",',
         BOOKS + CALLS,
     ),
     Mutation(
         "the daily sum inside the approval statement counts only the owner's approved spend",
-        LEDGER_FILE,
-        'f"FROM quotes WHERE owner = ? AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ? "',
-        'f"FROM quotes WHERE ? IS NOT NULL AND approved_at >= ? AND state IN ({_SPENDING_SQL})) <= ? "',
+        f"{LEDGER_SRC}/approval.py",
+        'f"FROM quotes WHERE owner = ? AND approved_at >= ? AND state IN ({SPENDING_SQL})) <= ? "',
+        'f"FROM quotes WHERE ? IS NOT NULL AND approved_at >= ? AND state IN ({SPENDING_SQL})) <= ? "',
         BOOKS + CALLS,
     ),
     Mutation(
         "a quote is looked up only for its owner",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/store.py",
         '"SELECT * FROM quotes WHERE id = ? AND owner = ?", quote_id, owner',
         '"SELECT * FROM quotes WHERE id = ? AND ? IS NOT NULL", quote_id, owner',
         BOOKS + CALLS,
     ),
     Mutation(
         "an approval takes only the owner's own quote (inside the approval statement)",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/approval.py",
         '"WHERE id = ? AND owner = ? AND connector = ?',
         '"WHERE id = ? AND ? IS NOT NULL AND connector = ?',
         BOOKS,
     ),
     Mutation(
         "a state change takes only the owner's own quote",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/progress.py",
         'f"progress = json_patch(progress, ?) WHERE id = ? AND owner = ? AND state IN ({marks})",',
         'f"progress = json_patch(progress, ?) WHERE id = ? AND ? IS NOT NULL AND state IN ({marks})",',
         BOOKS,
     ),
     Mutation(
         "an idempotency key is stored with its owner (creating a quote)",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/making.py",
         "self._scoped_key(new.idempotency_key),",
         "new.idempotency_key,",
         BOOKS + CALLS,
     ),
     Mutation(
         "an idempotency key is looked up with its owner (replaying a quote)",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/making.py",
         "self._scoped_key(key),",
         "key,",
         BOOKS + CALLS,
     ),
     Mutation(
         "a call that names no owner is refused when no default owner is set",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/store.py",
         'if owner is None:\n            raise DomainError("OWNER_REQUIRED"',
         'if False:\n            raise DomainError("OWNER_REQUIRED"',
         BOOKS,

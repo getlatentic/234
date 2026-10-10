@@ -3,30 +3,29 @@
 it holds as itself, the connectors read it from its header and nowhere else, a quote keeps it, and the
 ledger caps the group's approved spend each day at quote time and in the approval statement."""
 
-from tools.mutations.model import SRC, Mutation
+from tools.mutations.model import LEDGER_SRC, SRC, Mutation
 from tools.mutations.model import host_mutation as host
 
 GROUPS = ["tests/test_ledger_groups.py"]
-LEDGER_FILE = f"{SRC}/ledger.py"
 
 MUTATIONS: list[Mutation] = [
     Mutation(
         "a group's approved spend is capped at quote time",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/spend.py",
         "        if group and await self._group_spent(group) + amount > self.limits.group_daily_kobo:",
         "        if False:",
         GROUPS,
     ),
     Mutation(
         "the approval statement caps the group the quote was made in",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/approval.py",
         '"FROM quotes AS g WHERE g.payer_group = quotes.payer_group AND g.approved_at >= ? "',
         "\"FROM quotes AS g WHERE g.payer_group = 'none' AND g.approved_at >= ? \"",
         GROUPS,
     ),
     Mutation(
         "a quote keeps the group it was made in",
-        LEDGER_FILE,
+        f"{LEDGER_SRC}/making.py",
         "                self.owner(),\n                current_group(),",
         '                self.owner(),\n                "",',
         GROUPS,
