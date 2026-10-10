@@ -37,10 +37,12 @@ offered only where a search gateway is set up. The index is Amazon Bedrock Agent
 runs outside AWS and calls the gateway with IAM (SigV4, `web/sigv4.py`, checked against AWS's published test
 vector). The Web Search tool is offered in **us-east-1** only.
 
-- **Set up** (`tools/aws-search.sh`, `infra/aws/web-search.yaml`): `up` makes the gateway, its web-search target
+- **Set up** (`tools/aws-search.sh`, `infra/aws/terraform`, Terraform with local state): `up` makes the gateway, its web-search target
   and one IAM user that may invoke that gateway and nothing else; `key` makes that user's access key and keeps it in
   `.env.search.local` (mode 600, git-ignored; nothing is printed); `secrets` puts `SEARCH_GATEWAY_URL`,
-  `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` into the connectors Worker's secrets; `down` removes it all.
+  `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` into the connectors Worker's secrets; `plan` shows what `up` would do and changes nothing; `down` removes it all.
+  The principal that runs `up` needs IAM write (roles, users, policies), AgentCore Gateway and its own Terraform state;
+  234's own key (the caller) can do none of that.
 - **Off until set:** with any of the three missing or malformed the connector offers `web_fetch` alone, and the
   Worker's log says why (`web.search.off`). Setting the secrets one at a time never stops the payment connectors.
 - **Cost control:** a person has `SEARCHES_PER_DAY` (30) searches, counted in one statement before the search is
