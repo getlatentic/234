@@ -5,9 +5,14 @@ from turns.settings import Settings
 
 def test_every_connector_the_host_offers_is_described_in_the_prompt():
     prompt = system_prompt(Settings.connectors)
-    for name in set(Settings.connectors) - {"memory", "knowledge", "web"}:
+    for name in set(Settings.connectors) - {"memory", "knowledge", "web", "wallet"}:
         assert name in CAPABILITIES, f"{name} has no entry in turns/prompt.py"
         assert CAPABILITIES[name].does in prompt and CAPABILITIES[name].needs in prompt
+
+
+def test_the_wallet_is_its_tools_own_and_the_prompt_promises_it_to_nobody():
+    """Only an account is shown the wallet tool, so the prompt every chat shares says nothing of it."""
+    assert "wallet" not in system_prompt(Settings.connectors).lower()
 
 
 def test_a_connector_that_is_off_is_not_promised():

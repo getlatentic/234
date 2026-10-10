@@ -2,7 +2,7 @@
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
-from turns.hub import MEMORY_SERVER, HubError
+from turns.hub import MEMORY_SERVER, WALLET_SERVER, HubError
 
 from .. import card_csp, sandbox
 from ..access import chat_for
@@ -10,6 +10,18 @@ from ..backend import get_backend
 from .send import json_body
 
 SCHEME_META = '<meta name="color-scheme" content="light dark">'
+OWNER_ONLY = "Only the owner of this chat can change what 234 remembers."
+WALLET_OWNER_ONLY = "Only the owner of this chat can use their wallet."
+
+
+def owners_alone(body: dict) -> str | None:
+    """Why a guest of a shared chat may not make this card call: it changes the owner's notes or spends,
+    sees or adds to the owner's wallet. None for any other call, which a guest makes as the owner."""
+    server, arguments = body.get("server"), body.get("arguments")
+    if server == MEMORY_SERVER:
+        return OWNER_ONLY
+    paid_from_wallet = isinstance(arguments, dict) and arguments.get("funding") == "wallet"
+    return WALLET_OWNER_ONLY if server == WALLET_SERVER or paid_from_wallet else None
 
 
 def with_color_scheme(markup: str) -> str:
@@ -57,10 +69,8 @@ def call(request: HttpRequest, chat_id: str) -> JsonResponse:
     """A card's tools/call, relayed to the connector that served it by the chat's Durable Object."""
     chat = chat_for(request, chat_id)
     body = json_body(request)
-    if body.get("server") == MEMORY_SERVER and chat.owner != request.owner:
-        return JsonResponse(
-            {"error": "Only the owner of this chat can change what 234 remembers."}, status=403
-        )
+    if chat.owner != request.owner and (why := owners_alone(body)):
+        return JsonResponse({"error": why}, status=403)
     arguments = body.get("arguments") if isinstance(body.get("arguments"), dict) else {}
     answer = get_backend().card_call(
         chat.id, str(body.get("server", "")), str(body.get("name", "")), arguments

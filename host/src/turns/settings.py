@@ -9,7 +9,7 @@ class Settings:
     mcp_token: str = ""
     mcp_binding: str = ""
     connectors: tuple[str, ...] = (
-        *("paystack-pay", "send-money", "airtime", "food-order", "memory", "knowledge", "web"),
+        *("paystack-pay", "send-money", "airtime", "food-order", "memory", "knowledge", "web", "wallet"),
     )
     llm_base_url: str = ""
     llm_api_key: str = ""

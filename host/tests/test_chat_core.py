@@ -145,7 +145,7 @@ async def test_a_cards_call_reaches_the_connector_and_a_changed_quote_is_pushed_
     hub = FakeHub({MAKE: quote_result(), "s__approve": quote_result("awaiting_checkout", token=None)})
     hub.app = {"approve_quote": quote_result("awaiting_checkout", token=None)}
 
-    async def call_app_tool(server, name, arguments, owner):
+    async def call_app_tool(server, name, arguments, owner, account=False):
         return hub.app[name]
 
     async def tools(server):
@@ -168,7 +168,7 @@ async def test_a_cards_call_reaches_the_connector_and_a_changed_quote_is_pushed_
 async def test_a_card_call_the_person_makes_has_no_tool_deadline(core):
     hub = FakeHub({MAKE: quote_result()})
 
-    async def call_app_tool(server, name, arguments, owner):
+    async def call_app_tool(server, name, arguments, owner, account=False):
         await asyncio.sleep(0.05)
         return quote_result("awaiting_checkout", token=None)
 
@@ -192,7 +192,7 @@ async def test_a_card_can_only_act_on_a_quote_of_this_chat_and_the_server_that_m
 async def test_a_webhook_refreshes_the_card_with_the_connectors_own_answer(core):
     c = await card_chat(core)
 
-    async def call_app_tool(server, name, arguments, owner):
+    async def call_app_tool(server, name, arguments, owner, account=False):
         assert (name, arguments) == ("verify_quote", {"quote_id": "qt-1"})
         return quote_result("succeeded", token=None)
 

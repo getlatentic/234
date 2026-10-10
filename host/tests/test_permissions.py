@@ -33,7 +33,7 @@ class NotesHub(FakeHub):
 
     reads = 0
 
-    async def call_app_tool(self, server, name, arguments, owner):
+    async def call_app_tool(self, server, name, arguments, owner, account=False):
         self.reads += 1
         return {"structuredContent": {"index": ""}}
 

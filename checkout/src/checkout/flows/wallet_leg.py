@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The payment leg of a quote paid from the wallet: who may pay that way, and the refund when the provider
-fails after approval. The approval itself is the wallet's hold, claim and release (wallet/spending.py)."""
+"""The payment leg of a quote paid from the wallet: who may pay that way, the offer on the approval card, and
+the refund when the provider fails after approval. The approval itself is the wallet's hold, claim and release
+(wallet/spending.py)."""
+
+from typing import Any
 
 from ..errors import DomainError
 from ..ledger import Quote
 from ..money import format_naira
+from ..wallet.access import account_of_call
 from ..wallet.spending import WalletSpending, paid_from_wallet
 from .context import Context
 
@@ -15,6 +19,21 @@ def wallet_of(ctx: Context) -> WalletSpending:
             "WALLET_UNAVAILABLE", "Paying from the wallet is not offered here. Nothing was taken."
         )
     return ctx.wallet
+
+
+async def wallet_offer(ctx: Context, quote: Quote) -> dict[str, Any] | None:
+    """What the approval card offers besides the checkout: paying from the wallet, for an account whose
+    balance covers an open quote. None otherwise, and the card is as it was. The balance itself is not on the
+    card: a card result stays in the chat, and a shared chat's guest would read it."""
+    if ctx.wallet is None or quote.state != "open":
+        return None
+    owner = account_of_call()
+    if owner is None:
+        return None
+    balance = await ctx.wallet.journal.balance(owner)
+    if balance < quote.amount_kobo:
+        return None
+    return {"covers": True}
 
 
 async def refund_to_wallet(ctx: Context, quote: Quote) -> Quote:

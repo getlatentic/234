@@ -73,7 +73,7 @@ class TestWhatAHostSees:
         )
         approve = tools["approve_quote"]["inputSchema"]["properties"]
         assert sorted(approve) == sorted(
-            ["approval_token", "displayed_amount_kobo", "quote_id", "readback_confirmed"]
+            ["approval_token", "displayed_amount_kobo", "funding", "quote_id", "readback_confirmed"]
         )
 
     async def test_the_food_tool_takes_items_and_quantities_only(self, stack):

@@ -70,6 +70,9 @@ fixtures["transfer/expired"] = derive("transfer/approve", (q) => {
 fixtures["transfer/gone"] = derive("transfer/approve", (q) => {
   Object.assign(q, { phase: "gone", poll: false });
 });
+fixtures["airtime/approve-wallet"] = derive("airtime/approve", (q) => {
+  q.wallet = { covers: true };
+});
 fixtures["airtime/failed"] = derive("airtime/checkout", (q) => {
   Object.assign(q, { phase: "failed", checkoutUrl: null, message: "Payment failed. Nothing was charged." });
 });
@@ -186,6 +189,45 @@ async function checks() {
     await context.close();
   }
 
+  console.log("\npaying from the wallet");
+  for (const key of ["airtime/approve", "transfer/approve", "food/approve"]) {
+    const { context, frame } = await open("python", key, "light");
+    check((await frame.getByRole("button", { name: /Pay from wallet/ }).count()) === 0, `${key}: no wallet offered when the quote carries none`);
+    await context.close();
+  }
+  {
+    const { page, context, frame } = await open("python", "airtime/approve-wallet", "light", { answer: copy("airtime/succeeded") });
+    const pay = frame.getByRole("button", { name: "Pay from wallet" });
+    check((await pay.count()) === 1 && (await pay.isEnabled()), "the wallet is offered with its balance");
+    await pay.click();
+    await frame.getByText("Airtime delivered").first().waitFor({ timeout: 5000 });
+    const sent = (await calls(page)).find((c) => c.name === "approve_quote");
+    check(sent?.args.funding === "wallet" && sent.args.readback_confirmed === true, "approve_quote carried funding: wallet");
+    check(!(await page.evaluate(() => window.__log.some((e) => e.kind === "openlink"))), "and no checkout was opened");
+    await context.close();
+  }
+  {
+    const { page, context, frame } = await open("python", "airtime/approve-wallet", "light", { answer: copy("airtime/checkout") });
+    await frame.getByRole("button", { name: "Approve" }).click();
+    await page.waitForTimeout(300);
+    const sent = (await calls(page)).find((c) => c.name === "approve_quote");
+    check(sent && !("funding" in sent.args), "Approve beside it sends no funding: the checkout as before");
+    await context.close();
+  }
+  for (const [code, text] of [
+    ["WALLET_SHORT", "The wallet holds ₦200, less than this quote's ₦500. Nothing was taken."],
+    ["WALLET_FROZEN", "This wallet is frozen, so it cannot pay. Nothing was taken."],
+  ]) {
+    const refused = { isError: true, content: [{ type: "text", text: `${code}: ${text}` }] };
+    const { context, frame } = await open("python", "airtime/approve-wallet", "light", { answer: refused });
+    await frame.getByRole("button", { name: /Pay from wallet/ }).click();
+    const notice = frame.getByRole("alert");
+    await notice.getByText(text).waitFor({ timeout: 5000 });
+    check((await notice.innerText()).trim() === text, `${code}: the reason alone on the card, without the code`);
+    check((await frame.getByRole("button", { name: /Pay from wallet/ }).count()) === 1, `${code}: and the card still offers its choices`);
+    await context.close();
+  }
+
   console.log("\ncorrection: declines the card and tells the chat");
   for (const key of ["airtime/approve", "transfer/approve"]) {
     const { page, context, frame } = await open("python", key, "light", { answer: copy("airtime/checkout") });
@@ -224,6 +266,7 @@ async function checks() {
   for (const [key, expected] of [
     ["transfer/approve", ["Approve", "Decline"]],
     ["airtime/approve", ["Approve", "Decline", "Correction"]],
+    ["airtime/approve-wallet", ["Approve", "Pay from wallet", "Decline", "Correction"]],
     ["airtime/checkout", ["Open checkout", "I closed it"]],
     ["transfer/otp", ["One-time code", "Confirm"]],
   ]) {

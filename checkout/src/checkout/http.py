@@ -9,7 +9,7 @@ from contextlib import ExitStack
 from typing import Any
 
 from .app import App
-from .config import MEMORY_CONNECTOR
+from .config import ACCOUNT_CONNECTORS
 from .events import ConnectorEvents
 from .mcp import modern
 from .mcp.protocol import (
@@ -71,12 +71,12 @@ def _checked_key(given: str | None, name: str) -> str | None:
 
 
 def _memory_owner_of(headers: dict[str, str], message: Any, connector: str) -> str | None:
-    """The owner of the notes, from the memory header and from nowhere else. A malformed one is refused, and
-    so is a call to the memory connector that has none: memory is for signed-in accounts."""
+    """The signed-in account of the call, from the memory header and from nowhere else. A malformed one is
+    refused, and so is a call to the memory or the wallet connector that has none: both are for accounts."""
     given = _checked_key(headers.get(MEMORY_OWNER_HEADER), "memory owner")
     calls_a_tool = isinstance(message, Mapping) and message.get("method") == "tools/call"
-    if given is None and calls_a_tool and connector == MEMORY_CONNECTOR:
-        raise McpError(INVALID_REQUEST, "Memory is for signed-in accounts.")
+    if given is None and calls_a_tool and connector in ACCOUNT_CONNECTORS:
+        raise McpError(INVALID_REQUEST, f"{connector.capitalize()} is for signed-in accounts.")
     return given
 
 
@@ -103,8 +103,8 @@ def _screened(message: Any, headers: dict[str, str], stateless: bool) -> HttpRes
 
 
 def _events_of(app: App, connector: str) -> ConnectorEvents | None:
-    """Events are offered by the connectors that make quotes; memory has none."""
-    if connector == MEMORY_CONNECTOR:
+    """Events are offered by the connectors that make quotes; memory and the wallet have none."""
+    if connector in ACCOUNT_CONNECTORS:
         return None
     return ConnectorEvents(app.background.events, connector, app.ledger.owner)
 

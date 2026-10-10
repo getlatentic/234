@@ -22,6 +22,9 @@ from .web.settings import SearchSettings
 
 CONNECTORS = ("paystack-pay", "send-money", "airtime", "food-order")
 MEMORY_CONNECTOR = "memory"
+WALLET_CONNECTOR = "wallet"
+ACCOUNT_CONNECTORS = frozenset({MEMORY_CONNECTOR, WALLET_CONNECTOR})
+"""The connectors for signed-in accounts only: a call to one must name the account in the memory header."""
 CONNECTOR_MODE_VARIABLES = {
     "paystack-pay": "PAYSTACK_PAY_MODE",
     "send-money": "SEND_MONEY_MODE",
