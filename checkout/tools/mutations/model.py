@@ -32,6 +32,7 @@ HOST = "host"
 HOST_SRC = "src"
 
 SRC = "src/checkout"
+LEDGER_SRC = f"{SRC}/ledger"
 
 
 def host_mutation(guardrail: str, file: str, find: str, replace: str, tests: list[str]) -> Mutation:

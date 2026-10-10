@@ -17,7 +17,7 @@ journal: withdraw ──► Paystack transfer to the person's own account (name 
 an owner, an amount in kobo, a `ref`, and `UNIQUE (owner, kind, ref)` so a webhook delivered twice, a retry, or a
 resumed turn credits or debits once. **There is no balance column to drift:** the balance is the sum of the entries.
 
-D1 has no interactive transactions, so no rule reads then writes (checkout/ledger.py). A debit is one INSERT whose
+D1 has no interactive transactions, so no rule reads then writes (checkout/ledger/). A debit is one INSERT whose
 `WHERE` holds the rule: `(SELECT COALESCE(SUM(signed), 0) FROM wallet_entry WHERE owner = ?) >= amount AND the
 wallet is not frozen`. The rows it inserted say whether the caller won. Two spends that cannot both fit cannot both land.
 

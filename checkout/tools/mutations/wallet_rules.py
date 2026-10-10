@@ -4,7 +4,7 @@ no balance below zero, a frozen wallet pays nothing, the cap bounds funding, a r
 journal is append-only, and a quote is paid from the wallet only with a live hold that is then never given
 back."""
 
-from tools.mutations.model import AIRTIME, CONFIG, SRC, Mutation
+from tools.mutations.model import AIRTIME, CONFIG, LEDGER_SRC, SRC, Mutation
 
 WALLET = [
     "tests/test_wallet_journal.py",
@@ -114,9 +114,9 @@ MUTATIONS: list[Mutation] = [
     ),
     wallet(
         "the claim holds the funding source's condition",
-        f"{SRC}/ledger.py",
-        ' AND ({funded.condition})",',
-        '",',
+        f"{LEDGER_SRC}/approval.py",
+        ' AND ({funded.condition})"',
+        '"',
     ),
     wallet(
         "a wallet approval marks the quote as paid from the wallet in the same statement",
