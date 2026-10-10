@@ -309,3 +309,26 @@ def test_a_day_or_a_year_shared_with_a_page_does_not_make_it_a_source():
     }
     refs = sources.references({"structuredContent": {"results": [fee], "searched_on": "2026-10-10"}})
     assert [r["title"] for r in sources.drawn_on(refs, "It costs 12,500 naira.")] == ["Fees"]
+
+
+def test_a_page_on_the_same_subject_that_does_not_hold_the_answer_is_not_its_source():
+    boe = {
+        "title": "Bank of England",
+        "url": "https://boe.example.com/",
+        "published": None,
+        "text": "The Monetary Policy Committee voted to hold Bank Rate; inflation and global uncertainties.",
+    }
+    cbn = {
+        "title": "CBN retains MPR",
+        "url": "https://tv.example.com/",
+        "published": None,
+        "text": "The Monetary Policy Committee of the Central Bank of Nigeria retained the rate at 26.5 "
+        "percent "
+        "amid heightened global uncertainties, Governor Cardoso said; inflation moderated.",
+    }
+    refs = sources.references({"structuredContent": {"results": [boe, cbn], "searched_on": "2026-10-10"}})
+    answer = (
+        "The Central Bank of Nigeria's Monetary Policy Committee kept the rate at 26.5 %, Governor Cardoso "
+        "said, citing heightened global uncertainties and inflation."
+    )
+    assert [r["title"] for r in sources.drawn_on(refs, answer)] == ["CBN retains MPR"]

@@ -101,7 +101,8 @@ def _address(url: str) -> str:
     return url.rstrip(".,;:/").lower()
 
 
-_WORD = re.compile(r"[^\W\d_]{5,}|\d[\d,]*")
+_WORD = re.compile(r"[^\W\d_]{5,}|\d[\d,]*(?:\.\d+)?")
+FIGURE_WEIGHT = 3
 
 
 def terms_of(text: str) -> set[str]:
@@ -109,6 +110,10 @@ def terms_of(text: str) -> set[str]:
     a year is left out: every page has days and years, and naming one does not draw on a page."""
     terms = {t.replace(",", "").casefold() for t in _WORD.findall(text)}
     return {t for t in terms if not t.isdigit() or (int(t) >= 100 and not 1900 <= int(t) <= 2099)}
+
+
+def _figure(term: str) -> bool:
+    return term[0].isdigit()
 
 
 def references(result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -141,14 +146,18 @@ def references(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def drawn_on(references: list[dict[str, Any]], answer: str) -> list[dict[str, Any]]:
-    """The references an answer shares a number or three long words with, at most three."""
+    """The references an answer draws on, at most three: each shares a figure or three long words with it,
+    and at least half as much as the one it shares most with. A shared figure counts three words, so a page on
+    the same subject without the answer's figures (another central bank's report) is left out."""
     mine = terms_of(answer)
-    shown = []
+    scored = []
     for ref in references:
         shared = mine & set(ref["terms"])
-        if any(t[0].isdigit() for t in shared) or len(shared) >= 3:
-            shown.append(ref)
-    return shown[:MAX_SHOWN]
+        figures = sum(_figure(t) for t in shared)
+        if figures or len(shared) >= 3:
+            scored.append((figures * FIGURE_WEIGHT + len(shared) - figures, ref))
+    best = max((score for score, _ in scored), default=0)
+    return [ref for score, ref in scored if score * 2 >= best][:MAX_SHOWN]
 
 
 def source_line(ref: dict[str, Any]) -> str:

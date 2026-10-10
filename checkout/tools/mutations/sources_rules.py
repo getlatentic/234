@@ -121,4 +121,18 @@ MUTATIONS: list[Mutation] = [
         "return {str(a + b) for a in values for b in values} | {str(b - a) for a, b in",
         SOURCES,
     ),
+    host(
+        "sources: a page that shares much less than the best is not shown",
+        "turns/sources.py",
+        "if score * 2 >= best][:MAX_SHOWN]",
+        "if True][:MAX_SHOWN]",
+        SOURCES,
+    ),
+    host(
+        "sources: a shared figure weighs more than a word",
+        "turns/sources.py",
+        "FIGURE_WEIGHT = 3",
+        "FIGURE_WEIGHT = 1",
+        SOURCES,
+    ),
 ]
