@@ -57,4 +57,8 @@ function build() {
 
 const md = build();
 
-export const renderMarkdown = (text) => md.render(text);
+// A model that read search results may leave its own citation marks in the text (【2†L1-L4】); the person is
+// shown the sources on lines of their own, so the marks are taken out before the text is drawn.
+const CITATION_MARK = /\s?【[^】]{0,40}】/g;
+
+export const renderMarkdown = (text) => md.render(text.replace(CITATION_MARK, ""));

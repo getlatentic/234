@@ -111,3 +111,12 @@ def test_a_signed_in_person_is_told_how_to_use_and_add_notes():
 
 def test_memory_is_not_promised_when_the_memory_connector_is_off():
     assert system_prompt(("airtime",), memory=True) == system_prompt(("airtime",))
+
+
+def test_with_web_search_offered_live_facts_are_searched_not_declined():
+    prompt = system_prompt(Settings.connectors, searches_web=True)
+    assert (
+        "web_search for news and other live or recent facts" in prompt and "with its link and date" in prompt
+    )
+    assert "cannot check them" not in prompt and "never guess" in prompt
+    assert "cannot check them" in system_prompt(Settings.connectors)

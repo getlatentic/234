@@ -145,6 +145,8 @@ async def test_an_error_event_in_a_stream_that_began_with_200_is_an_error_not_an
         (502, True),
         (503, True),
         (504, True),
+        (520, True),
+        (530, True),
         (400, False),
         (401, False),
         (404, False),

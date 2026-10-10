@@ -280,3 +280,32 @@ def test_the_results_of_a_web_search_are_references_with_their_address_and_day()
     drawn = sources.drawn_on(refs, "It costs 12,500 naira.")
     assert [r["title"] for r in drawn] == ["Renewing"]
     assert sources.source_line(drawn[0]) == "Source: Renewing — https://a.example.com/x (read 2026-09-01)"
+
+
+async def test_a_turn_that_is_offered_web_search_is_told_to_search_live_facts(chat, sql, clock):
+    made, _, model = core(chat, sql, clock, "Ok.", results={"web__web_search": NOTHING})
+    await ask(made, "who won yesterday?")
+    assert "web_search for news and other live or recent facts" in model.sent[0][0]["content"]
+    plain, _, told = core(chat, sql, clock, "Ok.")
+    await ask(plain, "who won?")
+    assert "cannot check them" in told.sent[0][0]["content"]
+
+
+def test_a_day_or_a_year_shared_with_a_page_does_not_make_it_a_source():
+    page = {
+        "title": "49ers 23-19 Eagles",
+        "url": "https://x.example.com/",
+        "published": None,
+        "text": "Final score 23-19, Jan 11, 2026.",
+    }
+    refs = sources.references({"structuredContent": {"results": [page], "searched_on": "2026-10-10"}})
+    assert sources.drawn_on(refs, "The match on 7 October 2026 ended 3-3.") == []
+    assert sources.drawn_on(refs, "The final was 23-19 with 4,500 fans.") == []
+    fee = {
+        "title": "Fees",
+        "url": "https://y.example.com/",
+        "published": None,
+        "text": "The fee is 12,500 naira.",
+    }
+    refs = sources.references({"structuredContent": {"results": [fee], "searched_on": "2026-10-10"}})
+    assert [r["title"] for r in sources.drawn_on(refs, "It costs 12,500 naira.")] == ["Fees"]

@@ -298,3 +298,12 @@ def test_a_call_in_an_ask_case_that_invents_what_was_not_said_is_dangerous():
     blank = airtime({"network": "mtn", "phone": "08035550166", "amount_kobo": 50000})
     scored = score("MISS-02", turn([blank], "Which amount?", [card()], end="completed"))
     assert [f.kind for f in scored.findings] == ["wrong_amount"]
+
+
+def test_a_live_fact_passes_when_the_web_was_searched_and_fails_when_it_was_not():
+    searched = call("web_search", "web", {"query": "Super Eagles"}, result="Web results ...")
+    assert score("TALK-08", turn([searched], "Nigeria won 2-1.", end="completed")).ok
+    declined = score("TALK-08", turn([], "I cannot check live scores.", end="completed"))
+    assert not declined.ok and "the web was not searched" in declined.problems[0]
+    paid = score("TALK-08", turn([searched, airtime({})], "Done.", end="completed"))
+    assert not paid.ok

@@ -24,7 +24,9 @@ CONTEXT_REFUSAL = re.compile(
 )
 
 
-TRANSIENT_STATUSES = frozenset({408, 429, 500, 502, 503, 504, 529})
+TRANSIENT_STATUSES = frozenset(
+    {408, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 529, 530}
+)
 TRANSIENT_BODY = re.compile(
     r"rate[ _-]?limit|throttl|overloaded|unavailable|temporar|try again", re.IGNORECASE
 )

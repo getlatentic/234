@@ -25,7 +25,7 @@ from .hub import Hub, HubError
 from .memory import notes_message, read_index, with_notes
 from .metrics import Metrics
 from .model import ContextTooLong, Finished, Model, ModelError, TextDelta
-from .prompt import system_prompt
+from .prompt import WEB_SEARCH, system_prompt
 from .settings import Settings
 from .tokens import request_tokens
 from .tool_calls import UNREACHABLE, ToolCalls
@@ -190,10 +190,13 @@ class TurnRunner:
         streamed = _Streamed(message)
         try:
             permits = self._permits
-            system = self._system or system_prompt(
-                self._servers or self._settings.offered_connectors, permits.reads_notes, permits.memory_tools
-            )
             tools = permits.tools(await self._hub.model_tools())
+            system = self._system or system_prompt(
+                self._servers or self._settings.offered_connectors,
+                permits.reads_notes,
+                permits.memory_tools,
+                searches_web=any(t["function"]["name"] == WEB_SEARCH for t in tools),
+            )
             index = await read_index(self._hub, self._owner) if permits.reads_notes and self._notes else ""
             head = with_notes(system, index)
             notes = notes_message(index) if index else None

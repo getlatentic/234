@@ -9,6 +9,7 @@
 #   `probe` serves the probe card as the default card; CAP is the host's global daily model-call cap
 #   (0 is off); VISITOR_CAP is each visitor's; KEEP_STATE=1 keeps the previous run's database;
 #   ALT_RUNNERS=1 also starts a host on the queue runner and one on the waitUntil runner;
+#   SEARCH=1 gives the connectors web search through the real AWS gateway, with the key in .env.search.local;
 #   KNOWLEDGE_DIR is the folder of sources the connectors' database starts with (default knowledge/fixtures);
 #   PAYSTACK_RIG=fake|real puts the paystack-pay connector in Paystack test mode against a stand-in on base+6: `fake`
 #   answers itself, `real` forwards to Paystack's test mode with the key in the repository's .env.local,
@@ -45,6 +46,9 @@ if [ -n "${PAYSTACK_RIG:-}" ]; then
   rig=(--var PAYSTACK_PAY_MODE:test --var PAYSTACK_TEST_SECRET_KEY:sk_test_rigrigrig01 --var "PAYSTACK_API_URL:http://127.0.0.1:$rig_port"
     --var 'CARD_CSP_EXTRA:{"connectDomains":["https://api.evil.example.com","wss://live.evil.example.com"],"resourceDomains":["data:","*","https://*.evil.example.com"],"frameDomains":["https://checkout.paystack.com.evil.example.com"],"baseUriDomains":["https://evil.example.com"]}')
 fi
+search=()
+# SEARCH=1 gives the connectors web search through the real gateway, from .env.search.local (docs/web.md)
+[ "${SEARCH:-}" = "1" ] && [ -f "$root/.env.search.local" ] && search=(--env-file "$root/checkout/.dev.vars" --env-file "$root/.env.search.local")
 card=()
 [ "${1:-}" = "probe" ] && card=(--var CARD_FILE:probe-card.html)
 (cd "$root/checkout" && uv run pywrangler d1 migrations apply DB --local --persist-to "$state/checkout" > /dev/null 2>&1)
@@ -52,7 +56,7 @@ card=()
 start checkout "$root/checkout" "$checkout_port" "$state/checkout.log" \
   --var ENABLE_TEST_ROUTES:1 --var "PUBLIC_BASE_URL:http://localhost:$checkout_port" \
   --var "HOST_PUBLIC_URL:http://localhost:$host_port" \
-  --var ALT_CARDS:react=react-card.html,probe=probe-card.html,official=card-official.html "${card[@]}" "${rig[@]}"
+  --var ALT_CARDS:react=react-card.html,probe=probe-card.html,official=card-official.html "${card[@]}" "${rig[@]}" "${search[@]}"
 start_sandbox
 case "${AUTH:-}" in 1 | keys) start_auth ;; esac
 start_host do

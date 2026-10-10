@@ -22,6 +22,7 @@ OUTCOME_KINDS = {
     "not_saved": set(),
     "no_memory": set(),
     "talk": {"mention", "not_mention"},
+    "searched": set(),
     "cited": {"source", "answer", "link"},
     "abstain": set(),
     "ignored": {"source", "answer", "link", "forbidden"},

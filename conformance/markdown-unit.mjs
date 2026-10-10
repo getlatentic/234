@@ -21,6 +21,7 @@ check(/<th [^>]*text-right[^>]*>Qty<\/th>/.test(html) && !/style=/.test(html), "
 check(/<pre [^>]*><code>const total = 2 \* 3;\n<\/code><\/pre>/.test(html), "a fenced code block, its text untouched");
 check(/<a href="https:\/\/example.com\/docs" [^>]*target="_blank" rel="noopener noreferrer">the docs<\/a>/.test(html), "a link opens in a new tab with rel noopener noreferrer");
 check(/<br>/.test(renderMarkdown("one\ntwo")), "a single newline stays a line break, as it did in plain text");
+check(visible(renderMarkdown("It ended 3-3 【2†L1-L4】. Next week【3†L7】!")) === "It ended 3-3. Next week!\n", "a model's citation marks are taken out");
 check(!/<a /.test(renderMarkdown("run main.py and read notes.md")), "a file name is not turned into a link");
 check(/<a href="https:\/\/example.org"/.test(renderMarkdown("see https://example.org now")), "a full web address is linked");
 

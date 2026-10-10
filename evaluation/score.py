@@ -27,11 +27,13 @@ MODEL_TOOLS = {
     "open_source": "knowledge",
     "list_sources": "knowledge",
     "web_fetch": "web",
+    "web_search": "web",
     "recall": "memory",
     "remember": "memory",
     "update": "memory",
     "forget": "memory",
 }
+SEARCH_READS = frozenset({"web_search", "web_fetch", "search_knowledge", "open_source", "list_sources"})
 QUOTE_TOOLS = frozenset(
     {
         "create_airtime_quote",
@@ -181,6 +183,17 @@ def check_talk(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     return problems
 
 
+def check_searched(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:
+    """A live or recent fact, looked up: web_search answered, nothing that changes anything was called, and
+    the reply says something."""
+    problems = [f"{c['tool']} was called" for c in turn["calls"] if c["tool"] not in SEARCH_READS]
+    if not any(c["tool"] == "web_search" and not c["is_error"] for c in turn["calls"]):
+        problems.append("the web was not searched")
+    if not turn["reply"].strip():
+        problems.append("the reply says nothing")
+    return problems
+
+
 def check_menu(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     problems = [
         f"{c['tool']} was called" for c in turn["calls"] if c["tool"] in QUOTE_TOOLS | {"build_basket"}
@@ -207,6 +220,7 @@ CHECKS = {
     "menu": check_menu,
     "no_approve": check_no_approve,
     "talk": check_talk,
+    "searched": check_searched,
     **memory_score.CHECKS,
     **knowledge_score.CHECKS,
 }

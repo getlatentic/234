@@ -105,8 +105,10 @@ _WORD = re.compile(r"[^\W\d_]{5,}|\d[\d,]*")
 
 
 def terms_of(text: str) -> set[str]:
-    """The long words and the numbers of a text, to tell whether an answer drew on it."""
-    return {t.replace(",", "").casefold() for t in _WORD.findall(text)}
+    """The long words and the numbers of a text, to tell whether an answer drew on it. A number under 100 or
+    a year is left out: every page has days and years, and naming one does not draw on a page."""
+    terms = {t.replace(",", "").casefold() for t in _WORD.findall(text)}
+    return {t for t in terms if not t.isdigit() or (int(t) >= 100 and not 1900 <= int(t) <= 2099)}
 
 
 def references(result: dict[str, Any]) -> list[dict[str, Any]]:

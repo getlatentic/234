@@ -7,6 +7,8 @@ without an entry here fails tests/test_prompt.py."""
 
 from typing import NamedTuple
 
+WEB_SEARCH = "web__web_search"
+
 
 class Capability(NamedTuple):
     does: str
@@ -68,15 +70,19 @@ MEMORY_BY_PERMISSION = (
 
 
 def system_prompt(
-    connectors: tuple[str, ...], memory: bool = False, memory_by_permission: bool = False
+    connectors: tuple[str, ...],
+    memory: bool = False,
+    memory_by_permission: bool = False,
+    searches_web: bool = False,
 ) -> str:
     """`memory`: the person is signed in, so the prompt says how to use their notes. `memory_by_permission`:
     the memory tools are offered but the notes are not shown, because a personal agent has not been allowed
-    to read them (turns/permissions.py)."""
+    to read them (turns/permissions.py). `searches_web`: web_search is among the tools (offered only where a
+    search gateway is set up), so live and recent facts are searched, not declined."""
     offered = [CAPABILITIES[name] for name in connectors if name in CAPABILITIES]
     can = ", ".join(c.does for c in offered)
     needs = "; ".join(c.needs for c in offered)
-    base = _base(can, needs, "knowledge" in connectors)
+    base = _base(can, needs, _lookup("knowledge" in connectors, searches_web))
     if "memory" not in connectors:
         return base
     if memory:
@@ -84,18 +90,30 @@ def system_prompt(
     return f"{base} {MEMORY_BY_PERMISSION}" if memory_by_permission else base
 
 
-def _base(can: str, needs: str, sources: bool = False) -> str:
+def _lookup(sources: bool, web: bool) -> str:
+    """What the model may look up, and what it does with a live or recent fact."""
+    where = " and from search_knowledge (government services, fees and procedures)" if sources else ""
+    if web:
+        return (
+            f"You answer from what you already know{where}, and from web_search for news and other live or "
+            "recent facts: give what a search found with its link and date, and never guess. "
+        )
     knows = (
-        "You answer from what you already know and from search_knowledge (government services, fees and "
-        "procedures), and cannot look anything else up: "
+        f"You answer from what you already know{where}, and cannot look anything else up: "
         if sources
         else "You answer from what you already know and cannot look anything up: "
     )
     return (
+        f"{knows}for live or recent facts (today's news, scores, prices, exchange rates) say you cannot "
+        "check them and never guess. "
+    )
+
+
+def _base(can: str, needs: str, lookup: str) -> str:
+    return (
         "You are 234, an assistant for people in Nigeria. Talk about anything the person asks: answer, "
         "explain and chat, in the language they write in (English, Pidgin, Yoruba, Hausa, Igbo). "
-        f"{knows}for live or recent facts "
-        "(today's news, scores, prices, exchange rates) say you cannot check them and never guess. "
+        f"{lookup}"
         "Give no personal investment, medical or legal advice: explain the general idea and its risks, "
         "and suggest a qualified professional. "
         f"The things you can do for them: {can}. "
