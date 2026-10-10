@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design. Nothing here is built yet.** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 and 2 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -71,8 +71,18 @@ sandbox key. Live refuses to start without an explicit flag and the answers belo
 
 ## Build order
 
-1. The journal, the guarded debit and credit, the invariants, and tests that race spends (no Bachs).
-2. Spend from the wallet in the airtime flow (hold, claim, release, refund), simulated.
+1. **Built.** The journal, the guarded debit and credit, the invariants, and tests that race spends (no Bachs):
+   `checkout/migrations/0011_wallet.sql`, `checkout/src/checkout/wallet/journal.py` and `settings.py`
+   (`WALLET_MODE`, the caps; `live` refuses to start), tests `checkout/tests/test_wallet_{journal,races,settings}.py`.
+2. **Built.** Spend from the wallet in the airtime flow (hold, claim, release, refund), simulated:
+   `checkout/src/checkout/wallet/spending.py`, `flows/wallet_leg.py`, and `AirtimeFlow.approve(..., funding="wallet")`.
+   The wallet's claim is the quote's own `open → approved` UPDATE (`Ledger.claim_approval` with `ClaimTerms`),
+   which marks the quote `funding = wallet` and requires a hold of its amount with no release; a release is
+   written only while no quote of that id is marked as paid from the wallet, so the two exclude each other in
+   SQL. A wallet-paid quote starts no Paystack checkout. A refund ends the quote as `failed` with the money back
+   in the wallet. Tests `checkout/tests/test_wallet_spending.py`; guards `checkout/tools/mutations/wallet_rules.py`.
+   Not yet reachable by a person: the `approve_quote` card tool takes no `funding` until step 4, and a hold
+   orphaned by a crash between hold and claim waits for the reaper of step 6.
 3. The Bachs stand-in and webhook, then the sandbox adapter (top-up checkout, signature check).
 4. The `wallet_balance` tool and the wallet card (balance, add money, withdraw).
 5. Withdrawal through Paystack. 6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.

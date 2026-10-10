@@ -43,6 +43,8 @@ from .vtpass.api import VtpassApi
 from .vtpass.client import VtpassClient, VtpassCredentials
 from .vtpass.sim import VtpassSimulator
 from .vtpass.sim_store import VtpassSimStore
+from .wallet.journal import Journal
+from .wallet.spending import WalletSpending
 from .web.cache import WebCache
 from .web.fetcher import Fetcher, WorkerPageFetch
 from .web.reader import Policy, WebReader
@@ -127,6 +129,7 @@ def build_contexts(
         None if settings.require_owner else DEFAULT_OWNER,
     )
     store = MemoryStore(db, clock, settings.memory)
+    wallet = WalletSpending(Journal(db, clock, settings.wallet), db, clock)
     contexts: dict[str, Context] = {}
     for connector in CONNECTORS:
         paystack, paystack_mode = _paystack_for(settings, db, connector, transport)
@@ -157,6 +160,7 @@ def build_contexts(
             inline_checkout=paystack_mode == "test" and settings.inline_paystack,
             card_csp_extra=settings.card_csp_extra,
             memory=store,
+            wallet=wallet if connector == "airtime" else None,
         )
         audit.log(
             "startup",
