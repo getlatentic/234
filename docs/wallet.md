@@ -120,8 +120,8 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    row is opened the first time that account asks, never for a visitor. `wallet/view.py` says the latest
    entries in plain words (Added, Paid airtime, Returned). `approve_quote` takes an optional `funding`
    (`checkout`, the default and the checkout as before, or `wallet`); it is an app-only tool, so only a card
-   passes it, and `wallet` needs the account. The approval card is offered "Pay from wallet (₦balance)"
-   (`flows/wallet_leg.py`, `wallet_offer`) only for an account whose balance covers an open quote; a refusal
+   passes it, and `wallet` needs the account. The approval card is offered "Pay from wallet", without the
+   balance, which a shared chat's guest would read (`flows/wallet_leg.py`, `wallet_offer`) only for an account whose balance covers an open quote; a refusal
    (`WALLET_SHORT`, `WALLET_FROZEN`) shows on the card as one line. The card is `card/wallet/` (balance, the
    last five entries, Add money opening the Bachs checkout, then reading the wallet until the money shows).
    The host (`host/src/turns/wallet.py`, `permissions.py`, `card_calls.py`, `hub.py`) shows and relays the
@@ -132,8 +132,8 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    `host/tests/test_wallet.py`, `conformance/card-states.mjs` (the offer on the card) and
    `conformance/chat-wallet.mjs` (signed in: add money on the simulated Bachs page, pay airtime from the
    wallet, the balance goes down); guards `checkout/tools/mutations/wallet_card_rules.py`. Withdrawing is
-   step 5. A guest of a shared chat sees the owner's offer and its balance on an approval card the owner made,
-   though any wallet call of theirs is refused.
+   step 5. A guest of a shared chat sees "Pay from wallet" on an approval card the owner made, never the
+   balance, and any wallet call of theirs is refused.
 5. Withdrawal through Paystack. 6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.
 
 ## Decided (2026-10-10)

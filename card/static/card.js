@@ -113,7 +113,7 @@
     switch (q.phase) {
       case "awaiting_approval": {
         const node = fromTemplate("t-approval");
-        if (q.wallet) setText(node, "wallet", `Pay from wallet (${q.wallet.balance})`);
+        if (q.wallet) setText(node, "wallet", "Pay from wallet");
         else slot(node, "wallet").remove();
         return node;
       }

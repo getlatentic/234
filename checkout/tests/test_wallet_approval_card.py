@@ -24,7 +24,7 @@ def offer_of(made: dict) -> dict | None:
 class TestTheOffer:
     async def test_an_account_whose_wallet_covers_the_quote_is_offered_it(self, stack):
         await funded(stack, 200_000)
-        assert offer_of(await airtime_quote(stack)) == {"balanceKobo": 200_000, "balance": "₦2,000"}
+        assert offer_of(await airtime_quote(stack)) == {"covers": True}
 
     async def test_a_wallet_that_does_not_cover_the_quote_is_not_offered(self, stack):
         await funded(stack, 49_999)
@@ -32,7 +32,7 @@ class TestTheOffer:
 
     async def test_exactly_the_amount_is_enough(self, stack):
         await funded(stack, 50_000)
-        assert offer_of(await airtime_quote(stack))["balanceKobo"] == 50_000
+        assert offer_of(await airtime_quote(stack)) == {"covers": True}
 
     async def test_a_visitor_is_never_offered_a_wallet(self, stack):
         await funded(stack, 200_000, BOB)

@@ -71,7 +71,7 @@ fixtures["transfer/gone"] = derive("transfer/approve", (q) => {
   Object.assign(q, { phase: "gone", poll: false });
 });
 fixtures["airtime/approve-wallet"] = derive("airtime/approve", (q) => {
-  q.wallet = { balanceKobo: 200000, balance: "₦2,000" };
+  q.wallet = { covers: true };
 });
 fixtures["airtime/failed"] = derive("airtime/checkout", (q) => {
   Object.assign(q, { phase: "failed", checkoutUrl: null, message: "Payment failed. Nothing was charged." });
@@ -197,7 +197,7 @@ async function checks() {
   }
   {
     const { page, context, frame } = await open("python", "airtime/approve-wallet", "light", { answer: copy("airtime/succeeded") });
-    const pay = frame.getByRole("button", { name: "Pay from wallet (₦2,000)" });
+    const pay = frame.getByRole("button", { name: "Pay from wallet" });
     check((await pay.count()) === 1 && (await pay.isEnabled()), "the wallet is offered with its balance");
     await pay.click();
     await frame.getByText("Airtime delivered").first().waitFor({ timeout: 5000 });
