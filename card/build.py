@@ -141,5 +141,6 @@ if __name__ == "__main__":
     )
     out = Path(args[0]) if args else default
     html = {"menu": render_menu, "memory": render_memory, "wallet": render_wallet, "brands": render_brands}.get(kind, lambda: render(client))()
-    out.write_text(html)
+    if not out.exists() or out.read_text() != html:
+        out.write_text(html)  # an unchanged card is not rewritten: a running `wrangler dev` would reload for it
     print(f"{out}: {len(html.encode()):,} bytes")

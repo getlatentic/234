@@ -99,7 +99,9 @@ USE_I18N = False
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = PROJECT_DIR / "staticfiles" / "static"
+# HOST_ASSETS_DIR: a local stack collects into its own folder (tools/host-config.mjs), so starting one never
+# empties the folder another is serving.
+STATIC_ROOT = PROJECT_DIR / runtime.get("HOST_ASSETS_DIR", "staticfiles") / "static"
 STATICFILES_DIRS = [PROJECT_DIR / "build"]
 
 X_FRAME_OPTIONS = "DENY"

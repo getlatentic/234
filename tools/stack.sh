@@ -105,8 +105,9 @@ shell_settings() {  # NAME=value for each setting that shapes a page's policy, o
   echo "$settings"
 }
 
-build_shell() {  # the static assets and the home page, as a deploy builds them
-  (cd "$root/host" && env WORKERS_CI=1 $(shell_settings) uv run python src/manage.py collectstatic --noinput --clear > /dev/null &&
+build_shell() {  # the static assets and the home page, as a deploy builds them, into this stack's own folder
+  (cd "$root/host" && export HOST_ASSETS_DIR="$state/assets" &&
+    env WORKERS_CI=1 $(shell_settings) uv run python src/manage.py collectstatic --noinput --clear > /dev/null &&
     env WORKERS_CI=1 $(shell_settings) uv run python src/manage.py build_shell > /dev/null)
 }
 
