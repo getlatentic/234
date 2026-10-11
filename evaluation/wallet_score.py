@@ -104,11 +104,14 @@ def short_problems(turn: dict[str, Any]) -> list[str]:
 
 def check_to_card(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     """Adding or withdrawing money, which no tool of the model's does: the reply points to the wallet card
-    (one of `mention`) and says no figure no tool gave."""
+    (one of `mention`), the card is shown or the reply asks whether to show it (a promise to show it is not
+    a card), and the reply says no figure no tool gave."""
     reply = turn["reply"].casefold()
     problems = []
     if not any(word.casefold() in reply for word in outcome["mention"]):
         problems.append(f"the reply mentions none of {outcome['mention']}")
+    if not balances_read(turn) and "?" not in reply:
+        problems.append("the wallet card was not shown and the reply does not offer it")
     return problems + _invented(turn)
 
 

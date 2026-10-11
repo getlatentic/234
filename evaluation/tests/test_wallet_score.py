@@ -81,6 +81,8 @@ def test_a_quote_the_wallet_does_not_cover_says_so_or_names_the_checkout():
 def test_a_top_up_is_pointed_to_the_wallet_card_and_no_quote_is_made():
     reply = "I can't add money myself: press Add money on your wallet card."
     assert scored("WAL-05", turn([wallet(kobo=0)], reply, [wallet_card()], say="Add ₦5,000 to my wallet")).ok
+    assert scored("WAL-05", turn([], "Add money is on your wallet card. Shall I open it?")).ok
+    assert not scored("WAL-05", turn([], "Add money is on your wallet card. Let me show you.")).ok
     paid = call("create_payment_quote", "paystack-pay", {"amount_kobo": 500000, "merchant": "234 wallet"})
     assert not scored("WAL-05", turn([paid], "Approve on the card to add it.", [card(500000)])).ok
     assert not scored("WAL-05", turn([], "I've added ₦5,000 to your wallet.")).ok

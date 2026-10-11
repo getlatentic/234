@@ -144,7 +144,8 @@ host_vars() {  # port: what every host gets, the runner variants included
     --var "SANDBOX_SIGNING_KEY:$sandbox_key" --var "INLINE_PAYSTACK:${INLINE_PAYSTACK:-1}" \
     --var "EVENTS_SECRET:dummy-local-events-secret" $(pact_vars) $(reach_vars) \
     --var "CONTEXT_WINDOW_TOKENS:${CONTEXT_WINDOW_TOKENS:-32000}" --var "COMPACT_AT:${COMPACT_AT:-0.6}" \
-    --var "KEEP_RECENT_TOKENS:${KEEP_RECENT_TOKENS:-6000}" --var "COMPACTION_TIMEOUT_SECONDS:${COMPACTION_TIMEOUT_SECONDS:-45}"
+    --var "KEEP_RECENT_TOKENS:${KEEP_RECENT_TOKENS:-6000}" --var "COMPACTION_TIMEOUT_SECONDS:${COMPACTION_TIMEOUT_SECONDS:-45}" \
+    ${HOST_CONNECTORS:+--var "CONNECTORS:$HOST_CONNECTORS"}
 }
 
 start_host() {  # do|queue|waituntil: the host on that turn runner; a start that collides with a leftover is tried again

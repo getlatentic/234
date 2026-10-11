@@ -23,6 +23,8 @@
 #   Turnstile script and siteverify, so it needs the network; conformance/bot-check.mjs)
 #   REACH=1 makes 234 an agent for people at the Skyline Brand of PACT's reference Provider, which
 #   conformance/pact-reach.mjs starts on base+12 to base+14 (docs/pact.md);
+#   HOST_CONNECTORS (comma-separated) is the connectors the host offers instead of all of them (turns/settings.py),
+#   as for an evaluation's control run without one;
 #   REAL_MODEL=1 uses the model in LLM_BASE_URL, LLM_MODEL and (through host/.dev.vars.real) LLM_API_KEY
 #   instead of the scripted one: see tools/real-model.sh.
 set -e

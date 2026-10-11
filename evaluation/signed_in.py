@@ -25,6 +25,10 @@ PROTOCOL = "2025-11-25"
 MIN_LEASE_SECONDS = 8
 """A browser is held at least this long for a draw: the host answers an account at most twelve messages a
 minute, and draws that end in two seconds would send more."""
+SIGN_IN_TRIES = 12
+SIGN_IN_WAIT_SECONDS = 6
+"""The host takes about twelve sign-ins a minute from one address (the run's): a draw made as a new account
+waits for its turn instead of being lost."""
 
 
 class SetupFailed(Exception):
@@ -80,6 +84,11 @@ async def sign_in(visitor: Visitor, emulator: str) -> str:
         )
     answer = signed.json()
     session = await visitor.post("/auth/session", {"idToken": answer["idToken"]})
+    for _ in range(SIGN_IN_TRIES):
+        if session.status_code != 429:
+            break
+        await asyncio.sleep(SIGN_IN_WAIT_SECONDS)
+        session = await visitor.post("/auth/session", {"idToken": answer["idToken"]})
     if session.status_code != 200:
         raise SetupFailed(f"the host refused the sign-in: HTTP {session.status_code} {session.text[:100]}")
     return ledger_owner(account_owner(answer["localId"], LOCAL_ACCOUNT_KEY))

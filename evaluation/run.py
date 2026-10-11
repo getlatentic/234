@@ -191,7 +191,9 @@ def git(*args: str) -> str:
 def metadata(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
     settings = Settings.from_env(os.environ.get)
     prompt = system_prompt(settings.connectors)
-    memory_prompt = system_prompt(settings.connectors, memory=True)
+    memory_prompt = system_prompt(
+        settings.connectors, memory=True, has_wallet="wallet" in settings.connectors
+    )
     return {
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "split": args.split,
