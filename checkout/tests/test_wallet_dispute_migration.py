@@ -95,9 +95,8 @@ def test_the_rebuilt_journal_keeps_each_kinds_sign_and_one_entry_per_ref(db, row
 def test_the_index_the_balance_reads_by_is_made_again(db):
     assert rows(
         db,
-        "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'wallet_entry' "
-        "AND sql IS NOT NULL",
-    ) == [("wallet_entry_owner",)]
+        "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'wallet_entry_owner'",
+    ) == [("CREATE INDEX wallet_entry_owner ON wallet_entry (owner, seq)",)]
     assert rows(db, "SELECT name FROM sqlite_master WHERE name = 'wallet_entry_next'") == []
 
 

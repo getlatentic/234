@@ -34,6 +34,7 @@ from .mcp.registry import Connector
 from .memory.context import MemoryContext
 from .memory.proposals import Proposals
 from .memory.store import MemoryStore
+from .metrics import Metrics
 from .modes import Modes
 from .owner import DEFAULT_OWNER
 from .paystack.api import PaystackApi
@@ -45,6 +46,7 @@ from .vtpass.api import VtpassApi
 from .vtpass.client import VtpassClient, VtpassCredentials
 from .vtpass.sim import VtpassSimulator
 from .vtpass.sim_store import VtpassSimStore
+from .wallet.adjustments import Adjustments
 from .wallet.journal import Journal
 from .wallet.spending import WalletSpending
 from .wallet.topups import TopUps
@@ -77,6 +79,7 @@ class App:
     background: Background
     funding: Funding
     withdrawals: Withdrawals
+    adjustments: Adjustments
 
 
 def card_reader(name: str) -> CardReader:
@@ -124,7 +127,12 @@ def _vtpass_for(
 
 
 def build_contexts(
-    settings: Settings, db: Db, clock: Clock, audit: Audit, transport: Transport | None = None
+    settings: Settings,
+    db: Db,
+    clock: Clock,
+    audit: Audit,
+    journal: Journal,
+    transport: Transport | None = None,
 ) -> tuple[Ledger, dict[str, Context]]:
     transport = transport or WorkerFetch()
     ledger = Ledger(
@@ -136,7 +144,7 @@ def build_contexts(
         None if settings.require_owner else DEFAULT_OWNER,
     )
     store = MemoryStore(db, clock, settings.memory)
-    wallet = WalletSpending(Journal(db, clock, settings.wallet), db, clock)
+    wallet = WalletSpending(journal, db, clock)
     contexts: dict[str, Context] = {}
     for connector in CONNECTORS:
         paystack, paystack_mode = _paystack_for(settings, db, connector, transport)
@@ -249,14 +257,17 @@ def build_app(
     queues: Mapping[str, Any] | None = None,
     jobs: HeldJobs | None = None,
     page_fetcher: Fetcher | None = None,
+    metrics: Metrics | None = None,
 ) -> App:
     """`callback_transport` reaches event subscribers (the chat host through its binding); `queues` are the
-    Worker's Queue bindings, absent where the work runs at once; `jobs` (tests) holds all work until run."""
+    Worker's Queue bindings, absent where the work runs at once; `jobs` (tests) holds all work until run;
+    `metrics` records each wallet movement (none: nothing is recorded)."""
     clock = clock or SystemClock()
     audit = audit or Audit([print_sink], clock)
-    ledger, contexts = build_contexts(settings, db, clock, audit, transport)
-    funding = build_funding(settings, db, clock, audit, transport or WorkerFetch())
-    withdrawals = withdrawals_for(settings, contexts, funding.topups.journal, db, clock, audit)
+    journal = Journal(db, clock, settings.wallet, metrics)
+    ledger, contexts = build_contexts(settings, db, clock, audit, journal, transport)
+    funding = build_funding(settings, db, clock, audit, journal, transport or WorkerFetch())
+    withdrawals = withdrawals_for(settings, contexts, journal, db, clock, audit)
     return App(
         settings,
         db,
@@ -295,4 +306,5 @@ def build_app(
         ),
         funding,
         withdrawals,
+        Adjustments(db, clock, journal, audit),
     )

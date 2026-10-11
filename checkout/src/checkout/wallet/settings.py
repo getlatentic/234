@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The caps 234 sets on what a person's wallet may hold and take out (docs/wallet.md, "Safety limits"). Which
-Bachs a top-up is paid on is bachs/settings.py's."""
+"""The caps 234 sets on what a person's wallet may hold and take out (docs/wallet.md, "Safety limits"), and
+the amount above which a correction needs two operators ("Corrections"). Which Bachs a top-up is paid on is
+bachs/settings.py's."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ class WalletSettings:
     balance_cap_kobo: Kobo = 20_000_000
     withdrawal_kobo: Kobo = 5_000_000
     withdrawals_daily_kobo: Kobo = 10_000_000
+    adjust_two_operators_kobo: Kobo = 5_000_000
 
     @classmethod
     def from_env(cls, read: Callable[[str], str | None]) -> WalletSettings:
@@ -23,6 +25,9 @@ class WalletSettings:
             withdrawal_kobo=_positive(read, "WALLET_WITHDRAWAL_KOBO", base.withdrawal_kobo),
             withdrawals_daily_kobo=_positive(
                 read, "WALLET_WITHDRAWALS_DAILY_KOBO", base.withdrawals_daily_kobo
+            ),
+            adjust_two_operators_kobo=_positive(
+                read, "WALLET_ADJUST_TWO_OPERATORS_KOBO", base.adjust_two_operators_kobo
             ),
         )
         if settings.withdrawal_kobo > settings.withdrawals_daily_kobo:

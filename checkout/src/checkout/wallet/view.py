@@ -19,7 +19,7 @@ WORDS = {
     "withdraw_back": "Returned",
     "dispute": "Held for a dispute",
     "dispute_back": "Returned after a dispute",
-    "adjust": "Adjusted",
+    "adjust": "Correction",
 }
 PAID_FOR = {"airtime": "Paid airtime", "data": "Paid data"}
 

@@ -28,12 +28,13 @@ from ..bachs.disputes import KEPT_BY_234, LOST_BY_234, Dispute
 from ..clock import Clock
 from ..db import Db, Statement, StatementResult
 from ..ids import new_wallet_entry_id
+from ..metrics import WRITTEN, Metrics
 from ..money import Kobo
 
 REASON = "dispute"
 UNKNOWN = "unknown"
-OPENED, FROZE, DECIDED = 0, 3, 4
-"""Where the batch's row, freeze and decision statements stand (`_statements`), to say what this event did."""
+OPENED, HELD, FROZE, DECIDED, GAVE_BACK = 0, 1, 3, 4, 5
+"""Where the batch's statements stand (`_statements`), to say what this event did."""
 
 
 def _in(states: frozenset[str]) -> str:
@@ -117,10 +118,11 @@ def record_of(row: dict[str, Any]) -> DisputeRecord:
 
 
 class Disputes:
-    def __init__(self, db: Db, clock: Clock, audit: Audit) -> None:
+    def __init__(self, db: Db, clock: Clock, audit: Audit, metrics: Metrics | None = None) -> None:
         self._db = db
         self._clock = clock
         self._audit = audit
+        self._metrics = metrics or Metrics()
 
     async def settle(self, dispute: Dispute) -> DisputeRecord | Refused:
         """The dispute as it stands after this event, or why it was refused."""
@@ -165,6 +167,10 @@ class Disputes:
         terms = {"dispute": found.id, "amount_kobo": found.amount_kobo, "held_kobo": found.held_kobo}
         if results[OPENED].changes == 1:
             self._audit.log("wallet.dispute.opened", topup=found.topup_id, **terms)
+        if results[HELD].changes == 1:
+            self._metrics.wallet("dispute", WRITTEN, found.held_kobo)
+        if len(results) > GAVE_BACK and results[GAVE_BACK].changes == 1:
+            self._metrics.wallet("dispute_back", WRITTEN, found.held_kobo)
         if results[FROZE].changes == 1:
             self._audit.log("wallet.dispute.short", **terms)
         if len(results) > DECIDED and results[DECIDED].changes == 1:

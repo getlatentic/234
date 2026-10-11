@@ -34,6 +34,7 @@ from ..flows.inputs import clean_account
 from ..flows.provider_error import as_domain_error
 from ..ids import new_wallet_entry_id, new_withdrawal_id
 from ..mask import mask_account
+from ..metrics import REFUSED, REPEAT, WRITTEN
 from ..money import Kobo
 from ..paystack.api import PaystackApi, PaystackError, Recipient, RecipientRequest
 from .freeze import unfrozen_sql
@@ -87,7 +88,7 @@ class Withdrawals:
         self._clock = clock
         self.journal = journal
         self._paystack = paystack
-        self.outcomes = WithdrawalOutcomes(db, clock, paystack, audit)
+        self.outcomes = WithdrawalOutcomes(db, clock, paystack, audit, journal.metrics)
         self._secret = secret.encode()
         self._audit = audit
         self.refusals = WithdrawalRefusals(db, journal)
@@ -145,6 +146,7 @@ class Withdrawals:
         withdrawal = await self.get(owner, withdrawal_id)
         if withdrawal is None:
             raise DomainError("WITHDRAWAL_NOT_FOUND", "There is no such withdrawal. Nothing was taken.")
+        self._record(moved, withdrawal)
         if not moved:
             if withdrawal.state != "open":
                 return withdrawal
@@ -153,6 +155,11 @@ class Withdrawals:
             )
         self._audit.log("withdrawal.approved", withdrawal=withdrawal.id, amount_kobo=withdrawal.amount_kobo)
         return await self.outcomes.send(withdrawal)
+
+    def _record(self, moved: bool, withdrawal: Withdrawal) -> None:
+        taken_before = withdrawal.state not in ("open", "expired")
+        outcome = WRITTEN if moved else REPEAT if taken_before else REFUSED
+        self.journal.metrics.wallet("withdraw", outcome, withdrawal.amount_kobo)
 
     async def _take(self, owner: str, withdrawal_id: str, displayed: Kobo, name: str, now: int) -> bool:
         """The `withdraw` entry and `open → sent`, in one batch; true when this call moved it to sent."""

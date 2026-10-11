@@ -125,7 +125,9 @@ class Stack:
         return answer["result"]
 
 
-def make_stack(page_fetcher: Any = None, transport: Any = None, **settings: Any) -> Stack:
+def make_stack(
+    page_fetcher: Any = None, transport: Any = None, metrics: Any = None, **settings: Any
+) -> Stack:
     clock = FakeClock()
     lines: list[str] = []
     base = {
@@ -145,6 +147,7 @@ def make_stack(page_fetcher: Any = None, transport: Any = None, **settings: Any)
         transport=transport,
         jobs=jobs,
         page_fetcher=page_fetcher,
+        metrics=metrics,
     )
     return Stack(app, clock, db, lines, jobs)
 

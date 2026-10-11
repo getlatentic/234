@@ -13,6 +13,7 @@ from checkout.config import Settings
 from checkout.db import D1
 from checkout.errors import ConfigError
 from checkout.http import handle
+from checkout.metrics import metrics_of
 from checkout.transport import BindingFetch, WorkerFetch
 from checkout.web.settings import trouble
 
@@ -51,7 +52,9 @@ def _app_for(entry: WorkerEntrypoint) -> App:
             settings.host_public_url, _host_binding(env, settings), WorkerFetch(follow_redirects=False)
         )
         queues = {name: getattr(env, name, None) for name in QUEUES}
-        _app = build_app(settings, D1(env.DB), callback_transport=callbacks, queues=queues)
+        _app = build_app(
+            settings, D1(env.DB), callback_transport=callbacks, queues=queues, metrics=metrics_of(env)
+        )
     return _app
 
 

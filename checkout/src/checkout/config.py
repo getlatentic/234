@@ -89,6 +89,8 @@ class Settings:
     alt_cards: tuple[tuple[str, str], ...] = ()
     enable_test_routes: bool = False
     mcp_token: str | None = field(default=None, repr=False)
+    ops_token: str | None = field(default=None, repr=False)
+    """What an operator sends to reach /ops/ (`OPS_TOKEN`); unset, every /ops/ route is refused."""
     card_csp_extra: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     """Origins added to what the approval card declares, to try the host's allowlist with a connector that
     misbehaves (`CARD_CSP_EXTRA`, test routes on only)."""
@@ -143,6 +145,7 @@ class Settings:
             alt_cards=alt_cards(env.text("ALT_CARDS")),
             enable_test_routes=env.text("ENABLE_TEST_ROUTES") == "1",
             mcp_token=_mcp_token_from(env),
+            ops_token=env.text("OPS_TOKEN"),
             card_csp_extra=_card_csp_extra_from(env),
             mcp_allowed_origins=tuple(
                 o.strip() for o in (env.text("MCP_ALLOWED_ORIGINS") or "").split(",") if o.strip()

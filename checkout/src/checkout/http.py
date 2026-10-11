@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The Worker's HTTP surface, free of the Workers runtime so tests can call it directly:
 one MCP endpoint per connector, the providers' webhooks, the simulated Paystack and Bachs checkout pages,
-and test routes."""
+the operators' routes, and test routes."""
 
 import hmac
 from collections.abc import Mapping
@@ -20,6 +20,7 @@ from .mcp.protocol import (
     error_body,
     parse_body,
 )
+from .ops import handle_ops
 from .owner import (
     GROUP_HEADER,
     MEMORY_OWNER_HEADER,
@@ -174,6 +175,8 @@ async def handle(
         return await handle_checkout(app, method, path, headers, query)
     if parts[0] == "sim" and len(parts) >= 3 and parts[1] == "bachs":
         return await handle_bachs_checkout(app, method, path, headers)
+    if parts[0] == "ops":
+        return await handle_ops(app, method, parts, headers, raw)
     if parts[0] == "test" and app.settings.enable_test_routes:
         return await handle_test(app, method, path, query)
     return HttpResponse(404, "Not found")

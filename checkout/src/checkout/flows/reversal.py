@@ -14,6 +14,7 @@ refund is issued here, so it is audited as `refund.due` and the card says a refu
 from typing import Any
 
 from ..ledger import Quote
+from ..metrics import WRITTEN
 from ..money import format_naira
 from ..vtpass.api import VtpassOutcome
 from ..wallet.spending import paid_from_wallet
@@ -38,8 +39,9 @@ async def _reverse(ctx: Context, quote: Quote, outcome: VtpassOutcome) -> Quote:
     if not moved:
         return reversed_quote
     audit.log("fulfilment.reversed", quote=quote.id, code=outcome.code)
-    if to_wallet:
+    if wallet is not None:
         audit.log("wallet.refunded", quote=quote.id, amount_kobo=quote.amount_kobo)
+        wallet.journal.metrics.wallet("refund", WRITTEN, quote.amount_kobo)
     else:
         audit.log("refund.due", quote=quote.id, why="reversed after delivery")
     return reversed_quote

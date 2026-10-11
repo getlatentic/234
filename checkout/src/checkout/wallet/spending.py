@@ -24,6 +24,7 @@ from ..db import Db, Statement
 from ..errors import DomainError
 from ..ids import new_wallet_entry_id
 from ..ledger import ClaimTerms, Ledger, Quote
+from ..metrics import REFUSED, REPEAT, WRITTEN
 from ..money import format_naira
 from .journal import Entry, Journal
 
@@ -124,5 +125,11 @@ class WalletSpending:
 
     async def _give_back(self, owner: str, quote_id: str, kind: str, condition: str) -> bool:
         sql, params = self._give_back_statement(owner, quote_id, kind, condition)
-        await self._db.execute(sql, *params)
-        return await self.journal.entry(owner, kind, quote_id) is not None
+        changed = await self._db.execute(sql, *params)
+        given = await self.journal.entry(owner, kind, quote_id)
+        if given is not None:
+            self.journal.metrics.wallet(kind, WRITTEN if changed == 1 else REPEAT, given.amount_kobo)
+            return True
+        held = await self.journal.entry(owner, "spend", quote_id)
+        self.journal.metrics.wallet(kind, REFUSED, held.amount_kobo if held else 0)
+        return False
