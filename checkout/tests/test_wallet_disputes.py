@@ -263,7 +263,6 @@ class TestRefused:
     @pytest.mark.parametrize(
         ("change", "reason"),
         [
-            ({"charge_id": "ch_someoneelses"}, "unknown"),
             ({"currency": "USD"}, "currency"),
             ({"amount": "5000.01"}, "amount"),
             ({"amount": "0.00"}, "amount"),
@@ -280,12 +279,20 @@ class TestRefused:
         assert await stack.count("wallet_dispute") == 0
         assert [line["reason"] for line in audited(stack, "wallet.dispute.refused")] == [reason]
 
-    async def test_a_dispute_on_a_top_up_not_yet_paid_is_refused(self, stack):
-        await paid(stack)
-        topup = await started(stack)
-        await deliver(stack, disputed(topup))
+    async def test_a_dispute_naming_no_credited_charge_is_asked_for_again(self, stack):
+        answer = await deliver(stack, disputed(await paid(stack), charge_id="ch_not_credited_yet"))
+        assert answer.status == 503
         assert await stack.count("wallet_dispute") == 0
         assert [line["reason"] for line in audited(stack, "wallet.dispute.refused")] == ["unknown"]
+
+    async def test_a_dispute_on_a_top_up_not_yet_paid_holds_once_its_collection_is_credited(self, stack):
+        await paid(stack)
+        topup = await started(stack)
+        assert (await deliver(stack, disputed(topup))).status == 503
+        assert await stack.count("wallet_dispute") == 0
+        assert (await deliver(stack, succeeded(topup))).status == 200
+        assert (await deliver(stack, disputed(topup))).status == 200
+        assert await stack.count("wallet_dispute") == 1
 
 
 class TestShown:

@@ -15,7 +15,9 @@ then the hold, the block and the freeze, each requiring the row still open, so a
 decision does nothing), then, for a final status, the decision (`open → final` once, then the write-back and
 the lifts, each requiring the decided row, so a repeat finds them done). A dispute that names no top-up's
 charge (a charge is kept only once its collection is credited), another currency, or more than the top-up's
-amount opens nothing and is audited."""
+amount opens nothing and is audited. 234's Bachs account takes nothing but top-ups, so an unknown charge is
+one whose collection is not credited yet: it is `Refused(UNKNOWN)`, which the hook answers so that Bachs
+delivers the dispute again (provider_hooks/bachs.py)."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -29,6 +31,7 @@ from ..ids import new_wallet_entry_id
 from ..money import Kobo
 
 REASON = "dispute"
+UNKNOWN = "unknown"
 OPENED, FROZE, DECIDED = 0, 3, 4
 """Where the batch's row, freeze and decision statements stand (`_statements`), to say what this event did."""
 
@@ -91,6 +94,11 @@ def _lift(table: str) -> str:
 
 
 @dataclass(frozen=True)
+class Refused:
+    reason: str
+
+
+@dataclass(frozen=True)
 class DisputeRecord:
     id: str
     owner: str
@@ -114,16 +122,14 @@ class Disputes:
         self._clock = clock
         self._audit = audit
 
-    async def settle(self, dispute: Dispute) -> DisputeRecord | None:
-        """The dispute as it stands after this event, or None when it was refused."""
+    async def settle(self, dispute: Dispute) -> DisputeRecord | Refused:
+        """The dispute as it stands after this event, or why it was refused."""
         if dispute.dispute_id is None or dispute.charge_id is None or dispute.amount_kobo is None:
-            self._refused("shape", dispute)
-            return None
+            return self._refused("shape", dispute)
         results = await self._db.batch(self._statements(dispute, dispute.dispute_id))
         found = await self.get(dispute.dispute_id)
         if found is None:
-            self._refused(await self._why_not(dispute), dispute)
-            return None
+            return self._refused(await self._why_not(dispute), dispute)
         self._log(found, results)
         return found
 
@@ -134,7 +140,7 @@ class Disputes:
         topup = await self._db.row(
             "SELECT amount_kobo FROM wallet_topup WHERE charge_id = ?", dispute.charge_id
         )
-        return "unknown" if topup is None else "amount"
+        return UNKNOWN if topup is None else "amount"
 
     def _statements(self, dispute: Dispute, dispute_id: str) -> list[Statement]:
         now, amount = self._clock.now(), dispute.amount_kobo
@@ -166,7 +172,7 @@ class Disputes:
                 "wallet.dispute.decided", state=found.state, written_off_kobo=found.written_off_kobo, **terms
             )
 
-    def _refused(self, reason: str, dispute: Dispute) -> None:
+    def _refused(self, reason: str, dispute: Dispute) -> Refused:
         self._audit.log(
             "wallet.dispute.refused",
             reason=reason,
@@ -176,6 +182,7 @@ class Disputes:
             currency=(dispute.currency or "")[:8],
             event_id=dispute.event_id,
         )
+        return Refused(reason)
 
     async def get(self, dispute_id: str) -> DisputeRecord | None:
         row = await self._db.row(
