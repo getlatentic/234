@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..flows.base import CardFlow
 from ..flows.context import Context, QuoteIssued
-from ..flows.wallet_leg import wallet_told
 from ..mcp.registry import (
     APP_ONLY,
     MODEL_ONLY,
@@ -135,11 +134,10 @@ class CardConnector:
         it must not do."""
         read_back = issued.quote["details"].get("readBack")
         ask = f' Read this back to the person before they approve: "{read_back}".' if read_back else ""
-        wallet = wallet_told(self.ctx, issued.quote)
         return (
-            f"{summarise(issued.quote)}{ask}{wallet} The approval card is now shown to the person. "
-            f"You cannot approve it. Wait for them, then call get_quote_status on the {self.name} "
-            "connector to report what happened."
+            f"{summarise(issued.quote)}{ask} The approval card is now shown to the person. You cannot "
+            f"approve it. Wait for them, then call get_quote_status on the {self.name} connector to "
+            "report what happened."
         )
 
     def issued_result(self, issued: QuoteIssued, opens_card: bool = False) -> ToolResult:

@@ -95,13 +95,6 @@ MUTATIONS: list[Mutation] = [
         APPROVAL,
     ),
     wallet(
-        "the model is told of the wallet for an account alone",
-        "flows/wallet_leg.py",
-        'view.get("phase") != "awaiting_approval" or account_of_call() is None:',
-        'view.get("phase") != "awaiting_approval":',
-        APPROVAL,
-    ),
-    wallet(
         "the card offers the wallet only while the quote is open",
         "flows/wallet_leg.py",
         'if ctx.wallet is None or quote.state != "open":',
