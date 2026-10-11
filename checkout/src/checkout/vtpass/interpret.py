@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Reads a VTpass purchase or requery reply. A reply that does not match the documented codes is
 pending, because calling a delivered order failed would invite a second purchase. The exception is
-HTTP 401 or 403, which is VTpass refusing the credentials: nothing was placed."""
+HTTP 401 or 403, which is VTpass refusing the credentials: nothing was placed.
+
+A reversal is an order VTpass took back and refunded to 234's VTpass wallet: inner status `reversed`, with
+code 040 (TRANSACTION REVERSAL) as the transaction-update callback shows it, or a processed code
+(https://vtpass.com/documentation/transaction-update-webhook-api/,
+https://vtpass.com/documentation/response-codes/). It is failed, and marked so a delivered quote can tell."""
 
 from typing import Any
 
@@ -17,6 +22,7 @@ FAILED_CODES = frozenset(
 )
 REFUSED_STATUSES = frozenset({401, 403})
 _PROCESSED_CODES = frozenset({"000", "001"})
+_REVERSAL_CODES = _PROCESSED_CODES | {"040"}
 
 
 def credentials_refused(status: int) -> VtpassOutcome:
@@ -45,7 +51,7 @@ def _processed(code: str, inner: Any, description: str) -> VtpassOutcome:
     match inner:
         case "delivered":
             return VtpassOutcome("delivered", code, description)
-        case "failed" | "reversed":
+        case "failed":
             return VtpassOutcome("failed", code, description)
         case _:
             return VtpassOutcome("pending", code, description)
@@ -60,6 +66,8 @@ def interpret_vtpass(payload: Any, http_status: int | None = None) -> VtpassOutc
     if not isinstance(code, str):
         return no_confirmation("no response code")
     description = _description(payload)
+    if code in _REVERSAL_CODES and _inner_status(payload) == "reversed":
+        return VtpassOutcome("failed", code, description, reversed=True)
     if code in _PROCESSED_CODES:
         return _processed(code, _inner_status(payload), description)
     if code == "015":

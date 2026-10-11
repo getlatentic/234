@@ -17,8 +17,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         "a recheck acts as the quote's owner",
         f"{SRC}/provider_hooks/rechecks.py",
-        '        with acting_for(row["owner"]):',
-        "        with acting_for(ALICE_FOR_EVERYONE):",
+        '        with acting_for(row["owner"]):\n            await FLOWS',
+        "        with acting_for(ALICE_FOR_EVERYONE):\n            await FLOWS",
         HOOKS,
     ),
     Mutation(

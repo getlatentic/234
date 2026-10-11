@@ -16,12 +16,13 @@ class SimOrder:
     variation_code: str | None
     scenario: str
     created_at: int
+    reversed_at: int | None = None
 
 
 def _order(row: dict[str, Any]) -> SimOrder:
     return SimOrder(
         row["request_id"], row["service_id"], row["phone"], row["amount_naira"],
-        row["variation_code"], row["scenario"], row["created_at"],
+        row["variation_code"], row["scenario"], row["created_at"], row["reversed_at"],
     )  # fmt: skip
 
 
@@ -43,3 +44,13 @@ class VtpassSimStore:
     async def get(self, request_id: str) -> SimOrder | None:
         row = await self._db.row("SELECT * FROM sim_vtpass WHERE request_id = ?", request_id)
         return _order(row) if row else None
+
+    async def reverse(self, request_id: str, at: int) -> SimOrder | None:
+        """Takes back an order the simulator delivers; None for any other, or one already taken back."""
+        changed = await self._db.execute(
+            "UPDATE sim_vtpass SET reversed_at = ? WHERE request_id = ? AND reversed_at IS NULL "
+            "AND scenario IN ('success', 'pending')",
+            at,
+            request_id,
+        )
+        return await self.get(request_id) if changed == 1 else None

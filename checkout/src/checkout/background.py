@@ -49,6 +49,9 @@ class Background:
         if job["kind"] == "recheck":
             await self.rechecks.run(job["quote"])
             await self.delivery.drain()
+        elif job["kind"] == "reversal":
+            await self.rechecks.run_reversal(job["quote"])
+            await self.delivery.drain()
         elif job["kind"] == "withdrawal":
             await self.rechecks.run_withdrawal(job["withdrawal"])
         elif job["kind"] == "deliver":

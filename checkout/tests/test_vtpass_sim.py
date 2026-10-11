@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The simulated VTpass through the real client, ported from the TypeScript demo's simulator.test.ts."""
 
+import json
+
 import pytest
 
 from checkout.config import SimulatorSettings
 from checkout.vtpass.api import AirtimeOrder, DataOrder
+from checkout.vtpass.sim import reversal_update
+from checkout.vtpass.sim_store import VtpassSimStore
 from tests.support import make_stack
 
 
@@ -80,6 +84,23 @@ async def test_recognises_a_repeated_request_id_and_an_unknown_one():
     repeated = await api.buy_airtime(order("08011111111", "202609291405repeat0001"))
     assert (repeated.status, repeated.code) == ("pending", "014")
     assert (await api.requery("nothing-like-this")).unknown_request
+
+
+async def test_reverses_a_delivered_order_only_from_the_test_routes_and_only_once():
+    stack, api = vtpass_of()
+    store = VtpassSimStore(stack.db)
+    await api.buy_airtime(order("08011111111", "202609291405reverse001"))
+    await api.buy_airtime(order("100000000000", "202609291405reverse002"))
+    assert await store.reverse("202609291405reverse002", stack.clock.now()) is None
+    reversed_order = await store.reverse("202609291405reverse001", stack.clock.now())
+    assert reversed_order is not None
+    assert await store.reverse("202609291405reverse001", stack.clock.now()) is None
+    outcome = await api.requery("202609291405reverse001")
+    assert (outcome.status, outcome.code, outcome.reversed) == ("failed", "040", True)
+    update = json.loads(reversal_update(reversed_order, stack.clock.now()))
+    assert update["type"] == "transaction-update"
+    assert (update["data"]["code"], update["data"]["requestId"]) == ("040", "202609291405reverse001")
+    assert update["data"]["content"]["transactions"]["status"] == "reversed"
 
 
 async def test_refuses_an_amount_below_the_minimum():

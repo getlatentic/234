@@ -31,7 +31,28 @@ A quote paid from the wallet (`funding = wallet`) is approved on the same card w
 
 A crash between 1 and 2 leaves a hold on a quote nobody approved; the minute cron releases holds whose quote is not
 approved after its TTL. A provider that fails after approval (VTpass `refund_due`) pays back with `refund`, keyed by the
-quote. The model never touches the wallet: its one tool, `wallet_balance`, reads, and every movement is a card.
+quote, and so does one that reverses a delivered order (Reversals, below): a quote is refunded once, however it ended.
+The model never touches the wallet: its one tool, `wallet_balance`, reads, and every movement is a card.
+
+## Reversals
+
+VTpass can take back airtime or data after reporting it delivered: the order bounced at the network, and VTpass
+returns the money to 234's VTpass wallet. Its `transaction-update` callback then carries `code` 040 ("TRANSACTION
+REVERSAL TO WALLET") and `content.transactions.status` `reversed`, as against `failed` for an order refused on
+request (https://vtpass.com/documentation/transaction-update-webhook-api/; code 040 is "TRANSACTION REVERSAL" in
+https://vtpass.com/documentation/response-codes/). The requery page shows only a delivered reply
+(https://vtpass.com/documentation/re-query-services/), so 234 reads a requery as a reversal on the same two fields:
+status `reversed` with code 040, 000 or 001.
+
+The callback is unsigned, so it is a hint. A callback that reports a reversal of a delivered airtime or data quote
+queues one requery of it; any other callback is handled as before, so a reversal before delivery is the failure it
+always was. Only a requery that answers reversed moves anything, and nothing polls delivered quotes. Then one batch
+moves the quote `settled → reversed` and, for a wallet-paid quote, writes the `refund` of what its hold took, whose
+`WHERE` requires the quote reversed and paid from the wallet; a trigger lets a settled quote become nothing but
+reversed, and a reversed one nothing at all. A quote paid at the checkout is reversed too and its refund is owed, as
+for a `refund_due` quote: 234 issues no Paystack refunds, so it is audited `refund.due` and the card says a refund
+is due. A reversed quote is told as `quote.finished` with state `reversed`, and no longer counts against the day's
+limits.
 
 ## Funding
 
@@ -165,7 +186,14 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    Tests `checkout/tests/test_wallet_withdraw*.py`, `test_wallet_withdrawal_{races,outcomes}.py`,
    `conformance/chat-wallet.mjs` (withdraw on the card, the balance and the history); guards
    `checkout/tools/mutations/withdrawal_rules.py`.
-6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.
+6. Reconciliation, the reaper, metrics, and reversals. **Reversals are built, simulated** (Reversals, above):
+   `checkout/migrations/0016_quote_reversed.sql` (the `reversed` state, rebuilding `quotes` with every row and
+   trigger kept; `sim_vtpass.reversed_at`), `checkout/src/checkout/flows/reversal.py`, `vtpass/interpret.py` (the
+   outcome's `reversed`), `provider_hooks/{vtpass,rechecks}.py` (the callback's hint, one requery), and
+   `wallet/spending.py` (`reversal_refund`). The simulated VTpass reverses a delivered order and sends the callback
+   from the test routes alone (`POST /test/vtpass-reverse/<request id>`). Tests
+   `checkout/tests/test_flow_airtime_reversal.py`, `test_reversal_migration.py`; guards
+   `checkout/tools/mutations/reversal_rules.py`. 7. Evaluation with the real model for wallet turns.
 
 ## Decided (2026-10-10)
 

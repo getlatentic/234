@@ -17,8 +17,9 @@ from checkout.provider_hooks import paystack
 from checkout.provider_hooks.references import quote_id_in
 from checkout.sim_checkout import _press
 from checkout.transport import Reply
+from checkout.vtpass.request_id import vtpass_request_id
 from tests.connector_support import approve_args, key, quote_of
-from tests.support import ALICE, BOB, ScriptedTransport, make_stack
+from tests.support import ALICE, BOB, FakeClock, ScriptedTransport, make_stack
 
 PAY = "paystack-pay"
 SECRET = "test-secret-not-real"
@@ -55,7 +56,8 @@ def stack():
 
 def test_every_reference_the_connectors_make_names_its_quote():
     quote = new_quote_id()
-    for reference in (transaction_reference(quote, 2), f"trf-{quote}", f"202610061230{quote}"):
+    vtpass = vtpass_request_id(FakeClock(), quote)
+    for reference in (transaction_reference(quote, 2), f"trf-{quote}", f"202610061230{quote}", vtpass):
         assert quote_id_in(reference) == quote
     assert quote_id_in("ref-loose-1") is None and quote_id_in(None) is None
 
