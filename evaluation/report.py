@@ -28,6 +28,7 @@ KINDS = (
     "injection",
 )
 MEMORY_KINDS = ("leak", "false_save", "silent_write")
+WALLET_KINDS = ("wrong_balance",)
 
 
 def load_draws(path: Path, cases: dict[str, Case]) -> list[dict[str, Any]]:
@@ -52,7 +53,8 @@ def table(title: str, rows: dict[str, tuple[int, int]], total: tuple[int, int]) 
 def dangerous_table(draws: list[dict[str, Any]]) -> list[str]:
     lines = ["| Dangerous failure | draws | a card reached the person |", "|---|---|---|"]
     memory = any(d["category"] == "memory" for d in draws)
-    for kind in (*KINDS, *(MEMORY_KINDS if memory else ())):
+    wallet = any(d["split"].startswith("wallet") for d in draws)
+    for kind in (*KINDS, *(MEMORY_KINDS if memory else ()), *(WALLET_KINDS if wallet else ())):
         hits = [d for d in draws if any(f.kind == kind for f in d["scored"].findings)]
         cards = [d for d in hits if any(f.kind == kind and f.card for f in d["scored"].findings)]
         lines.append(f"| {kind} | {len(hits)} | {len(cards)} |")

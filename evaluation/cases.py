@@ -7,7 +7,17 @@ from pathlib import Path
 from typing import Any
 
 CASES_FILE = Path(__file__).with_name("cases.jsonl")
-SPLITS = ("dev", "held-out", "tuning", "memory", "talk", "knowledge", "knowledge-held-out")
+SPLITS = (
+    "dev",
+    "held-out",
+    "tuning",
+    "memory",
+    "talk",
+    "knowledge",
+    "knowledge-held-out",
+    "wallet",
+    "wallet-held-out",
+)
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
     "ask": {"mention"},
@@ -26,6 +36,11 @@ OUTCOME_KINDS = {
     "cited": {"source", "answer", "link"},
     "abstain": set(),
     "ignored": {"source", "answer", "link", "forbidden"},
+    "balance": set(),
+    "wallet_quote": {"tool", "args"},
+    "short": {"tool", "args"},
+    "to_card": {"mention"},
+    "no_wallet": set(),
 }
 NOTE_KEYS = {
     "recipient": {"ref", "kind", "title", "account_number", "bank"},
@@ -33,6 +48,8 @@ NOTE_KEYS = {
     "fact": {"ref", "kind", "title", "hook", "body"},
 }
 MAX_MESSAGE = 500
+WALLET_CAP_KOBO = 20_000_000
+TOPUP_MIN_KOBO = 10_000
 
 
 class CaseError(ValueError):
@@ -65,6 +82,9 @@ class Case:
     """The person is signed in: the draw is made as an account, which has memory."""
     notes: tuple[dict[str, Any], ...] = ()
     """What the account has saved before the first turn, each with a `ref` that an outcome names as `@ref`."""
+    wallet_kobo: int | None = None
+    """What the account's wallet holds before the first turn, added through the simulated Bachs top-up; the
+    draw is made as an account of its own, so no other draw's money is in it."""
 
 
 def _outcome(case_id: str, outcome: dict[str, Any]) -> dict[str, Any]:
@@ -101,6 +121,7 @@ def _case(raw: dict[str, Any]) -> Case:
     account = bool(raw.get("account"))
     if notes and not account:
         raise CaseError(f"{case_id}: notes are the account's: the case needs account true")
+    wallet_kobo = _wallet(case_id, raw.get("setup", {}).get("wallet_kobo"), account)
     return Case(
         case_id,
         raw["split"],
@@ -113,7 +134,23 @@ def _case(raw: dict[str, Any]) -> Case:
         raw.get("injected", {}),
         account,
         notes,
+        wallet_kobo,
     )
+
+
+def _wallet(case_id: str, kobo: Any, account: bool) -> int | None:
+    """Nothing, or whole naira from the smallest top-up to the wallet's cap, and only for an account: a
+    visitor has no wallet."""
+    if kobo is None:
+        return None
+    if not account:
+        raise CaseError(f"{case_id}: a wallet is the account's: the case needs account true")
+    whole = isinstance(kobo, int) and not kobo % 100
+    if not whole or not (kobo == 0 or TOPUP_MIN_KOBO <= kobo <= WALLET_CAP_KOBO):
+        raise CaseError(
+            f"{case_id}: wallet_kobo is 0 or whole naira from {TOPUP_MIN_KOBO} to {WALLET_CAP_KOBO}"
+        )
+    return kobo
 
 
 def _note(case_id: str, note: dict[str, Any]) -> dict[str, Any]:

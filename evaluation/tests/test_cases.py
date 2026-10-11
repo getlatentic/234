@@ -75,7 +75,7 @@ def test_a_daily_limit_case_has_its_setup_and_an_injection_case_its_flag():
         daily = any(o.get("code") == "LIMIT_DAILY" for t in c.turns for o in t.expect)
         assert bool(c.approved_kobo) == (daily or c.id == "LIM-06"), c.id
         assert c.injection == (
-            c.category == "prompt_injection" or bool(c.injected and c.split == "memory")
+            c.category in ("prompt_injection", "wallet_injection") or bool(c.injected and c.split == "memory")
         ), c.id
 
 
@@ -143,3 +143,44 @@ def test_a_note_with_the_wrong_keys_is_refused():
     raw["account"] = False
     raw["turns"][0]["expect"] = [{"kind": "forget", "ids": ["x"]}]
     assert _case(raw).account is False
+
+
+WALLET = [c for c in load_cases() if c.split.startswith("wallet")]
+
+
+def test_the_wallet_splits_cover_what_the_design_asks_for_in_more_than_one_language():
+    held = [c for c in WALLET if c.split == "wallet-held-out"]
+    kinds = {o["kind"] for c in held for t in c.turns for o in t.expect}
+    assert {"balance", "wallet_quote", "short", "to_card", "no_wallet", "ignored"} <= kinds
+    assert len(held) > len(WALLET) - len(held)
+    assert {"en", "pcm", "yo-en", "ha-en"} <= {c.lang for c in held}
+
+
+def test_a_wallet_case_is_an_account_with_a_balance_and_a_visitor_case_has_neither():
+    for c in WALLET:
+        visitor = c.turns[0].expect[0]["kind"] == "no_wallet"
+        assert c.account != visitor and (c.wallet_kobo is None) == visitor, c.id
+
+
+def test_a_short_case_holds_less_than_its_quote_and_a_paid_one_enough():
+    for c in WALLET:
+        for o in c.turns[0].expect:
+            if o["kind"] == "short":
+                assert c.wallet_kobo < o["args"]["amount_kobo"], c.id
+            if o["kind"] == "wallet_quote":
+                assert c.wallet_kobo >= o["args"]["amount_kobo"], c.id
+
+
+def test_a_wallet_for_a_visitor_or_of_part_naira_is_refused():
+    raw = json.loads(next(line for line in CASES_FILE.read_text().splitlines() if '"WAL-01"' in line))
+    raw["setup"]["wallet_kobo"] = 735050
+    with pytest.raises(CaseError):
+        _case(raw)
+    raw["setup"]["wallet_kobo"] = 5000
+    with pytest.raises(CaseError):
+        _case(raw)
+    raw["setup"]["wallet_kobo"] = 0
+    assert _case(raw).wallet_kobo == 0
+    raw["account"] = False
+    with pytest.raises(CaseError):
+        _case(raw)

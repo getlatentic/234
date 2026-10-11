@@ -31,10 +31,11 @@ class SetupFailed(Exception):
     pass
 
 
-async def memory_call(
-    http: httpx.AsyncClient, checkout: str, owner: str, tool: str, arguments: dict[str, Any]
+async def account_call(
+    http: httpx.AsyncClient, checkout: str, server: str, owner: str, tool: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """One call to the memory connector as `owner`, the way the host makes it, with no model in between."""
+    """One call to an account's connector (memory, wallet) as `owner`, the way the host makes it for an
+    account's turn, with no model in between."""
     headers = {
         "accept": "application/json, text/event-stream",
         "mcp-protocol-version": PROTOCOL,
@@ -47,10 +48,10 @@ async def memory_call(
         "method": "tools/call",
         "params": {"name": tool, "arguments": arguments},
     }
-    answer = (await http.post(f"{checkout}/memory/mcp", json=body, headers=headers)).json()
+    answer = (await http.post(f"{checkout}/{server}/mcp", json=body, headers=headers)).json()
     result = answer.get("result")
     if result is None or result.get("isError"):
-        raise SetupFailed(f"memory {tool}: {json.dumps(answer)[:200]}")
+        raise SetupFailed(f"{server} {tool}: {json.dumps(answer)[:200]}")
     return result
 
 
@@ -89,22 +90,22 @@ async def set_up_notes(checkout: str, owner: str, notes: tuple[dict[str, Any], .
     way a card's Save saves it. The id of each, by its ref."""
     refs: dict[str, str] = {}
     async with httpx.AsyncClient(timeout=30) as http:
-        await memory_call(http, checkout, owner, "delete_all_memories", {})
+        await account_call(http, checkout, "memory", owner, "delete_all_memories", {})
         for note in notes:
             fields = {k: v for k, v in note.items() if k != "ref"}
-            made = await memory_call(http, checkout, owner, "remember", fields)
+            made = await account_call(http, checkout, "memory", owner, "remember", fields)
             decision = {
                 "proposal_id": made["structuredContent"]["proposal_id"],
                 "confirm_token": made["_meta"]["confirmToken"],
             }
-            await memory_call(http, checkout, owner, "confirm_memory", decision)
+            await account_call(http, checkout, "memory", owner, "confirm_memory", decision)
             refs[note["ref"]] = decision["proposal_id"]
     return refs
 
 
 async def live_notes(checkout: str, owner: str) -> list[str]:
     async with httpx.AsyncClient(timeout=30) as http:
-        listed = await memory_call(http, checkout, owner, "list_memories", {})
+        listed = await account_call(http, checkout, "memory", owner, "list_memories", {})
     return [entry["id"] for entry in listed["structuredContent"]["entries"]]
 
 
@@ -126,6 +127,13 @@ class Accounts:
     async def stop(self) -> None:
         for visitor in self._open:
             await visitor.__aexit__(None, None, None)
+
+    @asynccontextmanager
+    async def fresh(self) -> AsyncIterator[tuple[Visitor, str]]:
+        """A browser signed in as a new account for one draw alone: its wallet, its notes and its day's
+        allowance are nobody else's."""
+        async with Visitor(self._host) as visitor:
+            yield visitor, await sign_in(visitor, self._emulator)
 
     @asynccontextmanager
     async def lease(self) -> AsyncIterator[tuple[Visitor, str]]:
