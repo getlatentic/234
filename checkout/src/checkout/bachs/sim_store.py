@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..db import Db, UniqueViolation
+from .api import kobo_of
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,10 @@ class BachsSimStore:
     async def by_idempotency_key(self, key: str) -> SimCheckout | None:
         row = await self._db.row("SELECT * FROM sim_bachs_checkouts WHERE idempotency_key = ?", key)
         return _checkout(row) if row else None
+
+    async def collected_kobo(self) -> int:
+        rows = await self._db.rows("SELECT amount FROM sim_bachs_checkouts WHERE status = 'paid'")
+        return sum(kobo_of(row["amount"]) or 0 for row in rows)
 
     async def pay(self, checkout_id: str, now: int) -> bool:
         """The pay page's button. Only an open checkout within its time can be paid, once."""

@@ -22,6 +22,7 @@ from ..errors import DomainError
 from ..ids import new_topup_id
 from ..money import Kobo, format_naira
 from .freeze import unfrozen_sql, wallet_frozen
+from .funding_pause import funding_open_sql, funding_paused
 from .journal import BALANCE_SQL, Journal
 
 TOPUP_MINUTES = 60
@@ -66,7 +67,7 @@ _OPEN = (
     "INSERT INTO wallet_topup (id, owner, amount_kobo, state, created_at, expires_at) "
     "SELECT ?, ?, ?, 'open', ?, ? "
     f"WHERE {unfrozen_sql('?')} "
-    f"AND {BALANCE_SQL} + ? <= ?"
+    f"AND {BALANCE_SQL} + ? <= ? AND {funding_open_sql()}"
 )
 
 
@@ -121,6 +122,10 @@ class TopUps:
         )
 
     async def _why_not(self, owner: str, amount: Kobo) -> DomainError:
+        if await funding_paused(self._db):
+            return DomainError(
+                "FUNDING_PAUSED", "Adding money is paused while 234 checks its accounts. Try again later."
+            )
         frozen = await wallet_frozen(self._db, owner)
         if frozen is None:
             return DomainError("WALLET_NONE", "A wallet is for signed-in accounts. Sign in to add money.")

@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design; build steps 1 to 5 are built, simulated, and step 6 but the reconciliation (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 to 6 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -119,9 +119,34 @@ currency, or for more than the top-up is audited and holds nothing, and Bachs is
 ## Where the money is, and the float
 
 The sum of all wallets is what 234 owes. The money arrives in 234's Bachs balance; 234 pays VTpass and Paystack from
-their own balances, and **234 tops those up** from its Bachs settlements. The ledger does not move that money; it tracks the debt, so the
-code ships a **reconciliation** (`/ops/wallet/reconcile`): total owed, against Bachs' balance plus the providers',
-alert on a gap, and freeze funding on a mismatch. Who tops up the providers, and how often, is operations.
+their own balances, and **234 tops those up** from its Bachs settlements. The ledger does not move that money; it
+tracks the debt, so the code reconciles the two (Reconciliation, below). Who tops up the providers, and how often, is
+operations.
+
+## Reconciliation
+
+Once an hour the minute cron, and an operator at any time with `GET /ops/wallet/reconcile` (holding `OPS_TOKEN`),
+sets what 234 owes against what it holds (`checkout/src/checkout/wallet/reconciliation.py`):
+
+* **Owed** is the signed sum of the whole journal, every wallet together (`wallet/books.py`); a hold on a quote not
+  yet paid is already out of it.
+* **Held** is 234's NGN at Bachs, available and pending together, and a lost dispute can take it below zero
+  (`GET /v1/balances`, https://docs.bachs.io/connect/balances); at Paystack (`GET /balance`), which pays
+  withdrawals; and at VTpass (its balance check), which pays airtime and data (`wallet/treasury.py`).
+* **The gap** is owed less held. A provider that cannot be read is unknown, never zero, and is audited
+  (`wallet.reconcile.unread`); the run then has no gap.
+
+Each run is kept as it was in `wallet_reconciliation` (`checkout/migrations/0018_wallet_reconciliation.sql`), so the
+report is also the history. A run that read every provider and found a gap is **short**: it is audited
+`wallet.reconcile.short`, and while the latest such run is short, new top-ups are refused with `FUNDING_PAUSED`
+(`wallet/funding_pause.py`, in the WHERE of the statement that opens one), as money taken into a treasury that does
+not cover what it owes only adds to what it cannot pay. Spending and withdrawing go on. A run that could not read a
+provider neither pauses nor lifts; the next complete run that is not short lifts the pause.
+
+The report also shows what is being withdrawn (taken from wallets, not yet settled by Paystack, so still in its
+balance) and the disputes as 234's cost: how many (Bachs' $15 each), how many are open and for how much, and what
+lost or prevented ones could not hold, written off. The simulated providers report what they hold: Bachs what its
+paid checkouts collected, Paystack and VTpass a float.
 
 ## Corrections
 
@@ -179,9 +204,9 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    Bachs delivers it again. The stand-in's pay page (`/sim/bachs/<checkout>`, `sim_bachs.py`) sends a signed
    `collection.succeeded` through the same hook. A genuine collection for an expired top-up is still credited.
    Tests `checkout/tests/test_bachs_*.py`, `test_wallet_topup*.py`; guards `checkout/tools/mutations/topup_rules.py`.
-   Not yet: a credit the cap refuses for good
-   (past Bachs' retries) waits for reconciliation in step 6; the re-check of a top-up whose webhook never arrives
-   waits on whether Bachs offers a lookup by checkout.
+   A credit the cap refuses for good (past Bachs' retries) is held at Bachs and owed to no wallet, so the
+   reconciliation shows it only as more held than owed: an operator credits it with a correction (Corrections).
+   Not yet: the re-check of a top-up whose webhook never arrives waits on whether Bachs offers a lookup by checkout.
 4. **Built, simulated.** The `wallet` connector and its card, and paying airtime from the wallet on the
    approval card. `checkout/src/checkout/connectors/wallet.py`: one model tool, `wallet_balance` (read-only:
    the balance as a line, and the card), and two the card calls, `wallet_view` and `start_topup` (whole naira,
@@ -227,10 +252,13 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    Tests `checkout/tests/test_wallet_withdraw*.py`, `test_wallet_withdrawal_{races,outcomes}.py`,
    `conformance/chat-wallet.mjs` (withdraw on the card, the balance and the history); guards
    `checkout/tools/mutations/withdrawal_rules.py`.
-6. **Disputes, reversals, the reaper, corrections and metrics are built; reconciliation is not yet.** The
-   reconciliation is to count each lost or prevented
-   dispute's `written_off_kobo` (`wallet_dispute`, `state IN ('lost', 'prevented')`) as 234's loss, and Bachs'
-   $15 per dispute as 234's cost. **Disputes are built, simulated:** `checkout/migrations/0015_wallet_dispute.sql`
+6. **Built, simulated: disputes, reversals, the reaper, corrections, metrics and the reconciliation.** The
+   reconciliation (Reconciliation, above): `checkout/migrations/0018_wallet_reconciliation.sql`,
+   `wallet/{books,treasury,reconciliation,funding_pause}.py`, the Bachs and Paystack balances
+   (`bachs/client.py` `ngn_balance`, `paystack/client.py` `ngn_balance`, and their simulators), the minute cron and
+   `GET /ops/wallet/reconcile` (`ops.py`). Tests `checkout/tests/test_wallet_reconciliation.py`, the balance tests in
+   `test_bachs_client.py` and `test_paystack_client.py`; guards `checkout/tools/mutations/reconciliation_rules.py`.
+   **Disputes:** `checkout/migrations/0015_wallet_dispute.sql`
    (`wallet_topup.charge_id`; the journal rebuilt with `dispute` and `dispute_back`, keeping its rows, seq, index
    and triggers; `wallet_freeze`; `wallet_dispute`, whose terms are kept and whose decision is final, by
    trigger); `checkout/src/checkout/bachs/disputes.py` (the events), `wallet/disputes.py` (open and decide, one

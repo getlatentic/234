@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Operator routes under /ops/, for a person who holds OPS_TOKEN: today, corrections to a wallet
-(POST /ops/wallet/adjust, wallet/adjustments.py). A request without the token, or to a Worker that has none
-set, is answered 404, as if the route did not exist."""
+"""Operator routes under /ops/, for a person who holds OPS_TOKEN: corrections to a wallet
+(POST /ops/wallet/adjust, wallet/adjustments.py) and the wallet's reconciliation, run now
+(GET /ops/wallet/reconcile, wallet/reconciliation.py). A request without the token, or to a Worker that has
+none set, is answered 404, as if the route did not exist."""
 
 import hmac
 import json
@@ -13,6 +14,7 @@ from .wallet.correction import correction_of
 
 MAX_BODY = 8 * 1024
 STATUS = {"INVALID_INPUT": 400, "CORRECTION_CONFLICT": 409}
+ADJUST, RECONCILE = ["ops", "wallet", "adjust"], ["ops", "wallet", "reconcile"]
 
 
 def holds_ops_token(app: App, headers: dict[str, str]) -> bool:
@@ -24,8 +26,12 @@ def holds_ops_token(app: App, headers: dict[str, str]) -> bool:
 async def handle_ops(
     app: App, method: str, parts: list[str], headers: dict[str, str], raw: bytes
 ) -> HttpResponse:
-    if not holds_ops_token(app, headers) or parts != ["ops", "wallet", "adjust"]:
+    if not holds_ops_token(app, headers) or parts not in (ADJUST, RECONCILE):
         return HttpResponse(404, "Not found")
+    if parts == RECONCILE:
+        if method != "GET":
+            return HttpResponse(405, "", {"allow": "GET"})
+        return json_response((await app.reconciliation.run()).view())
     if method != "POST":
         return HttpResponse(405, "", {"allow": "POST"})
     if len(raw) > MAX_BODY:

@@ -286,3 +286,15 @@ async def test_a_reference_is_escaped_in_the_path():
     with pytest.raises(PaystackError):
         await client.verify_transaction("a/b?c")
     assert transport.calls[0].url.endswith("/transaction/verify/a%2Fb%3Fc")
+
+
+async def test_the_balance_transfers_are_paid_from_is_the_ngn_one():
+    client, transport = client_with(
+        lambda sent: json_reply(
+            {"status": True, "message": "Balances retrieved",
+             "data": [{"currency": "NGN", "balance": 1_234_500}, {"currency": "USD", "balance": 99}]}
+        )
+    )  # fmt: skip
+    assert await client.ngn_balance() == 1_234_500
+    [sent] = transport.calls
+    assert (sent.method, sent.url) == ("GET", "https://api.paystack.co/balance")

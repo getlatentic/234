@@ -6,7 +6,7 @@ import json
 from typing import Any, Literal
 from urllib.parse import quote, urlencode
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, RootModel, ValidationError
 
 from ..transport import Transport, TransportError
 from .api import (
@@ -64,6 +64,15 @@ class _RecipientData(_Model):
     recipient_code: str
     name: str
     details: _RecipientDetails | None = None
+
+
+class _Balance(_Model):
+    currency: str
+    balance: int
+
+
+class _Balances(RootModel[list[_Balance]]):
+    pass
 
 
 class _TransferData(_Model):
@@ -190,6 +199,10 @@ class PaystackClient:
         return self._transfer(
             await self._call("GET", f"/transfer/verify/{quote(reference, safe='')}", _TransferData)
         )
+
+    async def ngn_balance(self) -> int:
+        balances = (await self._call("GET", "/balance", _Balances)).root
+        return sum(b.balance for b in balances if b.currency == "NGN")
 
 
 def _envelope_of(text: str) -> _Envelope | None:

@@ -134,8 +134,14 @@ DECIDED = [
     dispute(
         "Bachs' dispute events reach the wallet",
         f"{SRC}/provider_hooks/bachs.py",
-        "        if dispute is not None:\n            await self.disputes.settle(dispute)",
-        "        if False:\n            await self.disputes.settle(dispute)",
+        "if dispute is not None and await self.disputes.settle(dispute) == Refused(UNKNOWN):",
+        "if False:",
+    ),
+    dispute(
+        "a dispute on a charge not credited yet is asked for again, not dropped",
+        f"{SRC}/provider_hooks/bachs.py",
+        '            return HttpResponse(503, "Not recorded yet")',
+        "            pass",
     ),
     dispute(
         "the card says withdrawals are paused",

@@ -19,6 +19,7 @@ from .flows.context import Context
 from .jobs import HeldJobs, InlineJobs, Job, QueueJobs
 from .provider_hooks.rechecks import Rechecks
 from .transport import Reply, Transport
+from .wallet.reconciliation import Reconciliation
 from .wallet.stale_holds import StaleHolds
 from .wallet.topups import TopUps
 from .wallet.withdrawal_outcome import WithdrawalOutcomes
@@ -45,6 +46,7 @@ class Background:
     rechecks: Rechecks
     topups: TopUps
     stale_holds: StaleHolds | None
+    reconciliation: Reconciliation | None = None
 
     async def run(self, job: Job) -> None:
         """One job of either queue. A recheck can end a quote, whose events are then handed on."""
@@ -61,11 +63,14 @@ class Background:
 
     async def minute(self) -> None:
         """The Cron Trigger's: pending quotes and undecided withdrawals asked again, overdue quotes,
-        withdrawals and top-ups expired, holds a crash left given back, due events handed on."""
+        withdrawals and top-ups expired, holds a crash left given back, the hourly reconciliation, due events
+        handed on."""
         await self.rechecks.sweep()
         await self.topups.expire_due()
         if self.stale_holds is not None:
             await self.stale_holds.release_due()
+        if self.reconciliation is not None:
+            await self.reconciliation.run_if_due()
         await self.delivery.drain()
         await self.delivery.prune()
 
@@ -81,6 +86,7 @@ def build_background(
     transport: Transport,
     queues: Mapping[str, Any] | None = None,
     jobs: HeldJobs | None = None,
+    reconciliation: Reconciliation | None = None,
 ) -> Background:
     """`jobs`, for tests, takes every job of both kinds and keeps it until it is run."""
     events = Events(Subscriptions(db), transport, clock, allow_loopback=settings.enable_test_routes)
@@ -91,6 +97,7 @@ def build_background(
         Rechecks(db, dict(contexts), clock, audit, withdrawals),
         topups,
         StaleHolds(spending, db, clock, audit) if spending is not None else None,
+        reconciliation,
     )
     if jobs is not None:
         jobs.run = background.run

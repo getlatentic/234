@@ -25,6 +25,7 @@ from .wallet.topups import CheckoutTerms, TopUps
 class Funding:
     topups: TopUps
     hook: BachsHook
+    bachs: BachsApi
     sim: BachsSimStore | None
     """The simulator's checkouts, for its pay page; None when top-ups are paid on the real sandbox."""
 
@@ -51,4 +52,4 @@ def build_funding(
     audit.log("bachs.startup", mode="simulated" if sim else "sandbox")
     credit = TopUpCredit(topups, db, clock, audit)
     hook = BachsHook(credit, Disputes(db, clock, audit, journal.metrics), secrets, clock, audit)
-    return Funding(topups, hook, sim)
+    return Funding(topups, hook, bachs, sim)

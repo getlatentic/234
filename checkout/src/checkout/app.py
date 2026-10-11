@@ -48,8 +48,10 @@ from .vtpass.sim import VtpassSimulator
 from .vtpass.sim_store import VtpassSimStore
 from .wallet.adjustments import Adjustments
 from .wallet.journal import Journal
+from .wallet.reconciliation import Reconciliation
 from .wallet.spending import WalletSpending
 from .wallet.topups import TopUps
+from .wallet.treasury import Treasury
 from .wallet.withdrawals import Withdrawals
 from .web.cache import WebCache
 from .web.fetcher import Fetcher, WorkerPageFetch
@@ -80,6 +82,7 @@ class App:
     funding: Funding
     withdrawals: Withdrawals
     adjustments: Adjustments
+    reconciliation: Reconciliation
 
 
 def card_reader(name: str) -> CardReader:
@@ -268,6 +271,8 @@ def build_app(
     ledger, contexts = build_contexts(settings, db, clock, audit, journal, transport)
     funding = build_funding(settings, db, clock, audit, journal, transport or WorkerFetch())
     withdrawals = withdrawals_for(settings, contexts, journal, db, clock, audit)
+    treasury = Treasury(funding.bachs, contexts["send-money"].paystack, contexts["airtime"].vtpass, audit)
+    reconciliation = Reconciliation(db, clock, treasury, audit)
     return App(
         settings,
         db,
@@ -303,8 +308,10 @@ def build_app(
             callback_transport or WorkerFetch(follow_redirects=False),
             queues,
             jobs,
+            reconciliation,
         ),
         funding,
         withdrawals,
         Adjustments(db, clock, journal, audit),
+        reconciliation,
     )

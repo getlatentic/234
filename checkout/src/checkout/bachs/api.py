@@ -74,3 +74,8 @@ class BachsError(Exception):
 
 class BachsApi(Protocol):
     async def create_checkout(self, request: CheckoutRequest) -> Checkout: ...
+
+    async def ngn_balance(self) -> Kobo:
+        """234's NGN at Bachs: available and pending together, as both are owed to it
+        (https://docs.bachs.io/connect/balances). A currency with no activity is absent, so zero."""
+        ...

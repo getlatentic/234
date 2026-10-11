@@ -16,6 +16,8 @@ from .banks import simulated_bank_name
 from .sim_store import PaystackSimStore, SimTransfer
 
 SIMULATED_OTP = "123456"
+SIMULATED_BALANCE_KOBO = 10_000_000_00
+"""What the simulated Paystack holds for transfers: a float 234 tops up, like VTpass' simulated wallet."""
 PAYSTACK_TEST_ACCOUNT = "0000000000"
 PAYOUTS_REFUSED_MESSAGE = "You cannot initiate third party payouts as a starter business"
 
@@ -100,6 +102,7 @@ class PaystackSimulator:
             ("POST", re.compile(r"^/transfer$"), self._transfer),
             ("POST", re.compile(r"^/transfer/finalize_transfer$"), self._finalize),
             ("GET", re.compile(r"^/transfer/verify/([^/]+)$"), self._verify_transfer),
+            ("GET", re.compile(r"^/balance$"), self._balance),
         )
 
     async def send(
@@ -123,6 +126,10 @@ class PaystackSimulator:
                 )
                 return await handle(call)
         return fail(404, "Route not found")
+
+    async def _balance(self, call: Call) -> Reply:
+        del call
+        return ok("Balances retrieved", [{"currency": "NGN", "balance": SIMULATED_BALANCE_KOBO}])
 
     async def _initialize(self, call: Call) -> Reply:
         body = call.body

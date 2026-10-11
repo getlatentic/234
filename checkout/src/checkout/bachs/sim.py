@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 from ..clock import Clock
 from ..transport import Reply
-from .api import NGN, SANDBOX_KEY_PREFIX, kobo_of
+from .api import NGN, SANDBOX_KEY_PREFIX, kobo_of, naira_text
 from .sim_store import BachsSimStore, NewCheckout, SimCheckout
 
 SIMULATED_KEY = f"{SANDBOX_KEY_PREFIX}simulated"
@@ -22,6 +22,7 @@ DEFAULT_MINUTES = 60
 MAX_MINUTES = 1440
 MAX_REFERENCE = 128
 PATH = "/v1/checkout-sessions"
+BALANCES = "/v1/balances"
 
 
 def simulated_webhook_secret(approval_secret: str) -> str:
@@ -79,9 +80,18 @@ class BachsSimulator:
         given = {k.lower(): v for k, v in headers.items()}
         if not given.get("authorization", "").startswith(f"Bearer {SANDBOX_KEY_PREFIX}"):
             return fail(401, "UNAUTHORIZED", "Invalid API key")
-        if method != "POST" or urlsplit(url).path != PATH:
+        path = urlsplit(url).path
+        if method == "GET" and path == BALANCES:
+            return await self._balances()
+        if method != "POST" or path != PATH:
             return fail(404, "NOT_FOUND", "Not found")
         return await self._create(given.get("idempotency-key"), body or "")
+
+    async def _balances(self) -> Reply:
+        """What the simulated checkouts collected: nothing here pays out, so all of it is still held."""
+        collected = naira_text(await self._store.collected_kobo())
+        balance = {"currency": NGN, "available_balance": collected, "pending_balance": "0.00"}
+        return Reply(200, json.dumps({"balances": [balance]}), "application/json")
 
     async def _create(self, key: str | None, raw: str) -> Reply:
         try:

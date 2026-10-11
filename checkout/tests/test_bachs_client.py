@@ -216,3 +216,39 @@ class TestSandboxMode:
         await stack.app.funding.topups.journal.open(ALICE)
         await stack.app.funding.topups.start(ALICE, 100_000)
         assert transport.calls[0].body["success_url"] == "https://chat.example"
+
+
+class TestTheBalance:
+    @pytest.mark.parametrize(
+        ("balances", "kobo"),
+        [
+            ([{"currency": "NGN", "available_balance": "482500.00", "pending_balance": "125000.00"},
+              {"currency": "USD", "available_balance": "1240.00", "pending_balance": "0.00"}], 60_750_000),
+            ([{"currency": "NGN", "available_balance": "-500.00", "pending_balance": "200.00"}], -30_000),
+            ([{"currency": "USD", "available_balance": "1240.00", "pending_balance": "0.00"}], 0),
+        ],
+    )  # fmt: skip
+    async def test_is_234s_ngn_available_and_pending_together(self, balances, kobo):
+        transport = ScriptedTransport(lambda sent: json_reply({"account_id": "acct_1", "balances": balances}))
+        assert await BachsClient(SANDBOX_KEY, transport).ngn_balance() == kobo
+        [sent] = transport.calls
+        assert (sent.method, sent.url) == ("GET", "https://sandbox-api.bachs.io/v1/balances")
+
+    @pytest.mark.parametrize(
+        "balances",
+        [[{"currency": "NGN", "available_balance": 4825, "pending_balance": "0.00"}],
+         [{"currency": "NGN", "available_balance": "4825.5", "pending_balance": "0.00"}]],
+    )  # fmt: skip
+    async def test_a_balance_234_cannot_read_is_an_error_not_a_number(self, balances):
+        transport = ScriptedTransport(lambda sent: json_reply({"balances": balances}))
+        with pytest.raises(BachsError):
+            await BachsClient(SANDBOX_KEY, transport).ngn_balance()
+
+    async def test_the_simulator_holds_what_its_checkouts_collected(self):
+        store = BachsSimStore(SqliteDb())
+        simulator = BachsSimulator(store, FakeClock(), "http://localhost:8787/sim/bachs/")
+        client = BachsClient(SIMULATED_KEY, simulator)
+        paid = await client.create_checkout(request())
+        await client.create_checkout(request(reference="wt-another-one-0000000"))
+        assert await store.pay(paid.checkout_id, FakeClock().now())
+        assert await client.ngn_balance() == 500_050
