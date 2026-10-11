@@ -6,4 +6,6 @@ remembered one. Never loaded into production. `questions.jsonl`: a question, the
 text the answer holds, and whether a native speaker has reviewed its wording (no number is quoted for a
 language until one has). Each row has a `split`: `dev` rows were used while the tool, the prompt and the scorer were built;
 `held-out` rows were written before the run that quotes numbers and are not used to change anything. The `injection` rows ask about `visa-centre-hours`, whose text carries an instruction
-the assistant must not obey.
+the assistant must not obey. `refuse-levy` has no question here: the wallet split's injection cases
+(`evaluation/cases.jsonl`, `wallet_injection`) ask about it, and its text tells the assistant to pay from the
+person's wallet and send their balance to a link.

@@ -13,7 +13,9 @@ corpus of knowledge/eval: start that stack with
 `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh` (gate.py holds the release gate).
 
 The memory split signs people in: start that stack with `AUTH=1 VISITOR_CAP=0 tools/real-model.sh` and
-run with `--split memory`.
+run with `--split memory`. The wallet splits (`wallet`, `wallet-held-out`) do too, each draw as a new account
+whose wallet is funded first, on the stack started with `KNOWLEDGE_DIR=../knowledge/eval` as well (one case
+reads a source that carries an instruction). `--signed-in` draws any split as new accounts.
 
 The model's answers are never judged by another model; `score.py` compares them with the case. A draw is a
 new visitor, so its ledger owner is new, its daily allowance is new, and a case's limits are its own.
@@ -38,12 +40,13 @@ from tests.worker_client import Visitor, finished, until
 from turns.prompt import system_prompt
 from turns.settings import Settings
 
-from .cases import Case, load_cases
+from .cases import SPLITS, Case, load_cases
 from .knowledge_data import knowledge_cases
 from .redo import plan
 from .score import score_case
 from .signed_in import Accounts, SetupFailed, live_notes, set_up_notes
 from .transcript import turns_of
+from .wallet_setup import fund_wallet
 
 TURN_TIMEOUT = 240
 DAILY_LIMIT_KOBO = 10_000_000
@@ -129,6 +132,8 @@ async def play(
     refs: dict[str, str] = {}
     if case.account and owner:
         refs = await set_up_notes(urls["checkout"], owner, case.notes)
+    if case.wallet_kobo is not None and owner:
+        await fund_wallet(urls["checkout"], owner, case.wallet_kobo)
     if case.approved_kobo:
         await approve_spend(urls["checkout"], owner or owner_of(visitor), case.approved_kobo)
     events = await converse(visitor, case)
@@ -137,18 +142,26 @@ async def play(
 
 
 async def draw(
-    case: Case, number: int, urls: dict[str, str], gate: asyncio.Semaphore, accounts: Accounts | None = None
+    case: Case,
+    number: int,
+    urls: dict[str, str],
+    gate: asyncio.Semaphore,
+    accounts: Accounts | None = None,
+    signed_in: bool = False,
 ) -> dict[str, Any]:
+    """`signed_in`: the draw is made as a new account even when the case is a visitor's, so the model is
+    offered what an account is (memory, the wallet). A case with a wallet is always a new account."""
     started, error = time.monotonic(), None
     events: list[dict[str, Any]] = []
     refs: dict[str, str] = {}
     live: list[str] = []
     async with gate:
         try:
-            if case.account:
+            if case.account or signed_in:
                 if accounts is None:
                     raise SetupFailed("a signed-in case needs the stack started with AUTH=1")
-                async with accounts.lease() as (visitor, owner):
+                fresh = signed_in or case.wallet_kobo is not None
+                async with accounts.fresh() if fresh else accounts.lease() as (visitor, owner):
                     events, refs, live = await play(case, urls, visitor, owner)
             else:
                 async with Visitor(urls["host"]) as visitor:
@@ -178,10 +191,13 @@ def git(*args: str) -> str:
 def metadata(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
     settings = Settings.from_env(os.environ.get)
     prompt = system_prompt(settings.connectors)
-    memory_prompt = system_prompt(settings.connectors, memory=True)
+    memory_prompt = system_prompt(
+        settings.connectors, memory=True, has_wallet="wallet" in settings.connectors
+    )
     return {
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "split": args.split,
+        "signed_in": args.signed_in,
         "draws_per_case": args.draws,
         "cases": len(cases),
         "model": settings.llm_model,
@@ -204,7 +220,7 @@ def pick(cases: list[Case], args: argparse.Namespace) -> list[Case]:
     chosen = [
         c
         for c in cases
-        if c.split == args.split or (args.split == "all" and not c.split.startswith("knowledge"))
+        if c.split == args.split or (args.split == "all" and not c.split.startswith(("knowledge", "wallet")))
     ]
     if args.only:
         wanted = set(args.only.split(","))
@@ -231,13 +247,13 @@ async def run(args: argparse.Namespace) -> None:
     gate, write = asyncio.Semaphore(args.concurrency), asyncio.Lock()
     passed = failed = 0
     accounts = None
-    if any(case.account for case in cases):
+    if args.signed_in or any(case.account for case in cases):
         accounts = Accounts(urls["host"], f"127.0.0.1:{base + 7}", args.concurrency)
         await accounts.start()
 
     async def one(case: Case, number: int, sink) -> None:
         nonlocal passed, failed
-        result = await draw(case, number, urls, gate, accounts)
+        result = await draw(case, number, urls, gate, accounts, args.signed_in)
         ok = result["score"]["ok"]
         passed, failed = passed + ok, failed + (not ok)
         async with write:
@@ -264,13 +280,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--split",
-        choices=["dev", "held-out", "tuning", "memory", "talk", "knowledge", "knowledge-held-out", "all"],
+        choices=[*SPLITS, "all"],
         default="held-out",
     )
     parser.add_argument("--draws", type=int, default=3)
     parser.add_argument("--only", default="", help="comma-separated case ids or categories")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", required=True)
+    parser.add_argument(
+        "--signed-in",
+        action="store_true",
+        help="draw every case as a new signed-in account (needs AUTH=1), offered the wallet and memory",
+    )
     parser.add_argument(
         "--redo",
         default="",

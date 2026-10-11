@@ -13,12 +13,15 @@ REPEATED = "Not made again: the same request was already made earlier in this re
 
 
 def arguments_of(call: dict[str, Any]) -> dict[str, Any] | None:
-    """The arguments as JSON, or None when they are not a JSON object."""
+    """The arguments as JSON, or None when they are not a JSON object. A parameter with no name is left out:
+    gpt-oss fills a tool that takes no arguments as `{"": {}}`, and no tool has a nameless parameter."""
     try:
         parsed = json.loads(call["arguments"] or "{}", strict=False)
     except ValueError:
         return None
-    return parsed if isinstance(parsed, dict) else None
+    if not isinstance(parsed, dict):
+        return None
+    return {name: value for name, value in parsed.items() if name}
 
 
 def used_ids(events: list[Event]) -> set[str]:

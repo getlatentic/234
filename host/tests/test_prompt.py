@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from turns.prompt import CAPABILITIES, system_prompt
+from turns.prompt import CAPABILITIES, NO_WALLET, WALLET_CAN, system_prompt
 from turns.settings import Settings
 
 
@@ -10,9 +10,14 @@ def test_every_connector_the_host_offers_is_described_in_the_prompt():
         assert CAPABILITIES[name].does in prompt and CAPABILITIES[name].needs in prompt
 
 
-def test_the_wallet_is_its_tools_own_and_the_prompt_promises_it_to_nobody():
-    """Only an account is shown the wallet tool, so the prompt every chat shares says nothing of it."""
-    assert "wallet" not in system_prompt(Settings.connectors).lower()
+def test_an_account_is_told_of_its_wallet_card_and_anyone_else_to_sign_in_for_one():
+    """Only an account is shown the wallet tool: its prompt names the wallet card among what 234 does, and the
+    tool's description says the rest. Anyone else is told only that a wallet needs signing in."""
+    account = system_prompt(Settings.connectors, has_wallet=True)
+    assert WALLET_CAN in account and NO_WALLET not in account
+    visitor = system_prompt(Settings.connectors)
+    assert NO_WALLET in visitor and "wallet" not in visitor.replace(NO_WALLET, "").lower()
+    assert "wallet" not in system_prompt(("airtime",)).lower()
 
 
 def test_a_connector_that_is_off_is_not_promised():

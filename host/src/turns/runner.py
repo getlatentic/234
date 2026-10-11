@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from . import calls as call_rules
-from . import fold, kinds, logs, messages, permissions, scope, sources, trace
+from . import fold, kinds, logs, messages, permissions, scope, sources, trace, wallet
 from .budget import add_tokens, take_model_call, tokens_used_up
 from .compaction.compactor import Compactor
 from .db import Db
@@ -196,6 +196,7 @@ class TurnRunner:
                 permits.reads_notes,
                 permits.memory_tools,
                 searches_web=any(t["function"]["name"] == WEB_SEARCH for t in tools),
+                has_wallet=any(wallet.is_wallet_tool(t["function"]["name"]) for t in tools),
             )
             index = await read_index(self._hub, self._owner) if permits.reads_notes and self._notes else ""
             head = with_notes(system, index)

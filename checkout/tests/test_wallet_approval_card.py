@@ -17,6 +17,15 @@ async def funded(stack, amount: int, owner: str = ALICE) -> None:
     assert await journal(stack).credit(owner, "fund", amount, f"top-up-{owner}") is not None
 
 
+PAYMENT = {
+    "amount_kobo": 50_000,
+    "amount_as_user_said": "₦500",
+    "description": "Payment",
+    "merchant": "Shop",
+    "idempotency_key": "pay-wallet-0001",
+}
+
+
 def offer_of(made: dict) -> dict | None:
     return made["structuredContent"]["quote"].get("wallet")
 
@@ -37,6 +46,11 @@ class TestTheOffer:
     async def test_a_visitor_is_never_offered_a_wallet(self, stack):
         await funded(stack, 200_000, BOB)
         assert offer_of(await airtime_quote(stack, BOB, account=False)) is None
+
+    async def test_a_card_that_cannot_pay_from_the_wallet_is_not_offered_it(self, stack):
+        await funded(stack, 2_000_000)
+        made = await call(stack, "paystack-pay", "create_payment_quote", ALICE, True, **PAYMENT)
+        assert offer_of(made["result"]) is None
 
     async def test_the_offer_is_gone_once_the_quote_is_approved(self, stack):
         await funded(stack, 200_000)
@@ -87,18 +101,7 @@ class TestPayingFromTheWallet:
 
     async def test_another_connector_does_not_pay_from_the_wallet(self, stack):
         await funded(stack, 2_000_000)
-        made = await call(
-            stack,
-            "paystack-pay",
-            "create_payment_quote",
-            ALICE,
-            True,
-            amount_kobo=50_000,
-            amount_as_user_said="₦500",
-            description="Payment",
-            merchant="Shop",
-            idempotency_key="pay-wallet-0001",
-        )
+        made = await call(stack, "paystack-pay", "create_payment_quote", ALICE, True, **PAYMENT)
         refused = await approve(stack, made["result"], funding="wallet")
         assert refused["isError"] is True
         assert await journal(stack).balance(ALICE) == 2_000_000
