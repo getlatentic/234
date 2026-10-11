@@ -2,8 +2,9 @@
 """A Paystack that answers from local state: the same requests the real client sends, the same
 reply shapes, and Paystack's documented behaviour (an unpaid checkout reads `abandoned`, a repeated
 reference is refused, test transfers succeed at once, a refund is queued `pending` and is never more than
-the payment). It is a `Transport`, so the real client talks to it unchanged. A refund moves on only from the
-test routes (sim_paystack_refund.py)."""
+the payment). It is a `Transport`, so the real client talks to it unchanged. Where the test routes are on, a
+refund moves on only from them (sim_paystack_refund.py); where they are off, as on a deployed simulated
+stack, a refund is processed the first time 234 asks about it, so the card does not wait for good."""
 
 import json
 import re
@@ -103,8 +104,10 @@ class PaystackSimulator:
         *,
         transfer_otp: bool = False,
         payouts_refused: bool = False,
+        settles_refunds: bool = False,
     ) -> None:
         self._store = store
+        self._settles_refunds = settles_refunds
         self._checkout_base = checkout_base_url.rstrip("/")
         self._transfer_otp = transfer_otp
         self._payouts_refused = payouts_refused
@@ -297,7 +300,14 @@ class PaystackSimulator:
         named = {"id": transaction.id, "reference": transaction.reference, "amount": transaction.amount_kobo}
         return ok("Refund has been queued for processing", _refund_data(refund, named))
 
+    async def _settle(self, reference: str) -> None:
+        if self._settles_refunds:
+            await self._store.set_refund_status(reference, "processed")
+
     async def _fetch_refund(self, call: Call) -> Reply:
+        found = await self._store.refund(int(call.params[0]))
+        if found is not None:
+            await self._settle(found.transaction_reference)
         refund = await self._store.refund(int(call.params[0]))
         if refund is None:
             return fail(404, "Refund not found")
@@ -307,6 +317,8 @@ class PaystackSimulator:
         transaction_id = _integer(call.query.get("transaction"))
         if transaction_id is None:
             return fail(400, "Give a transaction to list its refunds")
+        for found in await self._store.refunds_of(transaction_id):
+            await self._settle(found.transaction_reference)
         refunds = await self._store.refunds_of(transaction_id)
         return ok("Refunds retrieved", [_refund_data(r, r.transaction_id) for r in refunds])
 

@@ -236,4 +236,19 @@ DATABASE = [
     ),
 ]
 
-MUTATIONS: list[Mutation] = [*OPENING_RULES, *SENDING, *FOLLOWING, *DATABASE]
+SIMULATED = [
+    refund(
+        "a deployed simulated stack settles its refunds",
+        f"{SRC}/app.py",
+        "settles_refunds=not settings.enable_test_routes,",
+        "settles_refunds=False,",
+    ),
+    refund(
+        "the simulator settles a refund only where asked to",
+        f"{SRC}/paystack/sim.py",
+        "        if self._settles_refunds:\n",
+        "        if True:\n",
+    ),
+]
+
+MUTATIONS: list[Mutation] = [*OPENING_RULES, *SENDING, *FOLLOWING, *DATABASE, *SIMULATED]

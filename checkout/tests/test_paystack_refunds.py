@@ -126,3 +126,19 @@ class TestTheSimulator:
             await api.create_refund(RefundRequest(reference, 50_000, "n", "n"))
         with pytest.raises(PaystackError, match="not found"):
             await api.create_refund(RefundRequest("qt-unknown-a1", 50_000, "n", "n"))
+
+    async def test_where_test_routes_are_on_a_refund_waits_for_them(self):
+        stack = make_stack()
+        api = stack.app.contexts["paystack-pay"].paystack
+        check = await _paid(api, stack)
+        made = await api.create_refund(RefundRequest(check.reference, 50_000, "n", "n"))
+        assert (await api.fetch_refund(made.refund_id)).status == "pending"
+
+    async def test_where_they_are_off_a_refund_is_processed_when_234_asks(self):
+        stack = make_stack(enable_test_routes=False)
+        api = stack.app.contexts["paystack-pay"].paystack
+        check = await _paid(api, stack)
+        made = await api.create_refund(RefundRequest(check.reference, 50_000, "n", "n"))
+        assert made.status == "pending"
+        assert (await api.fetch_refund(made.refund_id)).status == "processed"
+        assert [r.status for r in await api.refunds_of(check.transaction_id)] == ["processed"]

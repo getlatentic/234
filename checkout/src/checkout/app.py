@@ -108,7 +108,11 @@ def _paystack_for(
     sim = settings.simulator
     checkout = f"{settings.public_base_url.rstrip('/')}/sim/checkout"
     simulator = PaystackSimulator(
-        PaystackSimStore(db), checkout, transfer_otp=sim.transfer_otp, payouts_refused=sim.payouts_refused
+        PaystackSimStore(db),
+        checkout,
+        transfer_otp=sim.transfer_otp,
+        payouts_refused=sim.payouts_refused,
+        settles_refunds=not settings.enable_test_routes,
     )
     return PaystackClient(SIMULATED_KEY, simulator), "simulated"
 
