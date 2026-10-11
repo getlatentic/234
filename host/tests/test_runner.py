@@ -105,6 +105,14 @@ async def test_arguments_with_a_real_newline_inside_a_string_are_read(rig):
     assert not tool.payload["is_error"] and tool.payload["arguments"] == {"note": "line one\nline two"}
 
 
+async def test_a_parameter_with_no_name_is_left_out_of_the_call(rig):
+    r = rig(ScriptedModel(("", [tool_call(MAKE, '{"": {}}')]), "Done."))
+    await r.say()
+    await r.runner.run()
+    tool = (await r.of("tool"))[0]
+    assert not tool.payload["is_error"] and tool.payload["arguments"] == {}
+
+
 async def test_arguments_that_are_not_json_come_back_as_a_refused_tool_call(rig):
     r = rig(ScriptedModel(("", [tool_call(MAKE, "{oops")]), "Sorry."))
     await r.say()

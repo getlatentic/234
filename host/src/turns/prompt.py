@@ -69,20 +69,34 @@ MEMORY_BY_PERMISSION = (
 )
 
 
+WALLET_CAN = (
+    "show their 234 wallet with wallet_balance, whose card holds its balance, Add money and Withdraw to "
+    "their bank"
+)
+NO_WALLET = (
+    "A 234 wallet and its balance are for signed-in accounts: asked about either, say they sign in to have a "
+    "wallet. "
+)
+
+
 def system_prompt(
     connectors: tuple[str, ...],
     memory: bool = False,
     memory_by_permission: bool = False,
     searches_web: bool = False,
+    has_wallet: bool = False,
 ) -> str:
     """`memory`: the person is signed in, so the prompt says how to use their notes. `memory_by_permission`:
     the memory tools are offered but the notes are not shown, because a personal agent has not been allowed
     to read them (turns/permissions.py). `searches_web`: web_search is among the tools (offered only where a
-    search gateway is set up), so live and recent facts are searched, not declined."""
+    search gateway is set up), so live and recent facts are searched, not declined. `has_wallet`: the wallet
+    tool is offered (an account's turn, turns/wallet.py): the wallet card is among what 234 does, and the
+    tool's description says the rest. Anyone else is told that a wallet needs signing in."""
     offered = [CAPABILITIES[name] for name in connectors if name in CAPABILITIES]
-    can = ", ".join(c.does for c in offered)
+    can = ", ".join([*(c.does for c in offered), *([WALLET_CAN] if has_wallet else [])])
     needs = "; ".join(c.needs for c in offered)
-    base = _base(can, needs, _lookup("knowledge" in connectors, searches_web))
+    no_wallet = NO_WALLET if "wallet" in connectors and not has_wallet else ""
+    base = _base(can, needs, _lookup("knowledge" in connectors, searches_web), no_wallet)
     if "memory" not in connectors:
         return base
     if memory:
@@ -109,7 +123,7 @@ def _lookup(sources: bool, web: bool) -> str:
     )
 
 
-def _base(can: str, needs: str, lookup: str) -> str:
+def _base(can: str, needs: str, lookup: str, no_wallet: str) -> str:
     return (
         "You are 234, an assistant for people in Nigeria. Talk about anything the person asks: answer, "
         "explain and chat, in the language they write in (English, Pidgin, Yoruba, Hausa, Igbo). "
@@ -119,6 +133,7 @@ def _base(can: str, needs: str, lookup: str) -> str:
         f"The things you can do for them: {can}. "
         "You cannot check balances, save, lend or pay bills: when asked to do something you cannot do, say "
         "so in one sentence and offer what you can do. "
+        f"{no_wallet}"
         "When asked what you can do, answer in two short sentences. "
         f"What a request needs before you call its tool: {needs}. "
         "If anything is missing, call no tool: ask for that one thing, in one short question. "

@@ -16,6 +16,7 @@ from turns import kinds, wallet
 from turns.chat_core import ChatCore
 from turns.hub import MEMORY_OWNER_HEADER, OWNER_HEADER, Hub, HubError
 from turns.permissions import Permissions
+from turns.prompt import NO_WALLET, WALLET_CAN
 from turns.settings import Settings
 
 from .account_support import ACCOUNT_KEY, Device
@@ -162,6 +163,17 @@ class TestATurn:
     async def test_a_visitors_model_is_never_offered_it(self, visitor_chat, sql, clock):
         core, _ = await core_for(visitor_chat, sql, clock)
         assert await offered_in_a_turn(core) == ["airtime__create_airtime_quote"]
+
+    async def test_an_account_is_told_of_its_wallet_card_and_a_visitor_that_a_wallet_needs_signing_in(
+        self, account_chat, visitor_chat, sql, clock
+    ):
+        told = []
+        for chat in (account_chat, visitor_chat):
+            core, _ = await core_for(chat, sql, clock)
+            await offered_in_a_turn(core)
+            system = core._model.sent[0][0]["content"]
+            told.append((WALLET_CAN in system, NO_WALLET in system))
+        assert told == [(True, False), (False, True)]
 
 
 class TestACardsCalls:
