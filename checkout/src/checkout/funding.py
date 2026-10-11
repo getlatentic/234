@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Wiring for the wallet's top-ups: the Bachs they are paid on (the real client over the network in
 sandbox mode, over the simulator otherwise), the secrets a webhook must be signed with, and the /hooks/bachs
-handler."""
+handler, which credits top-ups and records disputes on them."""
 
 from dataclasses import dataclass
 
@@ -15,6 +15,7 @@ from .config import Settings
 from .db import Db
 from .provider_hooks.bachs import BachsHook
 from .transport import Transport
+from .wallet.disputes import Disputes
 from .wallet.journal import Journal
 from .wallet.topup_credit import TopUpCredit
 from .wallet.topups import CheckoutTerms, TopUps
@@ -48,4 +49,6 @@ def build_funding(settings: Settings, db: Db, clock: Clock, audit: Audit, transp
         db, clock, Journal(db, clock, settings.wallet), bachs, CheckoutTerms(settings.payer_email, back)
     )
     audit.log("bachs.startup", mode="simulated" if sim else "sandbox")
-    return Funding(topups, BachsHook(TopUpCredit(topups, db, clock, audit), secrets, clock, audit), sim)
+    credit = TopUpCredit(topups, db, clock, audit)
+    hook = BachsHook(credit, Disputes(db, clock, audit), secrets, clock, audit)
+    return Funding(topups, hook, sim)

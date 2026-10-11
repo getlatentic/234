@@ -21,6 +21,7 @@ from ..db import Db
 from ..errors import DomainError
 from ..ids import new_topup_id
 from ..money import Kobo, format_naira
+from .freeze import unfrozen_sql, wallet_frozen
 from .journal import BALANCE_SQL, Journal
 
 TOPUP_MINUTES = 60
@@ -37,6 +38,8 @@ class TopUp:
     created_at: int
     expires_at: int
     paid_at: int | None
+    charge_id: str | None
+    """The card charge that paid it, once credited: what a dispute names (disputes.py)."""
 
 
 @dataclass(frozen=True)
@@ -50,7 +53,7 @@ class CheckoutTerms:
 def topup_of(row: dict[str, Any]) -> TopUp:
     return TopUp(
         row["id"], row["owner"], row["amount_kobo"], row["state"], row["provider_ref"], row["checkout_url"],
-        row["created_at"], row["expires_at"], row["paid_at"],
+        row["created_at"], row["expires_at"], row["paid_at"], row["charge_id"],
     )  # fmt: skip
 
 
@@ -62,7 +65,7 @@ def owner_tag(owner: str) -> str:
 _OPEN = (
     "INSERT INTO wallet_topup (id, owner, amount_kobo, state, created_at, expires_at) "
     "SELECT ?, ?, ?, 'open', ?, ? "
-    "WHERE EXISTS (SELECT 1 FROM wallet WHERE owner = ? AND frozen = 0) "
+    f"WHERE {unfrozen_sql('?')} "
     f"AND {BALANCE_SQL} + ? <= ?"
 )
 
@@ -118,10 +121,10 @@ class TopUps:
         )
 
     async def _why_not(self, owner: str, amount: Kobo) -> DomainError:
-        row = await self._db.row("SELECT frozen FROM wallet WHERE owner = ?", owner)
-        if row is None:
+        frozen = await wallet_frozen(self._db, owner)
+        if frozen is None:
             return DomainError("WALLET_NONE", "A wallet is for signed-in accounts. Sign in to add money.")
-        if row["frozen"]:
+        if frozen:
             return DomainError("WALLET_FROZEN", "This wallet is frozen, so it cannot take money.")
         room = max(self.journal.settings.balance_cap_kobo - await self.journal.balance(owner), 0)
         return DomainError(

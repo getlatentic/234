@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""What keeps the wallet's money honest (wallet/journal.py, wallet/spending.py, migrations/0011_wallet.sql):
-no balance below zero, a frozen wallet pays nothing, the cap bounds funding, a ref moves money once, the
-journal is append-only, and a quote is paid from the wallet only with a live hold that is then never given
-back."""
+"""What keeps the wallet's money honest (wallet/journal.py, wallet/spending.py, wallet/freeze.py, and the
+journal as migrations/0015_wallet_dispute.sql rebuilt it): no balance below zero, a frozen wallet pays
+nothing, the cap bounds funding, a ref moves money once, the journal is append-only, and a quote is paid from
+the wallet only with a live hold that is then never given back."""
 
 from tools.mutations.model import AIRTIME, LEDGER_SRC, SRC, Mutation
+
+DISPUTE_TESTS = ["tests/test_wallet_disputes.py"]
 
 WALLET = [
     "tests/test_wallet_journal.py",
@@ -14,7 +16,9 @@ WALLET = [
 ]
 JOURNAL = f"{SRC}/wallet/journal.py"
 SPENDING = f"{SRC}/wallet/spending.py"
-SCHEMA = "migrations/0011_wallet.sql"
+SCHEMA = "migrations/0015_wallet_dispute.sql"
+WALLET_SCHEMA = "migrations/0011_wallet.sql"
+FREEZE = f"{SRC}/wallet/freeze.py"
 
 
 def wallet(name: str, path: str, old: str, new: str, tests: list[str] = WALLET) -> Mutation:
@@ -25,14 +29,27 @@ MUTATIONS: list[Mutation] = [
     wallet(
         "a debit lands only while the balance covers it, in one statement",
         JOURNAL,
-        'f"AND {BALANCE_SQL} >= ?{_ON_CONFLICT}",',
-        'f"AND {BALANCE_SQL} >= 0 * ?{_ON_CONFLICT}",',
+        'AND {BALANCE_SQL} >= ?{_ON_CONFLICT}",',
+        'AND {BALANCE_SQL} >= 0 * ?{_ON_CONFLICT}",',
     ),
     wallet(
         "a frozen wallet pays nothing",
         JOURNAL,
-        "WHERE owner = ? AND frozen = 0) ",
-        "WHERE owner = ? AND frozen IN (0, 1)) ",
+        "WHERE {unfrozen_sql('?')} AND",
+        "WHERE ({unfrozen_sql('?')} OR 1) AND",
+    ),
+    wallet(
+        "operations' freeze flag freezes the wallet",
+        FREEZE,
+        '"(fw.frozen = 1 OR EXISTS',
+        '"(fw.frozen = 2 OR EXISTS',
+    ),
+    wallet(
+        "a freeze row freezes the wallet until it is lifted",
+        FREEZE,
+        "WHERE ff.owner = fw.owner AND ff.lifted_at IS NULL))",
+        "WHERE ff.owner = fw.owner AND ff.lifted_at IS NOT NULL))",
+        WALLET + DISPUTE_TESTS,
     ),
     wallet(
         "funding stops at the balance cap",
@@ -73,18 +90,18 @@ MUTATIONS: list[Mutation] = [
     wallet(
         "each kind has its one sign",
         SCHEMA,
-        "(kind IN ('spend', 'withdraw') AND sign = -1)",
-        "(kind IN ('spend', 'withdraw'))",
+        "(kind IN ('spend', 'withdraw', 'dispute') AND sign = -1)",
+        "(kind IN ('spend', 'withdraw', 'dispute'))",
     ),
     wallet(
         "an entry is for a positive amount",
         SCHEMA,
-        "typeof(amount_kobo) = 'integer' AND amount_kobo > 0",
-        "typeof(amount_kobo) IN ('integer', 'real')",
+        "CHECK (typeof(amount_kobo) = 'integer' AND amount_kobo > 0),\n  ref TEXT",
+        "CHECK (typeof(amount_kobo) IN ('integer', 'real')),\n  ref TEXT",
     ),
     wallet(
         "a wallet is an owner key's, never a PACT agent's",
-        SCHEMA,
+        WALLET_SCHEMA,
         "CHECK (length(owner) = 32 AND owner NOT GLOB '*[^0-9a-f]*')",
         "CHECK (length(owner) > 0)",
     ),

@@ -4,8 +4,9 @@
 // arrive; the airtime card offers "Pay from wallet" only while the wallet covers the quote, pays from it with no
 // checkout, and the wallet card shows the balance go down; Withdraw on the wallet card resolves the account, asks the
 // person to confirm the bank's name for it, pays it through the simulated Paystack transfer, and the balance goes
-// down with the history saying so. Accessibility (contrast, 44px targets, no sideways
-// scroll) is checked at 320px in both themes. Screenshots: docs/screens/wallet-*.png.
+// down with the history saying so; a chargeback on a top-up (raised on the simulated Bachs through the test route)
+// shows as held, pauses withdrawals, and shows as returned when 234 wins it. Accessibility (contrast, 44px targets,
+// no sideways scroll) is checked at 320px in both themes. Screenshots: docs/screens/wallet-*.png.
 //
 // The sign-in is the host's own endpoint with a token from the Firebase Auth emulator (as chat-memory.mjs).
 // needs the stack with AUTH=1. usage: PORT_BASE=9200 node conformance/chat-wallet.mjs
@@ -13,7 +14,7 @@ import { mkdirSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { chromium } from "playwright";
 import { contrastReport } from "./card-checks.mjs";
-import { csrfOf, freshLedger, HOST, inCard, MODEL, openHome, say, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
+import { CHECKOUT, csrfOf, freshLedger, HOST, inCard, MODEL, openHome, say, sendFirst, settled, suite, watchErrors } from "./lib.mjs";
 
 const { check, finish } = suite("The wallet");
 const base = Number(process.env.PORT_BASE ?? 8900);
@@ -182,6 +183,37 @@ console.log("\na quote the wallet does not cover is not offered it");
   check((await card.getByRole("button", { name: /Pay from wallet/ }).count()) === 0, "₦6,000 against ₦3,500: Approve and the checkout only");
   await card.getByRole("button", { name: "Decline" }).click();
   await ada.context.close();
+}
+
+/** Bachs' dispute on the charge that paid this checkout, delivered signed through the connectors' hook. */
+async function bachsDispute(checkoutId, query) {
+  const reply = await fetch(`${CHECKOUT}/test/bachs-dispute/${checkoutId}?${query}`, { method: "POST" });
+  return reply.ok ? (await reply.json()).hookStatus : reply.status;
+}
+
+console.log("\na chargeback on Bisi's top-up is held, pauses withdrawals, and comes back when 234 wins");
+{
+  const { page, context } = await person("bisi");
+  await reset();
+  const card = await openWallet(page, true);
+  const bachs = await addMoney(page, card, 2000);
+  const checkoutId = new URL(bachs.url()).pathname.split("/").at(-1);
+  await bachs.getByRole("button", { name: "Pay by bank transfer" }).click();
+  await card.locator('[data-slot="balance"]', { hasText: "₦2,000" }).waitFor({ timeout: 15000 });
+  await bachs.close();
+  check((await bachsDispute(checkoutId, "event=dispute.created&status=needs_response")) === 200, "Bachs' dispute.created is taken by the hook");
+  const held = await openWallet(page);
+  await held.locator('[data-slot="balance"]', { hasText: "₦0" }).waitFor({ timeout: 10000 });
+  check((await entriesOf(held))[0] === "Held for a dispute -₦2,000", `the disputed ₦2,000 is held (${(await entriesOf(held))[0]})`);
+  check((await held.locator('[data-slot="paused"]').innerText()).trim() === "Withdrawals paused for a dispute.", "the card says withdrawals are paused");
+  check(await held.getByRole("button", { name: "Withdraw" }).isHidden(), "and offers no Withdraw");
+  await page.screenshot({ path: `${screens}wallet-dispute-held-chat.png` });
+  check((await bachsDispute(checkoutId, "event=dispute.updated&status=won")) === 200, "Bachs' dispute.updated (won) is taken by the hook");
+  const back = await openWallet(page);
+  await back.locator('[data-slot="balance"]', { hasText: "₦2,000" }).waitFor({ timeout: 10000 });
+  check((await entriesOf(back))[0] === "Returned after a dispute +₦2,000", `won, the hold comes back (${(await entriesOf(back))[0]})`);
+  check(await back.locator('[data-slot="paused"]').isHidden(), "and withdrawals are no longer paused");
+  await context.close();
 }
 
 console.log("\nthe wallet card and the offer at 320px, in both themes");

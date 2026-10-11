@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design; build steps 1 to 5 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 to 5 and disputes are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -13,7 +13,8 @@ journal: withdraw ──► Paystack transfer to the person's own account (name 
 
 ## The ledger is a journal, and the balance is its sum
 
-`wallet_entry` is append-only: `fund`, `spend`, `release`, `refund`, `withdraw`, `withdraw_back`, `adjust`, each with
+`wallet_entry` is append-only: `fund`, `spend`, `release`, `refund`, `withdraw`, `withdraw_back`, `dispute`,
+`dispute_back`, `adjust`, each with
 an owner, an amount in kobo, a `ref`, and `UNIQUE (owner, kind, ref)` so a webhook delivered twice, a retry, or a
 resumed turn credits or debits once. **There is no balance column to drift:** the balance is the sum of the entries.
 
@@ -85,10 +86,36 @@ succeeded and came back) write `withdraw_back`.
 matches the name: the wallet card shows the name the bank gives for the account, and Withdraw sends that name
 back; the money is taken only when it is exactly the resolved name, and `name_confirmed_at` records when.
 Withdrawals are blocked while `wallet_withdrawal_block` holds an unlifted row for the owner
-(`wallet/withdrawal_block.py`); nothing writes one yet: a dispute will (#641).
+(`wallet/withdrawal_block.py`); an open dispute holds one (see Disputes).
 
 A Paystack account that asks for a one-time code on transfers leaves every withdrawal undecided (234 cannot
 type the code for a person), so withdrawals need transfer OTP turned off on 234's Paystack account.
+
+## Disputes
+
+A card top-up can be charged back. Bachs sends `dispute.created` and `dispute.updated`, signed as
+`collection.succeeded` is, naming the charge; a credited top-up keeps its `charge_id`, so a dispute finds the
+top-up and its owner by it. Bachs takes the disputed amount from 234 at once and charges 234 a $15 fee, which
+234 bears; the wallet is never charged it.
+
+* **Held, always:** the dispute's row (`wallet_dispute`, keyed by Bachs' dispute id), then a `dispute` entry
+  keyed by the same id, of what the wallet has, up to the disputed amount, worked out in the statement that
+  writes it. A wallet never goes below ₦0; an empty one gets no entry.
+* **No withdrawals while it is open:** a `wallet_withdrawal_block` row with reason `dispute`. Spending inside 234
+  goes on.
+* **Frozen only when the hold falls short:** a `wallet_freeze` row for the dispute, until it ends. Freezes are rows,
+  each lifted on its own, so a dispute ending never unfreezes a wallet frozen for something else; `wallet.frozen`
+  stays the operations' own flag (`wallet/freeze.py`).
+* **Won or closed:** a `dispute_back` entry gives back exactly what the hold took. **Lost or prevented:** the hold
+  stays, and what it could not cover is 234's loss, `written_off_kobo` on the dispute, for the reconciliation.
+  Every ending lifts the dispute's block and freeze.
+
+Events come more than once and in any order (an update before its `created`), so 234 acts on the status each
+event carries: every event first opens the dispute if it is not open, then applies a final status, all in one D1
+batch whose statements each hold their own rule (`wallet/disputes.py`). A dispute is held once, decided once,
+and a late `created` after the decision does nothing. A dispute naming no credited top-up's charge, in another
+currency, or for more than the top-up is audited and holds nothing, and Bachs is answered 2xx.
+
 ## Where the money is, and the float
 
 The sum of all wallets is what 234 owes. The money arrives in 234's Bachs balance; 234 pays VTpass and Paystack from
@@ -99,7 +126,8 @@ alert on a gap, and freeze funding on a mismatch. Who tops up the providers, and
 ## Safety limits
 
 Wallet balance cap (`WALLET_BALANCE_CAP_KOBO`, default NGN 200,000), per-withdrawal and daily withdrawal caps
-(`WALLET_WITHDRAWAL_KOBO`, NGN 50,000; `WALLET_WITHDRAWALS_DAILY_KOBO`, NGN 100,000), all set by 234, a freeze flag per wallet, and every existing limit of
+(`WALLET_WITHDRAWAL_KOBO`, NGN 50,000; `WALLET_WITHDRAWALS_DAILY_KOBO`, NGN 100,000), all set by 234, a freeze per wallet
+(the operations' flag, or a dispute's), and every existing limit of
 the ledger on every spend. A PACT agent's own chats (`p:` owners) have no wallet. A person's agent that holds the
 `payments` scope spends from the wallet only through the same card.
 
@@ -186,14 +214,26 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    Tests `checkout/tests/test_wallet_withdraw*.py`, `test_wallet_withdrawal_{races,outcomes}.py`,
    `conformance/chat-wallet.mjs` (withdraw on the card, the balance and the history); guards
    `checkout/tools/mutations/withdrawal_rules.py`.
-6. Reconciliation, the reaper, metrics, and reversals. **Reversals are built, simulated** (Reversals, above):
-   `checkout/migrations/0016_quote_reversed.sql` (the `reversed` state, rebuilding `quotes` with every row and
-   trigger kept; `sim_vtpass.reversed_at`), `checkout/src/checkout/flows/reversal.py`, `vtpass/interpret.py` (the
-   outcome's `reversed`), `provider_hooks/{vtpass,rechecks}.py` (the callback's hint, one requery), and
-   `wallet/spending.py` (`reversal_refund`). The simulated VTpass reverses a delivered order and sends the callback
-   from the test routes alone (`POST /test/vtpass-reverse/<request id>`). Tests
-   `checkout/tests/test_flow_airtime_reversal.py`, `test_reversal_migration.py`; guards
-   `checkout/tools/mutations/reversal_rules.py`. 7. Evaluation with the real model for wallet turns.
+6. Reconciliation, the reaper and metrics: not yet. The reconciliation is to count each lost or prevented
+   dispute's `written_off_kobo` (`wallet_dispute`, `state IN ('lost', 'prevented')`) as 234's loss, and Bachs'
+   $15 per dispute as 234's cost. **Disputes are built, simulated:** `checkout/migrations/0015_wallet_dispute.sql`
+   (`wallet_topup.charge_id`; the journal rebuilt with `dispute` and `dispute_back`, keeping its rows, seq, index
+   and triggers; `wallet_freeze`; `wallet_dispute`, whose terms are kept and whose decision is final, by
+   trigger); `checkout/src/checkout/bachs/disputes.py` (the events), `wallet/disputes.py` (open and decide, one
+   batch per event), `wallet/freeze.py` (one SQL rule for "not frozen", held by every debit, top-up and
+   withdrawal), `topup_credit.py` (keeps the charge). The simulated Bachs raises and decides a dispute on a paid
+   checkout through `POST /test/bachs-dispute/<checkout>?event=…&status=…&amount=…` (test routes only,
+   `sim_bachs_dispute.py`), signed through the same hook. The card says "Held for a dispute", "Returned after a
+   dispute" and "Withdrawals paused for a dispute." Tests `checkout/tests/test_wallet_dispute*.py`,
+   `test_bachs_sim_dispute.py`, `conformance/chat-wallet.mjs`; guards `checkout/tools/mutations/dispute_rules.py`.
+   **Reversals are built, simulated** (Reversals, above): `checkout/migrations/0016_quote_reversed.sql` (the
+   `reversed` state, rebuilding `quotes` with every row and trigger kept; `sim_vtpass.reversed_at`),
+   `checkout/src/checkout/flows/reversal.py`, `vtpass/interpret.py` (the outcome's `reversed`),
+   `provider_hooks/{vtpass,rechecks}.py` (the callback's hint, one requery), and `wallet/spending.py`
+   (`reversal_refund`). The simulated VTpass reverses a delivered order and sends the callback from the test
+   routes alone (`POST /test/vtpass-reverse/<request id>`). Tests `checkout/tests/test_flow_airtime_reversal.py`,
+   `test_reversal_migration.py`; guards `checkout/tools/mutations/reversal_rules.py`.
+7. Evaluation with the real model for wallet turns.
 
 ## Decided (2026-10-10)
 
@@ -203,7 +243,7 @@ the caps, and tops up Paystack and VTpass. No BVN for a wallet.
 Disputes on card top-ups (2026-10-11): the disputed amount is always held in the wallet; withdrawals are blocked
 while a dispute is open, spending inside 234 is not; the wallet is frozen only when it cannot cover the hold; no
 wallet goes below ₦0, and a shortfall on a lost dispute is 234's loss, written off in the reconciliation; 234 pays
-Bachs' $15 dispute fee. Not built yet (getlatentic/planning#641).
+Bachs' $15 dispute fee. Built (see Disputes; getlatentic/planning#641).
 
 ## Still open before real money
 

@@ -7,9 +7,10 @@ collection of exactly its amount. Anything else credits nothing and is audited.
 
 The credit is the journal's, keyed by the top-up id, so a repeated or concurrent delivery finds the entry
 the first one wrote and the cap is held in the same statement that writes it. The top-up is then marked paid
-by one UPDATE that requires that entry, so a paid top-up always has its money in the wallet. A collection for
-a top-up that expired is still credited: Bachs collected the money, and only crediting it keeps it the
-payer's."""
+by one UPDATE that requires that entry, so a paid top-up always has its money in the wallet; the same batch
+keeps the collection's charge id, which a dispute names (wallet/disputes.py), and a repeated delivery records
+one still missing. A collection for a top-up that expired is still credited: Bachs collected the money, and
+only crediting it keeps it the payer's."""
 
 from enum import StrEnum
 
@@ -22,10 +23,16 @@ from .topups import TopUp, TopUps, owner_tag
 
 FULL_COLLECTION = "SUCCEEDED"
 
-_MARK_PAID = (
-    "UPDATE wallet_topup SET state = 'paid', paid_at = ? WHERE id = ? AND state <> 'paid' "
-    "AND EXISTS (SELECT 1 FROM wallet_entry AS e WHERE e.owner = wallet_topup.owner AND e.kind = 'fund' "
+_CREDITED = (
+    "EXISTS (SELECT 1 FROM wallet_entry AS e WHERE e.owner = wallet_topup.owner AND e.kind = 'fund' "
     "AND e.ref = wallet_topup.id AND e.amount_kobo = wallet_topup.amount_kobo)"
+)
+_MARK_PAID = (
+    f"UPDATE wallet_topup SET state = 'paid', paid_at = ? WHERE id = ? AND state <> 'paid' AND {_CREDITED}"
+)
+_RECORD_CHARGE = (
+    "UPDATE wallet_topup SET charge_id = ? WHERE id = ? AND charge_id IS NULL AND ? IS NOT NULL "
+    f"AND NOT EXISTS (SELECT 1 FROM wallet_topup AS o WHERE o.charge_id = ?) AND {_CREDITED}"
 )
 
 
@@ -76,8 +83,14 @@ class TopUpCredit:
                 event_id=collection.event_id,
             )
             return Outcome.OVER_CAP
-        marked = await self._db.execute(_MARK_PAID, self._clock.now(), topup.id)
-        if marked == 1:
+        charge = collection.charge_id
+        marked, _ = await self._db.batch(
+            [
+                (_MARK_PAID, (self._clock.now(), topup.id)),
+                (_RECORD_CHARGE, (charge, topup.id, charge, charge)),
+            ]
+        )
+        if marked.changes == 1:
             self._audit.log(
                 "wallet.topup.paid",
                 topup=topup.id,
