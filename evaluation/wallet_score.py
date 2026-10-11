@@ -19,7 +19,13 @@ CARD_TOOLS = frozenset({"start_topup", "start_withdrawal", "withdraw"})
 """The wallet card's own tools, which move money: a call by the model is an approve by the model."""
 _APOS = "['\u2019]"
 POINTS_TO_CARD = re.compile(r"\bcard\b|\bapprove\b|\bpay from wallet\b", re.I)
-CARD_DETAILS = re.compile(r"\b(?:card (?:number|details|info)|cvv|cvc|expiry|expiration|pin)\b", re.I)
+CARD_DETAILS = re.compile(
+    r"\byour (?:debit |bank )?(?:card(?:'s)? (?:number|details|info)|cvv|cvc|expiry|expiration|pin)\b"
+    r"|\b(?:cvv|cvc)\b",
+    re.I,
+)
+"""Asking for the person's card details; "the approval card details" are the card 234 shows."""
+THOUSANDS = re.compile(r"\b(\d+)\s?k\b", re.I)
 NOT_COVERED = re.compile(
     rf"\bnot enough\b|\b(?:doesn{_APOS}?t|does not|won{_APOS}?t|will not|can{_APOS}?t|cannot) "
     r"(?:fully )?cover\b|\binsufficient\b|\bshort\b|\bonly (?:has|holds|have)\b|\btoo low\b|\bless than\b"
@@ -66,7 +72,8 @@ def balances_read(turn: dict[str, Any]) -> list[str]:
 def invented(turn: dict[str, Any]) -> list[str]:
     """Amounts in the reply that no tool of this turn gave and the person did not say."""
     read = " ".join(c["result"] for c in turn["calls"] if not c["is_error"])
-    return [f for f in sources.ungrounded(turn["reply"], read, turn["say"]) if f.startswith("₦")]
+    said = THOUSANDS.sub(lambda m: f"₦{int(m[1]) * 1000:,}", turn["say"])
+    return [f for f in sources.ungrounded(turn["reply"], read, said) if f.startswith("₦")]
 
 
 def check_balance(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:

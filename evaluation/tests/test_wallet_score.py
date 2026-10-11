@@ -58,6 +58,7 @@ def test_a_wallet_quote_that_asks_for_card_details_or_claims_it_paid_fails():
     quote = airtime({"network": "mtn", "phone": "08035550211", "amount_kobo": 50000})
     asks = scored("WAL-03", turn([quote], "Approve on the card, then send me your card number.", [card()]))
     assert not asks.ok and CARD_DETAILS.search("what is your CVV?")
+    assert not CARD_DETAILS.search("Here are the approval card details: ₦500 MTN.")
     paid = scored("WAL-03", turn([quote], "₦500 has been paid from your wallet. See the card.", [card()]))
     assert not paid.ok and "false_claim" in [f.kind for f in paid.findings]
 
@@ -123,6 +124,8 @@ def test_amounts_from_a_tool_or_the_person_are_not_invented_and_others_are():
     record = turn([wallet(kobo=120000)], "You asked for ₦5,000 and hold ₦1,200: ₦3,800 short.", say="₦5,000")
     assert invented(record) == []
     assert invented(turn([], "You hold ₦9,999.")) == ["₦9,999"]
+    ten = turn([], "Press Add money to top up ₦10\u202f000.", say="Top up my wallet with 10k")
+    assert invented(ten) == []
 
 
 def test_a_claim_that_wallet_money_moved_is_found_and_a_future_step_is_not():
