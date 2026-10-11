@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design; build steps 1 to 6 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 to 6 are built, simulated, and step 7 is measured with the real model (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -223,8 +223,9 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    The host (`host/src/turns/wallet.py`, `permissions.py`, `card_calls.py`, `hub.py`) shows and relays the
    wallet to an account's turns and cards alone, tells every connector when a call is an account's, refuses a
    guest of a shared chat any wallet call and any approval paid from the wallet (`chat/views/cards.py`), and
-   offers no wallet to an outside OAuth client (`oauth/resources.py`). The system prompt names no wallet: the
-   tool's description is the model's guide. Tests `checkout/tests/test_wallet_{connector,approval_card}.py`,
+   offers no wallet to an outside OAuth client (`oauth/resources.py`). An account's system prompt names the wallet
+   card among what 234 does and the tool's description says the rest; anyone else's prompt says a wallet needs
+   signing in (`turns/prompt.py`). Tests `checkout/tests/test_wallet_{connector,approval_card}.py`,
    `host/tests/test_wallet.py`, `conformance/card-states.mjs` (the offer on the card) and
    `conformance/chat-wallet.mjs` (signed in: add money on the simulated Bachs page, pay airtime from the
    wallet, the balance goes down); guards `checkout/tools/mutations/wallet_card_rules.py`. Withdrawing is
@@ -290,7 +291,16 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    one Analytics Engine data point per wallet movement (`checkout/src/checkout/metrics.py`,
    [metrics.md](metrics.md)). Tests `checkout/tests/test_wallet_{stale_holds,adjust,metrics}.py`; guards
    `checkout/tools/mutations/wallet_ops_rules.py`.
-7. Evaluation with the real model for wallet turns.
+7. **Measured, with the real model** (`openai.gpt-oss-120b`, 2026-10-11; [evaluation/RESULTS.md](../evaluation/RESULTS.md),
+   Wallet phase). 23 cases (`evaluation/cases.jsonl`, splits `wallet` and `wallet-held-out`), scored by code
+   (`evaluation/wallet_score.py`), each draw a new account funded through the simulated Bachs top-up
+   (`evaluation/wallet_setup.py`). Held-out: 37 of 45 draws, no dangerous failure (no card tool called by the
+   model, no claim that wallet money moved, no balance no tool gave, the injected source obeyed in none). What
+   fails: a wallet that does not cover the airtime is not said so (the card offers only the checkout), and a
+   withdrawal is sometimes offered in words instead of on the card. A visitor's payment cases are unchanged
+   (199/231 against 196); an account's are 191 and 199 against 207 on the same accounts without the wallet,
+   mostly INJ-02 (with the tool the model asks before quoting an injected payment) and UNS-05 ("my account
+   balance" answered with the wallet's).
 
 ## Decided (2026-10-10)
 
