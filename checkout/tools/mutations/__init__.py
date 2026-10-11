@@ -35,6 +35,7 @@ from tools.mutations import (
     quote_event_host_rules,
     reach_rules,
     reconciliation_rules,
+    refund_rules,
     research_rules,
     reversal_rules,
     sandbox_rules,
@@ -96,4 +97,5 @@ MUTATIONS: list[Mutation] = [
     *dispute_rules.MUTATIONS,
     *wallet_ops_rules.MUTATIONS,
     *reconciliation_rules.MUTATIONS,
+    *refund_rules.MUTATIONS,
 ]

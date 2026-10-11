@@ -191,8 +191,11 @@ class TestPayingThenDelivery:
         quote_id = await paid(stack, phone="100000000000")
         view = await stack.airtime.verify(quote_id)
         assert view["phase"] == "attention"
-        assert "VTpass did not deliver: TRANSACTION FAILED." in view["message"]
-        assert "Refund due" in view["message"]
+        assert view["message"] == (
+            "VTpass did not deliver: TRANSACTION FAILED. "
+            "₦500 is being refunded to the card or account that paid."
+        )
+        assert view["refund"] == {"title": "Refunding ₦500", "state": None}
         assert "refund.due" in "\n".join(stack.audit_lines)
         assert (await stack.ledger.budget()).spent_today_kobo == 50_000
 

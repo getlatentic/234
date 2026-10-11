@@ -87,4 +87,13 @@ def test_a_reversal_is_told_as_one_with_where_the_money_went():
         {"quote_id": "qt-1", "amount_kobo": 50_000, "description": "MTN airtime", "state": "reversed"}
     )
     assert said.startswith("Quote qt-1 (₦500, MTN airtime) delivered, then reversed by the provider")
-    assert "back in the wallet" in said and "a refund is due" in said
+    assert "back in the wallet" in said and "234 is refunding it" in said
+
+
+def test_a_refund_is_told_as_the_money_gone_back_to_the_payer():
+    said = quote_events.told(
+        {"quote_id": "qt-1", "amount_kobo": 50_000, "description": "MTN airtime", "state": "refunded"}
+    )
+    assert said == (
+        "Quote qt-1 (₦500, MTN airtime) refunded: the money went back to the card or account that paid."
+    )

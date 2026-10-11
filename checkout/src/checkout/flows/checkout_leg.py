@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The payment leg every connector shares: start Paystack's hosted checkout for an approved quote, and
-ask Paystack what became of it."""
+"""The payment leg every connector shares: start Paystack's hosted checkout for an approved quote, ask
+Paystack what became of it, and ask for the refund of a payment whose quote ends owing one."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -57,6 +57,12 @@ async def begin_checkout(ctx: Context, quote: Quote) -> Quote:
     return await ledger.patch_progress(quote.id, progress)
 
 
+async def ask_refund(ctx: Context, quote: Quote) -> Quote:
+    """Asks for the Paystack refund of a quote that has just ended owing one (refunds/owed.py); the minute
+    asks for any that was never started."""
+    return await ctx.refunds.ask(quote) if ctx.refunds is not None else quote
+
+
 def _past_window(ctx: Context, quote: Quote) -> bool:
     return ctx.clock.now() >= (quote.approved_at or 0) + ctx.checkout_window_seconds * 1000
 
@@ -76,10 +82,8 @@ async def _settle_success(ctx: Context, quote: Quote, check: TransactionCheck) -
     reason = _refund_reason(quote, check)
     if reason is not None:
         ctx.audit.log("refund.due", quote=quote.id, why=reason)
-        refunded = await ctx.ledger.transition(
-            quote.id, (quote.state,), "refund_due", {"failureReason": reason}
-        )
-        return PaymentCheck(refunded, False)
+        owed = await ctx.ledger.transition(quote.id, (quote.state,), "refund_due", {"failureReason": reason})
+        return PaymentCheck(await ask_refund(ctx, owed), False)
     patch: dict[str, Any] = {"paymentStatus": "success"}
     if check.paid_at:
         patch["paidAt"] = check.paid_at

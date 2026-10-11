@@ -9,7 +9,7 @@ EVENTS = ["tests/test_events.py"]
 MUTATIONS: list[Mutation] = [
     Mutation(
         "a quote's ending reaches only its owner's subscriptions",
-        "migrations/0016_quote_reversed.sql",
+        "migrations/0019_quote_refund.sql",
         "WHERE s.owner = NEW.owner AND s.connector",
         "WHERE s.connector",
         EVENTS,

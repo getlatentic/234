@@ -3,7 +3,7 @@
 // Markup lives in the Django templates (<template> elements); this file only fills them in.
 (() => {
   const POLL_MS = 2000;
-  const FINISHED = ["succeeded", "attention", "failed", "abandoned", "expired", "declined", "unavailable"];
+  const FINISHED = ["succeeded", "attention", "refunded", "failed", "abandoned", "expired", "declined", "unavailable"];
   const state = { quote: null, token: null, accessCode: null, busy: false, notice: null, shown: "", told: null, polling: false, livePhase: null, applied: 0 };
   // 234's own chat puts a card's outcome in the thread itself; any other host (Claude, ChatGPT) is sent it.
   const OWN_HOST = "checkout-host";
@@ -18,10 +18,12 @@
   };
 
   // The word and glyph a phase gives itself; a "reason" phase adds the first sentence of the server's message.
+  // A payment owed back says where its refund stands in the server's words, its `refund.title`.
   const STATUS = {
     processing: { glyph: "spin", tone: "neutral", text: "Processing" },
     succeeded: { glyph: "ok", tone: "ok" },
     attention: { glyph: "bad", tone: "bad", text: "Refund due", reason: true },
+    refunded: { glyph: "ok", tone: "ok", text: "Refunded", reason: true },
     unavailable: { glyph: "bad", tone: "bad", text: "Not sent", reason: true },
     failed: { glyph: "bad", tone: "bad", text: "Not charged", reason: true },
     abandoned: { glyph: "off", tone: "neutral", text: "Not charged" },
@@ -134,7 +136,7 @@
     block.classList.remove("hidden");
     block.dataset.tone = status.tone;
     block.querySelector(`[data-glyph="${status.glyph}"]`).classList.remove("hidden");
-    setText(card, "status-text", status.text ?? q.receipt?.title ?? "Done");
+    setText(card, "status-text", q.refund?.title ?? status.text ?? q.receipt?.title ?? "Done");
     if (status.reason) setText(card, "reason", firstSentence(q.message));
   }
 

@@ -11,6 +11,7 @@ from ..ledger import Ledger
 from ..memory.store import MemoryStore
 from ..modes import Modes
 from ..paystack.api import PaystackApi
+from ..refunds.owed import RefundRequests
 from ..vtpass.api import VtpassApi
 from ..wallet.spending import WalletSpending
 
@@ -33,6 +34,8 @@ class Context:
     """Where a saved recipient is read from, when a transfer names one."""
     wallet: WalletSpending | None = None
     """Pays an approved quote from the owner's wallet instead of a checkout (docs/wallet.md)."""
+    refunds: RefundRequests | None = None
+    """Asks for the Paystack refund of a quote paid at the checkout that ends owing one (refunds/)."""
 
 
 @dataclass(frozen=True)

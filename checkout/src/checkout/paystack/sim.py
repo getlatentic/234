@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """A Paystack that answers from local state: the same requests the real client sends, the same
 reply shapes, and Paystack's documented behaviour (an unpaid checkout reads `abandoned`, a repeated
-reference is refused, test transfers succeed at once). It is a `Transport`, so the real client talks
-to it unchanged."""
+reference is refused, test transfers succeed at once, a refund is queued `pending` and is never more than
+the payment). It is a `Transport`, so the real client talks to it unchanged. A refund moves on only from the
+test routes (sim_paystack_refund.py)."""
 
 import json
 import re
@@ -13,7 +14,7 @@ from urllib.parse import parse_qsl, unquote, urlsplit
 
 from ..transport import Reply
 from .banks import simulated_bank_name
-from .sim_store import PaystackSimStore, SimTransfer
+from .sim_store import PaystackSimStore, SimRefund, SimTransaction, SimTransfer
 
 SIMULATED_OTP = "123456"
 SIMULATED_BALANCE_KOBO = 10_000_000_00
@@ -81,6 +82,19 @@ def _transfer_data(transfer: SimTransfer) -> dict[str, Any]:
     }
 
 
+def _refund_data(refund: SimRefund, transaction: Any) -> dict[str, Any]:
+    """A created refund names its transaction as an object, a fetched or listed one by its id."""
+    return {
+        "id": refund.id,
+        "transaction": transaction,
+        "amount": refund.amount_kobo,
+        "deducted_amount": refund.amount_kobo,
+        "currency": refund.currency,
+        "status": refund.status,
+        "domain": "test",
+    }
+
+
 class PaystackSimulator:
     def __init__(
         self,
@@ -103,6 +117,9 @@ class PaystackSimulator:
             ("POST", re.compile(r"^/transfer/finalize_transfer$"), self._finalize),
             ("GET", re.compile(r"^/transfer/verify/([^/]+)$"), self._verify_transfer),
             ("GET", re.compile(r"^/balance$"), self._balance),
+            ("POST", re.compile(r"^/refund$"), self._refund),
+            ("GET", re.compile(r"^/refund/(\d+)$"), self._fetch_refund),
+            ("GET", re.compile(r"^/refund$"), self._list_refunds),
         )
 
     async def send(
@@ -169,6 +186,7 @@ class PaystackSimulator:
         return ok(
             "Verification successful",
             {
+                "id": transaction.id,
                 "status": transaction.status,
                 "reference": transaction.reference,
                 "amount": transaction.amount_kobo,
@@ -255,6 +273,42 @@ class PaystackSimulator:
     async def _verify_transfer(self, call: Call) -> Reply:
         found = await self._store.transfer_by_reference(call.params[0])
         return ok("Transfer retrieved", _transfer_data(found)) if found else fail(404, "Transfer not found")
+
+    async def _refunded(self, named: Any) -> SimTransaction | None:
+        """The transaction a refund names, by its reference or its id, as Paystack takes either."""
+        if (transaction_id := _integer(named)) is not None:
+            return await self._store.transaction_by_id(transaction_id)
+        return await self._store.transaction(named) if isinstance(named, str) else None
+
+    async def _refund(self, call: Call) -> Reply:
+        body = call.body
+        transaction = await self._refunded(body.get("transaction"))
+        if transaction is None:
+            return fail(404, "Transaction not found")
+        if transaction.status != "success":
+            return fail(400, "Transaction has not been completed")
+        amount = transaction.amount_kobo if body.get("amount") is None else _integer(body.get("amount"))
+        if amount is None or amount <= 0:
+            return fail(400, "Invalid amount")
+        notes = _text(body.get("merchant_note")), _text(body.get("customer_note"))
+        refund = await self._store.add_refund(transaction.reference, amount, *notes)
+        if refund is None:
+            return fail(400, "Refund amount cannot be more than the transaction amount")
+        named = {"id": transaction.id, "reference": transaction.reference, "amount": transaction.amount_kobo}
+        return ok("Refund has been queued for processing", _refund_data(refund, named))
+
+    async def _fetch_refund(self, call: Call) -> Reply:
+        refund = await self._store.refund(int(call.params[0]))
+        if refund is None:
+            return fail(404, "Refund not found")
+        return ok("Refund retrieved", _refund_data(refund, refund.transaction_id))
+
+    async def _list_refunds(self, call: Call) -> Reply:
+        transaction_id = _integer(call.query.get("transaction"))
+        if transaction_id is None:
+            return fail(400, "Give a transaction to list its refunds")
+        refunds = await self._store.refunds_of(transaction_id)
+        return ok("Refunds retrieved", [_refund_data(r, r.transaction_id) for r in refunds])
 
 
 def _header(headers: Mapping[str, str], name: str) -> str:

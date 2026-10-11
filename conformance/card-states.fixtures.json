@@ -462,7 +462,11 @@
     "otpHint": null,
     "tracking": null,
     "receipt": null,
-    "message": "VTpass did not deliver: TRANSACTION FAILED. Refund due; this demo does not issue refunds.",
+    "message": "VTpass did not deliver: TRANSACTION FAILED. ₦500 is being refunded to the card or account that paid.",
+    "refund": {
+     "title": "Refunding ₦500",
+     "state": "sent"
+    },
     "poll": false
    }
   },

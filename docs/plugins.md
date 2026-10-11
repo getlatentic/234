@@ -79,7 +79,7 @@ The four money connectors offer [MCP events](https://developers.openai.com/plugi
 
 | Part | What it does |
 |---|---|
-| `events/list` | One event, `quote.finished`. It can follow one quote (`quote_id`) or every quote of the account on that connector. The payload holds `quote_id`, `connector`, `state` (settled, failed, abandoned, declined, unavailable, refund_due, expired, or reversed: delivered, then taken back by the provider), `amount_kobo` and `description`. |
+| `events/list` | One event, `quote.finished`. It can follow one quote (`quote_id`) or every quote of the account on that connector. The payload holds `quote_id`, `connector`, `state` (settled, failed, abandoned, declined, unavailable, refund_due, expired, reversed: delivered, then taken back by the provider, or refunded: owed a refund, then refunded to the payer through Paystack), `amount_kobo` and `description`. |
 | `events/subscribe` | Webhook delivery only. The secret is `whsec_` plus 24 to 64 bytes in base64. The callback is HTTPS on a host name, never an address or localhost, and no redirect is followed. It must echo a signed challenge before the subscription is kept. A subscription lasts 7 days by default and at most 30. Subscribing again with the same event, arguments and URL refreshes it. |
 | `events/unsubscribe` | Ends the subscription of the account that asks, and only that one |
 | The outbox | A trigger on the quotes table writes one row for each matching subscription when a quote ends, in the statement that ends it (`checkout/migrations/0006_events.sql`). No path that ends a quote can miss it. |

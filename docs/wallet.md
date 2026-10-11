@@ -50,10 +50,51 @@ queues one requery of it; any other callback is handled as before, so a reversal
 always was. Only a requery that answers reversed moves anything, and nothing polls delivered quotes. Then one batch
 moves the quote `settled → reversed` and, for a wallet-paid quote, writes the `refund` of what its hold took, whose
 `WHERE` requires the quote reversed and paid from the wallet; a trigger lets a settled quote become nothing but
-reversed, and a reversed one nothing at all. A quote paid at the checkout is reversed too and its refund is owed, as
-for a `refund_due` quote: 234 issues no Paystack refunds, so it is audited `refund.due` and the card says a refund
-is due. A reversed quote is told as `quote.finished` with state `reversed`, and no longer counts against the day's
-limits.
+reversed, and a reversed one nothing at all. A quote paid at the checkout is reversed too, audited `refund.due`,
+and refunded through Paystack as a `refund_due` quote is (Refunds, below); it stays `reversed`. A reversed quote is
+told as `quote.finished` with state `reversed`, and no longer counts against the day's limits.
+
+## Refunds
+
+A quote paid at the Paystack checkout that then ends owing its payer, an order that failed after payment
+(`refund_due`) or one its provider reversed after delivery (`reversed`), is refunded through Paystack's Refund
+API, its whole amount, once (`checkout/src/checkout/refunds/`, `checkout/migrations/0019_quote_refund.sql`). A
+wallet-paid quote is refunded to the wallet instead (Spending, above) and never reaches Paystack, and a transfer is
+never paid at the checkout, so it owes no Paystack refund.
+
+Paystack's documents used: the Refund API (https://paystack.com/docs/api/refund/: `POST /refund` with
+`transaction`, a reference or id, `amount` in kobo, at most the transaction's, `currency`, `merchant_note`,
+`customer_note`; `GET /refund/:id`; `GET /refund?transaction=` the transaction's id), refunds and their events
+(https://paystack.com/docs/payments/refunds/: `refund.pending`, `refund.processing`, `refund.needs-attention`,
+`refund.failed`, `refund.processed`, whose data names the payment by `transaction_reference`; `needs-attention`
+asks for the payer's bank account; a processed refund can take up to ten business days to reach the payer), and
+the statuses of December 2021 (https://paystack.com/docs/changelog/api: a failed refund is credited back to the
+merchant). Paystack documents no idempotency key for a refund, so 234 makes the send once itself:
+
+* **Opened once, paid only:** the quote's payment is asked about first (`GET /transaction/verify`), and only a
+  success of exactly the quote's amount in NGN is refunded. Then one INSERT, keyed by the quote, whose WHERE holds
+  the quote still owing, paid at the checkout and not from the wallet, for that amount under that reference, is
+  the claim to send: of any number of callers only the one whose row landed sends. A payment Paystack does not
+  hold as such is recorded `refused`, and nothing is sent.
+* **Never sent twice:** the row is written before Paystack is called. A send whose answer was lost keeps its claim
+  (`sending_since`) and stays undecided; it is sent again only when 234 holds no Paystack refund id for it,
+  Paystack lists no refund of the transaction, and the lost send is a minute old. An unanswered list is never
+  read as none.
+* **Decided by Paystack alone:** `processed` and `failed` decide it, and a decided refund stays decided, by
+  trigger; `needs-attention` and anything else leave it undecided. A processed refund ends a `refund_due` quote
+  `refunded` in the same batch (a trigger allows `refunded` only from `refund_due`, only with a processed refund,
+  and keeps it); `refunded` is told as `quote.finished` and no longer counts against the day's limits. A reversed
+  quote stays `reversed`.
+* **Followed:** a quote that ends owing asks for its refund as a job at once; Paystack's signed refund event is a
+  hint that asks Paystack (`GET /refund/:id`, or the list by transaction) about an undecided refund; the minute
+  opens any owed refund never started and asks about every undecided one, at most 50 of each a run.
+
+The card says where the money is: "Refunding ₦500", "Refunded ₦500", "Refund delayed" (Paystack needs the payer's
+account), "Refund failed" or "Refund due" (refused), the last three with "234 will follow up." A failed refund is
+audited `refund.failed`, and an operator finds what needs following up with
+`SELECT * FROM quote_refund WHERE state IN ('failed', 'refused', 'needs_attention')`. The simulated Paystack
+queues a refund `pending`, never refunds more than the payment, and moves a payment's refunds on, with the signed
+event, only from the test routes (`POST /test/paystack-refund/<reference>?status=processed|failed|needs-attention|processing`).
 
 ## Funding
 
@@ -275,6 +316,12 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    (`reversal_refund`). The simulated VTpass reverses a delivered order and sends the callback from the test
    routes alone (`POST /test/vtpass-reverse/<request id>`). Tests `checkout/tests/test_flow_airtime_reversal.py`,
    `test_reversal_migration.py`; guards `checkout/tools/mutations/reversal_rules.py`.
+   **Refunds are built, simulated** (Refunds, above): `checkout/migrations/0019_quote_refund.sql` (`quote_refund`,
+   the `refunded` state, rebuilding `quotes` with every row and trigger kept; `sim_refunds`),
+   `checkout/src/checkout/refunds/`, `paystack/{api,client,sim,sim_store}.py` (the Refund API),
+   `provider_hooks/{paystack,http,rechecks}.py` (the refund events and the minute), `sim_paystack_refund.py` (the
+   test route). Tests `checkout/tests/test_refund*.py`, `test_paystack_refunds.py`; guards
+   `checkout/tools/mutations/refund_rules.py`.
    The reaper
    (`checkout/src/checkout/wallet/stale_holds.py`, run by the minute cron): a `spend` entry at least five
    minutes old (`HOLD_STALE_MS`) with no `release` and whose quote is not marked paid from the wallet is given

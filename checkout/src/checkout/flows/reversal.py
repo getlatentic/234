@@ -7,8 +7,8 @@ so the two land together or not at all. The ledger's trigger lets a settled quot
 refund's own WHERE requires the quote reversed and paid from the wallet, and UNIQUE (owner, kind, ref) makes
 it once: a callback delivered twice, or racing a requery, reverses and refunds once.
 
-A quote paid at the checkout is reversed too, and its refund is owed as for a `refund_due` quote: no Paystack
-refund is issued here, so it is audited as `refund.due` and the card says a refund is due.
+A quote paid at the checkout is reversed too and owes its payer a Paystack refund, as a `refund_due` quote
+does: it is audited as `refund.due` and the refund is asked for (refunds/). The quote stays reversed.
 """
 
 from typing import Any
@@ -18,6 +18,7 @@ from ..metrics import WRITTEN
 from ..money import format_naira
 from ..vtpass.api import VtpassOutcome
 from ..wallet.spending import paid_from_wallet
+from .checkout_leg import ask_refund
 from .context import Context
 
 CONNECTOR = "airtime"
@@ -42,9 +43,9 @@ async def _reverse(ctx: Context, quote: Quote, outcome: VtpassOutcome) -> Quote:
     if wallet is not None:
         audit.log("wallet.refunded", quote=quote.id, amount_kobo=quote.amount_kobo)
         wallet.journal.metrics.wallet("refund", WRITTEN, quote.amount_kobo)
-    else:
-        audit.log("refund.due", quote=quote.id, why="reversed after delivery")
-    return reversed_quote
+        return reversed_quote
+    audit.log("refund.due", quote=quote.id, why="reversed after delivery")
+    return await ask_refund(ctx, reversed_quote)
 
 
 async def reverse_if_confirmed(ctx: Context, quote_id: str) -> Quote:
