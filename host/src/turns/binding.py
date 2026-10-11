@@ -41,7 +41,7 @@ class ServiceBindingTransport(httpx.AsyncBaseTransport):
 
 def connector_client(env: Any, binding_name: str, fallback: httpx.AsyncClient) -> httpx.AsyncClient:
     """The client for the connectors: through the named service binding when one is configured, else the
-    ordinary client (local development reaches the connectors over localhost)."""
+    ordinary client, for a host started on its own config (the local stack binds: tools/host-config.mjs)."""
     if not binding_name:
         return fallback
     binding = getattr(env, binding_name, None)

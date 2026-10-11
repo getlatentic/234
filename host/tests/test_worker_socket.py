@@ -10,7 +10,6 @@ import pytest
 from .worker_client import HOST, Visitor, finished, reset_budget, until, ws_events
 
 pytestmark = pytest.mark.worker
-CHECKOUT = "http://localhost:8900"
 
 
 @pytest.fixture(autouse=True)

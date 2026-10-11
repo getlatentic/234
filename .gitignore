@@ -22,7 +22,7 @@ checkout/src/checkout/card/probe-card.html
 checkout/src/checkout/card/card-official.html
 .stack/
 .dev.vars.*
-host/wrangler.alt.jsonc
+host/wrangler.stack-*.jsonc
 */wrangler.deploy.jsonc
 design/generated/
 # The TypeScript original (its own git repository, local only) and its secrets

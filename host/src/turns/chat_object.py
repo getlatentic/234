@@ -165,6 +165,8 @@ class Chat(DurableObject):
         try:
             return json.dumps({"result": await core.card_call(server, name, json.loads(arguments_json))})
         except (HubError, httpx.HTTPError) as refused:
+            if isinstance(refused, httpx.HTTPError):
+                log.warning("A card's call to %s could not reach it", server, exc_info=True)
             return json.dumps(
                 {
                     "error": str(refused)

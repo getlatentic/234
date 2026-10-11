@@ -18,6 +18,7 @@ auth_port=$((base + 7))      # with AUTH=1: the Firebase Auth emulator; its hub 
 keys_port=$((base + 17))     # with AUTH=1: the stand-in for Google's key document
 sandbox_key=dummy-local-sandbox-signing-key
 state="$root/.stack/$base"
+connectors_worker="checkout-mcp-$base"  # the host reaches it by this name through its service binding (tools/host-config.mjs)
 
 signal_tree() {  # signal pid: the process and everything it started
   local signal=$1 pid=$2 child
@@ -155,11 +156,12 @@ start_host() {  # do|queue|waituntil: the host on that turn runner; a start that
 
 start_host_once() {
   case "$1" in
-    do) start host "$root/host" "$host_port" "$state/host.log" $(host_vars "$host_port") || return 1 ;;
+    do) start host "$root/host" "$host_port" "$state/host.log" --config "wrangler.stack-$base.jsonc" \
+      $(host_vars "$host_port") || return 1 ;;
     queue | waituntil)
       local port=$queue_port
       [ "$1" = waituntil ] && port=$waituntil_port
-      start "host-$1" "$root/host" "$port" "$state/host-$1.log" --config wrangler.alt.jsonc --var "TURN_RUNNER:$1" \
+      start "host-$1" "$root/host" "$port" "$state/host-$1.log" --config "wrangler.stack-$base.alt.jsonc" --var "TURN_RUNNER:$1" \
         $(host_vars "$port") || return 1 ;;
   esac
   curl -s -m 20 -X POST "localhost:$(host_port_of "$1")/ops/migrate/" -H 'authorization: Bearer dummy-local-ops-token' > /dev/null

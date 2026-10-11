@@ -53,15 +53,15 @@ card=()
 [ "${1:-}" = "probe" ] && card=(--var CARD_FILE:probe-card.html)
 (cd "$root/checkout" && uv run pywrangler d1 migrations apply DB --local --persist-to "$state/checkout" > /dev/null 2>&1)
 (cd "$root/checkout" && PYTHONPATH=src uv run python -m tools.knowledge_load sql --dir "${KNOWLEDGE_DIR:-../knowledge/fixtures}" > "$state/knowledge.sql" && uv run pywrangler d1 execute DB --local --persist-to "$state/checkout" --file "$state/knowledge.sql" > /dev/null 2>&1)
-start checkout "$root/checkout" "$checkout_port" "$state/checkout.log" \
+start checkout "$root/checkout" "$checkout_port" "$state/checkout.log" --name "$connectors_worker" \
   --var ENABLE_TEST_ROUTES:1 --var "PUBLIC_BASE_URL:http://localhost:$checkout_port" \
   --var "HOST_PUBLIC_URL:http://localhost:$host_port" \
   --var ALT_CARDS:react=react-card.html,probe=probe-card.html,official=card-official.html "${card[@]}" "${rig[@]}" "${search[@]}"
 start_sandbox
 case "${AUTH:-}" in 1 | keys) start_auth ;; esac
+node "$root/tools/host-config.mjs" "$base" "$connectors_worker"
 start_host do
 if [ "${ALT_RUNNERS:-}" = "1" ]; then
-  node "$root/tools/alt-config.mjs"
   start_host queue
   start_host waituntil
 fi
