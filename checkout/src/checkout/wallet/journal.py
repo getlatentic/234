@@ -20,6 +20,7 @@ from ..clock import Clock
 from ..db import Db
 from ..errors import DomainError
 from ..ids import new_wallet_entry_id
+from ..metrics import REFUSED, REPEAT, WRITTEN, Metrics
 from ..money import Kobo
 from .settings import WalletSettings
 
@@ -86,10 +87,13 @@ def _assert_amount(amount: Kobo) -> None:
 
 
 class Journal:
-    def __init__(self, db: Db, clock: Clock, settings: WalletSettings) -> None:
+    def __init__(
+        self, db: Db, clock: Clock, settings: WalletSettings, metrics: Metrics | None = None
+    ) -> None:
         self._db = db
         self._clock = clock
         self.settings = settings
+        self.metrics = metrics or Metrics()
 
     def _open_statement(self, owner: str) -> tuple[str, tuple[Any, ...]]:
         return (
@@ -172,12 +176,15 @@ class Journal:
     async def _landed(self, changed: int, owner: str, kind: str, amount: Kobo, ref: str) -> Entry | None:
         entry = await self.entry(owner, kind, ref)
         if entry is None or changed == 1:
+            self.metrics.wallet(kind, REFUSED if entry is None else WRITTEN, amount)
             return entry
         if entry.amount_kobo != amount:
+            self.metrics.wallet(kind, REFUSED, amount)
             raise DomainError(
                 "WALLET_REF_CONFLICT",
                 f"The {kind} {ref} was already recorded for another amount, so nothing was changed.",
             )
+        self.metrics.wallet(kind, REPEAT, amount)
         return entry
 
     async def entry(self, owner: str, kind: str, ref: str) -> Entry | None:

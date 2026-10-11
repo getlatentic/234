@@ -22,6 +22,7 @@ from ..db import Db
 from ..errors import DomainError
 from ..ids import new_wallet_entry_id
 from ..ledger import ClaimTerms, Ledger, Quote
+from ..metrics import REFUSED, REPEAT, WRITTEN
 from ..money import format_naira
 from .journal import Entry, Journal
 
@@ -106,7 +107,7 @@ class WalletSpending:
         return await self._give_back(owner, quote_id, "refund", _PAID_AND_REFUND_DUE)
 
     async def _give_back(self, owner: str, quote_id: str, kind: str, condition: str) -> bool:
-        await self._db.execute(
+        changed = await self._db.execute(
             f"{_GIVE_BACK}{condition}{_ON_CONFLICT}",
             new_wallet_entry_id(),
             kind,
@@ -114,4 +115,10 @@ class WalletSpending:
             owner,
             quote_id,
         )
-        return await self.journal.entry(owner, kind, quote_id) is not None
+        given = await self.journal.entry(owner, kind, quote_id)
+        if given is not None:
+            self.journal.metrics.wallet(kind, WRITTEN if changed == 1 else REPEAT, given.amount_kobo)
+            return True
+        held = await self.journal.entry(owner, "spend", quote_id)
+        self.journal.metrics.wallet(kind, REFUSED, held.amount_kobo if held else 0)
+        return False

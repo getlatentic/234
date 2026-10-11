@@ -168,6 +168,7 @@ within seconds and needs no redeploy. To try it: open the host address, start a 
 | `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN` | host and connectors | the bearer token between them (one value) | `tools/deploy.sh rotate token` |
 | `SANDBOX_SIGNING_KEY` (host) and `SIGNING_KEY` (sandbox), one value | host and sandbox | the host signs the policy of each card's view; the sandbox serves a view only under a signed policy | `tools/deploy.sh rotate SANDBOX_SIGNING_KEY` (sets both; no upload needed, cards open correctly from the next page load) |
 | `APPROVAL_SECRET` | connectors | signs approval tokens | `tools/deploy.sh rotate APPROVAL_SECRET` (quotes waiting for approval stop working) |
+| `OPS_TOKEN` | connectors, only when operators correct wallets | the operators' bearer for `POST /ops/wallet/adjust` ([wallet.md](wallet.md)); unset, every `/ops/` call is answered 404 | the owner sets it, and sets it again to rotate it: `tools/deploy.sh secret connectors OPS_TOKEN < value` (a deploy never makes it, since operators must know it) |
 | `ACCOUNT_KEY` | host, only when sign-in is on | the key of a signed-in person's owner (an HMAC of their Firebase uid) | never: a new key would leave every account's chats under owners nobody can derive. Rotating `DJANGO_SECRET_KEY` signs everyone out but keeps their chats |
 
 Two things about rotating, both measured on 2026-09-29:

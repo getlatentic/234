@@ -7,6 +7,8 @@
   "workers_dev": false,
   "preview_urls": false,
   "observability": { "enabled": true },
+  // Each wallet movement is a data point (src/checkout/metrics.py, docs/metrics.md), in the host's local dataset.
+  "analytics_engine_datasets": [{ "binding": "METRICS", "dataset": "ask234_local_metrics" }],
   // The card and the simulated checkout page are text, read at startup.
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
   "python_modules": { "exclude": ["**/*.pyc", "**/*.pyi"] },
@@ -37,13 +39,15 @@
   }
   // Secrets, set with `wrangler secret put NAME`; locally dummies in .dev.vars (never committed):
   //   APPROVAL_SECRET            required: signs the approval tokens
+  //   OPS_TOKEN                  an operator's bearer for /ops/ (wallet corrections); unset, /ops/ answers 404
   //   PAYSTACK_TEST_SECRET_KEY   an sk_test_ key turns Paystack test mode on; a live key stops the Worker
   //   VTPASS_API_KEY, VTPASS_PUBLIC_KEY, VTPASS_SECRET_KEY   all three turn the VTpass sandbox on
   // Optional variables (defaults in src/checkout/config.py; with none set, a key decides: no key, simulated):
   //   REQUIRE_OWNER (1 refuses a tool call that names no owner; off, one default owner acts for such calls),
   //   PAYSTACK_MODE (simulated|test), a mode per connector
   //   (PAYSTACK_PAY_MODE, SEND_MONEY_MODE, AIRTIME_MODE, FOOD_ORDER_MODE: simulated|real), VTPASS_MODE
-  //   (simulated|sandbox), CHECKOUT_WINDOW_SECONDS, PAYER_EMAIL, and for the simulators SIM_TRANSFER_OTP,
+  //   (simulated|sandbox), CHECKOUT_WINDOW_SECONDS, PAYER_EMAIL, WALLET_ADJUST_TWO_OPERATORS_KOBO (above it a
+  //   correction needs a second operator), and for the simulators SIM_TRANSFER_OTP,
   //   SIM_PAYOUTS_REFUSED, SIM_PENDING_SECONDS, FOOD_STEP_SECONDS, SIM_VTPASS_REJECT_CREDENTIALS.
   //   HOST_PUBLIC_URL is the checkout page's way back to the chat and the origin of the host's event callbacks;
   //   HOST_BINDING names the service binding they go through (public deployment only). tools/up.sh sets them.

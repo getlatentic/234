@@ -17,6 +17,7 @@ from ..audit import Audit
 from ..clock import Clock
 from ..db import Db
 from ..ids import new_wallet_entry_id
+from ..metrics import WRITTEN, Metrics
 from ..paystack.api import PaystackApi, PaystackError, TransferOutcome, TransferRequest
 from .withdrawal_record import GIVEN_BACK, UNDECIDED, Withdrawal, withdrawal_of
 
@@ -49,11 +50,14 @@ _EXPIRE = (
 
 
 class WithdrawalOutcomes:
-    def __init__(self, db: Db, clock: Clock, paystack: PaystackApi, audit: Audit) -> None:
+    def __init__(
+        self, db: Db, clock: Clock, paystack: PaystackApi, audit: Audit, metrics: Metrics | None = None
+    ) -> None:
         self._db = db
         self._clock = clock
         self._paystack = paystack
         self._audit = audit
+        self._metrics = metrics or Metrics()
 
     async def get(self, withdrawal_id: str) -> Withdrawal | None:
         """The one read that names no owner: a Paystack event names only the reference."""
@@ -150,6 +154,8 @@ class WithdrawalOutcomes:
             self._audit.log(
                 f"withdrawal.{state}", withdrawal=withdrawal.id, amount_kobo=withdrawal.amount_kobo
             )
+        if results[1].changes == 1:
+            self._metrics.wallet("withdraw_back", WRITTEN, withdrawal.amount_kobo)
         return await self._fresh(withdrawal)
 
     async def recheck(self, withdrawal_id: str) -> Withdrawal | None:

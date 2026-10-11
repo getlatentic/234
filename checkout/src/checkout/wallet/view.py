@@ -16,7 +16,7 @@ WORDS = {
     "refund": "Returned",
     "withdraw": "Withdrawn",
     "withdraw_back": "Returned",
-    "adjust": "Adjusted",
+    "adjust": "Correction",
 }
 PAID_FOR = {"airtime": "Paid airtime", "data": "Paid data"}
 

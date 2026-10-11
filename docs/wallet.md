@@ -1,6 +1,6 @@
 # The 234 wallet, on Bachs' rails
 
-**Design; build steps 1 to 5 are built, simulated (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
+**Design; build steps 1 to 5 are built, simulated, and step 6 in part (see Build order).** A treasury: Bachs takes payments for 234 into **234's own Bachs account**, and
 234 keeps a wallet for each signed-in person in its own ledger, saying who owns what of that money. A person adds
 money through a Bachs checkout (bank transfer or card), spends it on what 234 already does (airtime, data, food,
 payments, transfers), and withdraws it to their own bank account.
@@ -29,8 +29,8 @@ A quote paid from the wallet (`funding = wallet`) is approved on the same card w
 2. **Claim:** the quote's existing single `open → approved` UPDATE, with its per-payment, daily and group limits.
 3. **Release:** if the claim lost (already approved, over a limit, expired), insert `release` for the same ref.
 
-A crash between 1 and 2 leaves a hold on a quote nobody approved; the minute cron releases holds whose quote is not
-approved after its TTL. A provider that fails after approval (VTpass `refund_due`) pays back with `refund`, keyed by the
+A crash between 1 and 2 leaves a hold on a quote nobody approved; the minute cron gives back a hold five minutes
+old whose quote is not paid from the wallet, with the same guarded release, so a claim that lands later loses. A provider that fails after approval (VTpass `refund_due`) pays back with `refund`, keyed by the
 quote. The model never touches the wallet: its one tool, `wallet_balance`, reads, and every movement is a card.
 
 ## Funding
@@ -75,6 +75,19 @@ their own balances, and **234 tops those up** from its Bachs settlements. The le
 code ships a **reconciliation** (`/ops/wallet/reconcile`): total owed, against Bachs' balance plus the providers',
 alert on a gap, and freeze funding on a mismatch. Who tops up the providers, and how often, is operations.
 
+## Corrections
+
+An operator corrects a wallet with `POST /ops/wallet/adjust` on the connectors Worker, holding `OPS_TOKEN` as a
+bearer token (unset, every `/ops/` call is answered 404). The body names the owner, `credit` or `debit`, the
+amount in kobo, a reason (at most 500 characters), the operator's name, and a `correction_id` the operator
+chooses. The money moves as one `adjust` entry with that id as its ref, which the wallet card shows as
+"Correction". A debit never overdraws and never leaves a frozen wallet; a credit is not capped.
+
+The id writes once: a retry is answered with the first result, and the same id with other terms (owner,
+direction, amount, reason) is refused. Above `WALLET_ADJUST_TWO_OPERATORS_KOBO` (default NGN 50,000) the first
+call records a proposal and moves nothing; a second call with the same id and terms from another operator
+moves the money. Every proposal, correction and refusal is audited with the operator and the reason.
+
 ## Safety limits
 
 Wallet balance cap (`WALLET_BALANCE_CAP_KOBO`, default NGN 200,000), per-withdrawal and daily withdrawal caps
@@ -101,7 +114,7 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    written only while no quote of that id is marked as paid from the wallet, so the two exclude each other in
    SQL. A wallet-paid quote starts no Paystack checkout. A refund ends the quote as `failed` with the money back
    in the wallet. Tests `checkout/tests/test_wallet_spending.py`; guards `checkout/tools/mutations/wallet_rules.py`.
-   A hold orphaned by a crash between hold and claim waits for the reaper of step 6.
+   A hold orphaned by a crash between hold and claim is given back by the reaper of step 6.
 3. **Built, simulated; the sandbox adapter is written but not yet exercised against Bachs.** The top-up and its
    webhook: `checkout/migrations/0012_wallet_topup.sql` (`wallet_topup`, open → paid | expired) and
    `0013_bachs_simulator.sql`; `checkout/src/checkout/wallet/topups.py` (start: one guarded INSERT requiring the
@@ -165,7 +178,22 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    Tests `checkout/tests/test_wallet_withdraw*.py`, `test_wallet_withdrawal_{races,outcomes}.py`,
    `conformance/chat-wallet.mjs` (withdraw on the card, the balance and the history); guards
    `checkout/tools/mutations/withdrawal_rules.py`.
-6. Reconciliation, the reaper, metrics. 7. Evaluation with the real model for wallet turns.
+6. **The reaper, corrections and metrics are built; reconciliation is not yet.** The reaper
+   (`checkout/src/checkout/wallet/stale_holds.py`, run by the minute cron): a `spend` entry at least five
+   minutes old (`HOLD_STALE_MS`) with no `release` and whose quote is not marked paid from the wallet is given
+   back by `WalletSpending.release`, so a claim that lands late and the reaper exclude each other in SQL;
+   oldest first, at most 50 a run, each audited `wallet.hold.released_stale`. A hold and its claim are a few
+   statements of one request, so five minutes is far past a live approval, and shorter than the quote's
+   ten-minute TTL so the money comes back while the person may still try again with the checkout.
+   Corrections (see Corrections): `checkout/migrations/0017_wallet_adjustment.sql` (`wallet_adjustment`:
+   proposed → applied, keyed by the correction id), `wallet/correction.py` (the body and its terms),
+   `wallet/adjustments.py` (one batch: the `adjust` entry, guarded by the balance and the freeze as
+   journal.py's debit, by the threshold, and by the proposal's terms and another operator; then the record,
+   only while that entry exists) and `ops.py` (the route and `OPS_TOKEN`, compared in constant time). Metrics:
+   one Analytics Engine data point per wallet movement (`checkout/src/checkout/metrics.py`,
+   [metrics.md](metrics.md)). Tests `checkout/tests/test_wallet_{stale_holds,adjust,metrics}.py`; guards
+   `checkout/tools/mutations/wallet_ops_rules.py`.
+7. Evaluation with the real model for wallet turns.
 
 ## Decided (2026-10-10)
 

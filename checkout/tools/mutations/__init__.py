@@ -43,6 +43,7 @@ from tools.mutations import (
     turn_resilience_rules,
     vtpass_number_rules,
     wallet_card_rules,
+    wallet_ops_rules,
     wallet_rules,
     web_rules,
     withdrawal_rules,
@@ -88,4 +89,5 @@ MUTATIONS: list[Mutation] = [
     *topup_rules.MUTATIONS,
     *wallet_card_rules.MUTATIONS,
     *withdrawal_rules.MUTATIONS,
+    *wallet_ops_rules.MUTATIONS,
 ]

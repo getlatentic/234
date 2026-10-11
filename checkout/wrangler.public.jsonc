@@ -14,6 +14,8 @@
   "limits": { "cpu_ms": 15000 },
   "preview_urls": false,
   "observability": { "enabled": true },
+  // Each wallet movement is a data point (src/checkout/metrics.py, docs/metrics.md), in the host's dataset.
+  "analytics_engine_datasets": [{ "binding": "METRICS", "dataset": "@METRICS_DATASET@" }],
   "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }],
   // The chat host, reached through a service binding when an MCP event is for it (a Worker cannot fetch
   // another Worker of its account by the public address). The host already exists when the connectors deploy.
@@ -63,5 +65,6 @@
     // /test routes reset the ledger and read inside it: never here.
     "ENABLE_TEST_ROUTES": "0"
   }
-  // Secrets (docs/deploy.md): APPROVAL_SECRET, MCP_ACCESS_TOKEN.
+  // Secrets (docs/deploy.md): APPROVAL_SECRET, MCP_ACCESS_TOKEN, and OPS_TOKEN for an operator's wallet
+  // corrections (tools/deploy.sh secret connectors OPS_TOKEN; without it /ops/ answers 404).
 }

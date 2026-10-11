@@ -1,22 +1,25 @@
 # How 234 is doing: metrics
 
 234 records how it runs in Workers Analytics Engine, in the dataset `ask234_metrics` (staging:
-`ask234_staging_metrics`; `tools/deploy.sh names` shows it). Code: `host/src/turns/metrics.py` and
-`host/src/turns/health.py`. There are no alerts: the numbers are read when someone asks.
+`ask234_staging_metrics`; `tools/deploy.sh names` shows it). The host and the connectors write to the same
+dataset. Code: `host/src/turns/metrics.py`, `host/src/turns/health.py` and `checkout/src/checkout/metrics.py`.
+There are no alerts: the numbers are read when someone asks.
 
 ## What is recorded
 
-One data point per event, in three kinds. `index1` and `blob1` are the kind.
+One data point per event, in four kinds. `index1` and `blob1` are the kind.
 
 | Kind | When | blob2 | blob3 | blob4 | double1 | double2 | double3 | double4 |
 |---|---|---|---|---|---|---|---|---|
 | `turn` | a turn finishes | how it ended: `completed`, `input_required`, `failed`, `max_rounds`, `cancelled` | why it was given up (`no_progress`, `resumes_exhausted`) or empty | | duration (ms) | model rounds | prompt tokens | completion tokens |
 | `tool` | a tool call of the model ends | connector | tool | `ok`, `error`, `slow`, `unknown`, `unreachable`, `refused`, `repeat` | duration (ms) | | | |
 | `health` | every five minutes, for each part | `database`, `chats`, or a connector's name | `ok` or `failed` | | duration (ms) | | | |
+| `wallet` | a wallet movement is written, repeated or refused (the connectors) | the entry's kind: `fund`, `spend`, `release`, `refund`, `withdraw`, `withdraw_back`, `adjust`, or a kind the journal gains | `ok` (written now), `repeat` (an earlier call wrote it), `refused` (a rule kept it out) | | amount (kobo) | | | |
 
 **Never recorded:** who asked (no owner, account or visitor), which chat, what was said, or a tool's arguments
 or result. `tests/test_metrics.py` sends a message with a name and an amount and checks that neither, nor the
-chat id or the owner, is in any data point.
+chat id or the owner, is in any data point. A `wallet` point names no owner, quote, top-up, withdrawal or
+correction: `checkout/tests/test_wallet_metrics.py` checks that none of them is in any data point.
 
 **The health check** runs on the host's cron (`*/5 * * * *`): a query on its database, a `ping` to the chats'
 Durable Objects, and MCP's own `ping` to each connector after the handshake. It calls no model, so it costs
@@ -67,6 +70,16 @@ SELECT blob2 AS part, COUNT() AS failed, MAX(timestamp) AS last
 FROM ask234_metrics
 WHERE index1 = 'health' AND blob3 = 'failed' AND timestamp > NOW() - INTERVAL '1' DAY
 GROUP BY part
+```
+
+**Wallet movements by kind and outcome (last day):**
+
+```sql
+SELECT blob2 AS entry, blob3 AS outcome, SUM(_sample_interval) AS movements,
+       SUM(double1 * _sample_interval) / 100 AS naira
+FROM ask234_metrics
+WHERE index1 = 'wallet' AND timestamp > NOW() - INTERVAL '1' DAY
+GROUP BY entry, outcome ORDER BY entry, outcome
 ```
 
 **Model tokens per day (last week):**

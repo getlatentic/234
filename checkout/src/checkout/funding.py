@@ -40,12 +40,12 @@ def _bachs_for(
     return simulated, (simulated_webhook_secret(settings.approval_secret),), store
 
 
-def build_funding(settings: Settings, db: Db, clock: Clock, audit: Audit, transport: Transport) -> Funding:
+def build_funding(
+    settings: Settings, db: Db, clock: Clock, audit: Audit, journal: Journal, transport: Transport
+) -> Funding:
     bachs, secrets, sim = _bachs_for(settings, db, clock, transport)
     # Bachs takes only a public https address to send the payer back to.
     back = settings.host_public_url if (settings.host_public_url or "").startswith("https://") else None
-    topups = TopUps(
-        db, clock, Journal(db, clock, settings.wallet), bachs, CheckoutTerms(settings.payer_email, back)
-    )
+    topups = TopUps(db, clock, journal, bachs, CheckoutTerms(settings.payer_email, back))
     audit.log("bachs.startup", mode="simulated" if sim else "sandbox")
     return Funding(topups, BachsHook(TopUpCredit(topups, db, clock, audit), secrets, clock, audit), sim)
