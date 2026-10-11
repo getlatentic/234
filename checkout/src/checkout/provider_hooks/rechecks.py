@@ -7,7 +7,10 @@ A delivered airtime or data quote is asked about once more only when VTpass's ca
 and is reversed only when that requery says so too (flows/reversal.py); nothing polls delivered quotes.
 
 A wallet withdrawal is checked the same way: a Paystack transfer event names it by its reference, and every
-minute each one still undecided is asked about again (wallet/withdrawal_outcome.py)."""
+minute each one still undecided is asked about again (wallet/withdrawal_outcome.py). So is a quote's Paystack
+refund: a refund event names the payment's reference, and only a refund still undecided is asked about; every
+minute each undecided one is asked about again, and a refund owed but never opened is opened
+(refunds/outcome.py)."""
 
 from ..audit import Audit
 from ..clock import Clock
@@ -21,6 +24,8 @@ from ..flows.reversal import reverse_if_confirmed
 from ..flows.transfer import TransferFlow
 from ..jobs import Jobs
 from ..owner import acting_for
+from ..refunds.outcome import RefundOutcomes
+from ..refunds.record import UNDECIDED
 from ..wallet.withdrawal_outcome import WithdrawalOutcomes
 from .references import is_withdrawal_id
 
@@ -42,9 +47,11 @@ class Rechecks:
         clock: Clock,
         audit: Audit,
         withdrawals: WithdrawalOutcomes,
+        refunds: RefundOutcomes,
     ) -> None:
         self._db, self._contexts, self._clock, self._audit = db, contexts, clock, audit
         self.withdrawals = withdrawals
+        self.refunds = refunds
         self.jobs: Jobs | None = None
 
     async def _pending(self, quote_id: str) -> dict | None:
@@ -76,6 +83,15 @@ class Rechecks:
         await self.jobs.send({"kind": "recheck", "quote": subject, "source": source})
         return True
 
+    async def ask_refund(self, quote_id: str | None, source: str) -> bool:
+        """A Paystack refund event names the payment's quote: only an undecided refund is asked about."""
+        refund = await self.refunds.get(quote_id) if quote_id is not None else None
+        if refund is None or refund.state not in UNDECIDED or self.jobs is None:
+            self._audit.log("recheck.skipped", quote=quote_id, source=source)
+            return False
+        await self.jobs.send({"kind": "refund", "quote": quote_id, "source": source})
+        return True
+
     async def run(self, quote_id: str) -> None:
         row = await self._pending(quote_id)
         if row is None:
@@ -96,13 +112,24 @@ class Rechecks:
         found = await self.withdrawals.recheck(withdrawal_id)
         self._audit.log("recheck.done", withdrawal=withdrawal_id, state=found.state if found else None)
 
+    async def run_refund(self, quote_id: str) -> None:
+        row = await self._db.row("SELECT owner FROM quotes WHERE id = ?", quote_id)
+        if row is None:
+            return
+        with acting_for(row["owner"]):
+            found = await self.refunds.follow(quote_id)
+        self._audit.log("recheck.done", quote=quote_id, refund=found.state if found else None)
+
     async def sweep(self) -> int:
-        """Every approved quote and undecided withdrawal that has waited a while is asked about again, and
-        every open quote or withdrawal past its time is expired, so a quote's ending is told though nobody
-        reads it (a read expires a quote too)."""
+        """Every approved quote, undecided withdrawal and refund that has waited a while is asked about
+        again, every refund owed and never opened is opened, and every open quote or withdrawal past its time
+        is expired, so a quote's ending is told though nobody reads it (a read expires a quote too)."""
         await self.withdrawals.expire_due()
         for withdrawal_id in await self.withdrawals.undecided_ids():
             await self.ask(withdrawal_id, "sweep")
+        for quote_id in await self.refunds.due_ids():
+            if self.jobs is not None:
+                await self.jobs.send({"kind": "refund", "quote": quote_id, "source": "sweep"})
         await self._db.execute(
             "UPDATE quotes SET state = 'expired' WHERE state = 'open' AND expires_at <= ?", self._clock.now()
         )

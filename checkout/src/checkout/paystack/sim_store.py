@@ -11,6 +11,7 @@ from ..money import Kobo
 
 @dataclass(frozen=True)
 class SimTransaction:
+    id: int
     reference: str
     amount_kobo: Kobo
     currency: str
@@ -39,11 +40,43 @@ class SimTransfer:
     status: str
 
 
+@dataclass(frozen=True)
+class SimRefund:
+    id: int
+    transaction_id: int
+    transaction_reference: str
+    amount_kobo: Kobo
+    currency: str
+    status: str
+
+
 def _transaction(row: dict[str, Any]) -> SimTransaction:
     return SimTransaction(
-        row["reference"], row["amount_kobo"], row["currency"], row["email"], row["status"],
+        row["id"], row["reference"], row["amount_kobo"], row["currency"], row["email"], row["status"],
         row["gateway_response"], row["paid_at"], row["description"],
     )  # fmt: skip
+
+
+def _refund(row: dict[str, Any]) -> SimRefund:
+    return SimRefund(
+        row["id"], row["transaction_id"], row["transaction_reference"], row["amount_kobo"], row["currency"],
+        row["status"],
+    )  # fmt: skip
+
+
+_TRANSACTION = "SELECT rowid AS id, * FROM sim_transactions "
+_REFUND = (
+    "SELECT r.*, t.rowid AS transaction_id FROM sim_refunds AS r "
+    "JOIN sim_transactions AS t ON t.reference = r.transaction_reference "
+)
+_ADD_REFUND = (
+    "INSERT INTO sim_refunds (id, transaction_reference, amount_kobo, currency, status, merchant_note, "
+    "customer_note) "
+    "SELECT ?, t.reference, ?, t.currency, 'pending', ?, ? FROM sim_transactions AS t "
+    "WHERE t.reference = ? AND t.status = 'success' AND ? + (SELECT COALESCE(SUM(r.amount_kobo), 0) "
+    "FROM sim_refunds AS r WHERE r.transaction_reference = t.reference AND r.status <> 'failed') "
+    "<= t.amount_kobo"
+)
 
 
 def _recipient(row: dict[str, Any]) -> SimRecipient:
@@ -77,7 +110,11 @@ class PaystackSimStore:
         return True
 
     async def transaction(self, reference: str) -> SimTransaction | None:
-        row = await self._db.row("SELECT * FROM sim_transactions WHERE reference = ?", reference)
+        row = await self._db.row(f"{_TRANSACTION}WHERE reference = ?", reference)
+        return _transaction(row) if row else None
+
+    async def transaction_by_id(self, transaction_id: int) -> SimTransaction | None:
+        row = await self._db.row(f"{_TRANSACTION}WHERE rowid = ?", transaction_id)
         return _transaction(row) if row else None
 
     async def open_transaction(self, reference: str) -> bool:
@@ -164,3 +201,31 @@ class PaystackSimStore:
             transfer_code,
         )
         return changed == 1
+
+    async def add_refund(
+        self, reference: str, amount_kobo: Kobo, merchant_note: str | None, customer_note: str | None
+    ) -> SimRefund | None:
+        """A refund of a paid transaction, as Paystack makes one: pending, and never more than what is left of
+        the payment once the refunds that did not fail are counted, in the one statement that makes it."""
+        refund_id = secrets.randbelow(900_000_000) + 100_000_000
+        changed = await self._db.execute(
+            _ADD_REFUND, refund_id, amount_kobo, merchant_note, customer_note, reference, amount_kobo
+        )
+        return await self.refund(refund_id) if changed == 1 else None
+
+    async def refund(self, refund_id: int) -> SimRefund | None:
+        row = await self._db.row(f"{_REFUND}WHERE r.id = ?", refund_id)
+        return _refund(row) if row else None
+
+    async def refunds_of(self, transaction_id: int) -> list[SimRefund]:
+        rows = await self._db.rows(f"{_REFUND}WHERE t.rowid = ? ORDER BY r.id", transaction_id)
+        return [_refund(row) for row in rows]
+
+    async def set_refund_status(self, reference: str, status: str) -> int:
+        """The test routes move a transaction's undecided refunds on; how many moved."""
+        return await self._db.execute(
+            "UPDATE sim_refunds SET status = ? WHERE transaction_reference = ? "
+            "AND status IN ('pending', 'processing', 'needs-attention')",
+            status,
+            reference,
+        )

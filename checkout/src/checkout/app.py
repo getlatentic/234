@@ -41,6 +41,7 @@ from .paystack.api import PaystackApi
 from .paystack.client import PaystackClient
 from .paystack.sim import PaystackSimulator
 from .paystack.sim_store import PaystackSimStore
+from .refunds.owed import RefundRequests
 from .transport import Transport, WorkerFetch
 from .vtpass.api import VtpassApi
 from .vtpass.client import VtpassClient, VtpassCredentials
@@ -148,6 +149,7 @@ def build_contexts(
     )
     store = MemoryStore(db, clock, settings.memory)
     wallet = WalletSpending(journal, db, clock)
+    refunds = RefundRequests(audit)
     contexts: dict[str, Context] = {}
     for connector in CONNECTORS:
         paystack, paystack_mode = _paystack_for(settings, db, connector, transport)
@@ -179,6 +181,7 @@ def build_contexts(
             card_csp_extra=settings.card_csp_extra,
             memory=store,
             wallet=wallet if connector == "airtime" else None,
+            refunds=refunds,
         )
         audit.log(
             "startup",

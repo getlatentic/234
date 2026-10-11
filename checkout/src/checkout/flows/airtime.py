@@ -21,7 +21,7 @@ from ..vtpass.phone import normalise_phone
 from ..vtpass.recipient import number_for_vtpass
 from ..vtpass.request_id import vtpass_request_id
 from .base import CardFlow
-from .checkout_leg import STEP_STALE_MS, begin_checkout, check_payment
+from .checkout_leg import STEP_STALE_MS, ask_refund, begin_checkout, check_payment
 from .context import Context, QuoteIssued
 from .inputs import assert_idempotency_key, confirm_stated_amount
 from .provider_error import as_domain_error
@@ -276,9 +276,10 @@ class AirtimeFlow(CardFlow):
                     audit.log("fulfilment.failed", quote=quote_id, code=outcome.code)
                     audit.log("refund.due", quote=quote_id, why="paid, not delivered")
                     reason = f"VTpass did not deliver: {outcome.description}."
-                    return await ledger.transition(
+                    owed = await ledger.transition(
                         quote_id, ("approved",), "refund_due", {**patch, "failureReason": reason}
                     )
+                    return await ask_refund(self.ctx, owed)
                 case _:
                     if before["attempts"] == 0:
                         audit.log("fulfilment.pending", quote=quote_id, code=outcome.code)

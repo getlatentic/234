@@ -19,6 +19,8 @@ from .api import (
     PaystackError,
     Recipient,
     RecipientRequest,
+    RefundOutcome,
+    RefundRequest,
     TransactionCheck,
     TransferOutcome,
     TransferRequest,
@@ -44,6 +46,7 @@ class _CheckoutData(_Model):
 
 
 class _TransactionData(_Model):
+    id: int | None = None
     status: Literal[*TRANSACTION_STATUSES]
     reference: str
     amount: int
@@ -80,6 +83,30 @@ class _TransferData(_Model):
     transfer_code: str
     reference: str
     amount: int
+
+
+class _RefundedTransaction(_Model):
+    id: int
+
+
+class _RefundData(_Model):
+    """A created refund names its transaction as an object, a fetched or listed one by its id."""
+
+    id: int
+    status: str
+    amount: int
+    currency: str
+    transaction: int | _RefundedTransaction | None = None
+
+
+class _Refunds(RootModel[list[_RefundData]]):
+    pass
+
+
+def _refund(data: _RefundData) -> RefundOutcome:
+    named = data.transaction
+    transaction_id = named.id if isinstance(named, _RefundedTransaction) else named
+    return RefundOutcome(data.id, data.status, data.amount, data.currency, transaction_id)
 
 
 class PaystackClient:
@@ -147,7 +174,13 @@ class PaystackClient:
     async def verify_transaction(self, reference: str) -> TransactionCheck:
         data = await self._call("GET", f"/transaction/verify/{quote(reference, safe='')}", _TransactionData)
         return TransactionCheck(
-            data.status, data.reference, data.amount, data.currency, data.gateway_response, data.paid_at
+            data.status,
+            data.reference,
+            data.amount,
+            data.currency,
+            data.gateway_response,
+            data.paid_at,
+            data.id,
         )
 
     async def resolve_account(self, lookup: AccountLookup) -> str:
@@ -199,6 +232,30 @@ class PaystackClient:
         return self._transfer(
             await self._call("GET", f"/transfer/verify/{quote(reference, safe='')}", _TransferData)
         )
+
+    async def create_refund(self, request: RefundRequest) -> RefundOutcome:
+        """POST /refund (https://paystack.com/docs/api/refund/). Paystack takes no idempotency key for a
+        refund, so the caller asks `refunds_of` before it ever sends one again."""
+        data = await self._call(
+            "POST",
+            "/refund",
+            _RefundData,
+            {
+                "transaction": request.transaction_reference,
+                "amount": request.amount_kobo,
+                "currency": "NGN",
+                "merchant_note": request.merchant_note,
+                "customer_note": request.customer_note,
+            },
+        )
+        return _refund(data)
+
+    async def fetch_refund(self, refund_id: int) -> RefundOutcome:
+        return _refund(await self._call("GET", f"/refund/{refund_id}", _RefundData))
+
+    async def refunds_of(self, transaction_id: int) -> list[RefundOutcome]:
+        query = urlencode({"transaction": transaction_id})
+        return [_refund(data) for data in (await self._call("GET", f"/refund?{query}", _Refunds)).root]
 
     async def ngn_balance(self) -> int:
         balances = (await self._call("GET", "/balance", _Balances)).root

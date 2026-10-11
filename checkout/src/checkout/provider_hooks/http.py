@@ -22,7 +22,11 @@ async def paystack_hook(
     signature = headers.get(paystack.SIGNATURE_HEADER, "")
     if not any(paystack.is_genuine(raw, signature, key) for key in keys):
         return HttpResponse(401, "Unsigned")
-    await rechecks.ask(paystack.quote_of(raw), "paystack")
+    refund = paystack.refund_of(raw)
+    if refund is not None:
+        await rechecks.ask_refund(refund, "paystack")
+    else:
+        await rechecks.ask(paystack.quote_of(raw), "paystack")
     return json_response({"received": True})
 
 

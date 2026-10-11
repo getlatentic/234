@@ -66,7 +66,7 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         "the owner never changes after a quote is made (database trigger)",
-        "migrations/0016_quote_reversed.sql",
+        "migrations/0019_quote_refund.sql",
         "created_at, expires_at, owner, payer_group ON quotes",
         "created_at, expires_at, payer_group ON quotes",
         BOOKS,

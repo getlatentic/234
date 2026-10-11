@@ -24,10 +24,11 @@ ENDED = {
     "abandoned": "abandoned at the checkout, and nothing was charged",
     "declined": "declined by the person",
     "unavailable": "not sent: the provider was not available",
-    "refund_due": "owed a refund",
+    "refund_due": "owed a refund, which 234 is sending back to the payer",
     "expired": "expired before it was approved",
     "reversed": "delivered, then reversed by the provider: paid from the wallet, the money is back in the "
-    "wallet; paid at the checkout, a refund is due",
+    "wallet; paid at the checkout, 234 is refunding it",
+    "refunded": "refunded: the money went back to the card or account that paid",
 }
 
 

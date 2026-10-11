@@ -65,7 +65,7 @@ for (const scheme of ["light", "dark"]) {
   const opened = await openCard(context, "Airtime ₦500 to 100000000000 on MTN");
   const { page, card } = opened;
   await approveAndPay(context, opened);
-  check(await seen(card.getByText("Refund due").first().waitFor({ timeout: 10000 })), "a paid order that could not be delivered says Refund due");
+  check(await seen(card.getByText("Refunding ₦500").first().waitFor({ timeout: 10000 })), "a paid order that could not be delivered says it is refunding");
   const text = (await card.locator("article").innerText()).replace(/\s+/g, " ");
   check(/did not deliver/i.test(text) && text.includes("₦500") && text.includes("MTN airtime"), `the reason, what and how much are on the card (${text.slice(0, 130)})`);
   check(!/Airtime delivered/.test(text), "and it is not a receipt");

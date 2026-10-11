@@ -20,6 +20,9 @@ TRANSACTION_STATUSES = (
     "reversed",
 )
 TRANSFER_STATUSES = ("pending", "otp", "success", "failed", "reversed")
+REFUND_STATUSES = ("pending", "processing", "needs-attention", "failed", "processed")
+"""What Paystack says of a refund (https://paystack.com/docs/payments/refunds/). A refund reads any other
+status as undecided, so a status Paystack adds later decides nothing."""
 
 # What Paystack says when the account is a Starter Business and cannot make payouts, even in test mode.
 _PAYOUTS_UNAVAILABLE = re.compile(r"third[- ]party payouts|starter business", re.IGNORECASE)
@@ -63,6 +66,8 @@ class TransactionCheck:
     currency: str
     gateway_response: str | None
     paid_at: str | None
+    transaction_id: int | None = None
+    """Paystack's id of the transaction: what its list of refunds is filtered by."""
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,23 @@ class TransferOutcome:
     amount_kobo: Kobo
 
 
+@dataclass(frozen=True)
+class RefundRequest:
+    transaction_reference: str
+    amount_kobo: Kobo
+    merchant_note: str
+    customer_note: str
+
+
+@dataclass(frozen=True)
+class RefundOutcome:
+    refund_id: int
+    status: str
+    amount_kobo: Kobo
+    currency: str
+    transaction_id: int | None
+
+
 class PaystackApi(Protocol):
     async def initialize_transaction(self, request: CheckoutRequest) -> Checkout: ...
 
@@ -117,6 +139,14 @@ class PaystackApi(Protocol):
     async def finalize_transfer(self, transfer_code: str, otp: str) -> TransferOutcome: ...
 
     async def verify_transfer(self, reference: str) -> TransferOutcome: ...
+
+    async def create_refund(self, request: RefundRequest) -> RefundOutcome: ...
+
+    async def fetch_refund(self, refund_id: int) -> RefundOutcome: ...
+
+    async def refunds_of(self, transaction_id: int) -> list[RefundOutcome]:
+        """Every refund Paystack holds for a transaction (GET /refund?transaction=)."""
+        ...
 
     async def ngn_balance(self) -> Kobo:
         """The NGN balance transfers are paid from (GET /balance)."""

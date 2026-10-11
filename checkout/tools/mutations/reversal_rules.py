@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""A provider reversing a delivered order (flows/reversal.py, migrations/0016_quote_reversed.sql): only a
-requery that answers reversed moves anything, a delivered quote becomes reversed and nothing else, once, as
-its owner, a wallet payment comes back once in the same batch and only for a reversed quote the wallet paid,
-the ending is told, and a reversed quote no longer counts against the day's limits."""
+"""A provider reversing a delivered order (flows/reversal.py, migrations/0016_quote_reversed.sql, whose
+triggers 0019_quote_refund.sql makes again): only a requery that answers reversed moves anything, a delivered
+quote becomes reversed and nothing else, once, as its owner, a wallet payment comes back once in the same
+batch and only for a reversed quote the wallet paid, the ending is told, and a reversed quote no longer counts
+against the day's limits."""
 
 from tools.mutations.model import LEDGER_SRC, SRC, Mutation
 
@@ -14,7 +15,7 @@ REVERSAL = [
 ]
 FLOW = f"{SRC}/flows/reversal.py"
 SPENDING = f"{SRC}/wallet/spending.py"
-SCHEMA = "migrations/0016_quote_reversed.sql"
+SCHEMA = "migrations/0019_quote_refund.sql"
 
 
 def reversal(name: str, path: str, old: str, new: str) -> Mutation:
@@ -79,8 +80,8 @@ MUTATIONS: list[Mutation] = [
     reversal(
         "a reversal is told as a quote's ending",
         SCHEMA,
-        "'expired',\n                    'reversed')",
-        "'expired')",
+        "'expired',\n                    'reversed', 'refunded')",
+        "'expired',\n                    'refunded')",
     ),
     reversal(
         "a reversed quote no longer counts against the day's limits",

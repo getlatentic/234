@@ -18,6 +18,7 @@ from .events.subscriptions import Subscriptions
 from .flows.context import Context
 from .jobs import HeldJobs, InlineJobs, Job, QueueJobs
 from .provider_hooks.rechecks import Rechecks
+from .refunds.outcome import RefundOutcomes
 from .transport import Reply, Transport
 from .wallet.reconciliation import Reconciliation
 from .wallet.stale_holds import StaleHolds
@@ -58,13 +59,16 @@ class Background:
             await self.delivery.drain()
         elif job["kind"] == "withdrawal":
             await self.rechecks.run_withdrawal(job["withdrawal"])
+        elif job["kind"] == "refund":
+            await self.rechecks.run_refund(job["quote"])
+            await self.delivery.drain()
         elif job["kind"] == "deliver":
             await self.delivery.deliver(job["event"], job["subscription"])
 
     async def minute(self) -> None:
-        """The Cron Trigger's: pending quotes and undecided withdrawals asked again, overdue quotes,
-        withdrawals and top-ups expired, holds a crash left given back, the hourly reconciliation, due events
-        handed on."""
+        """The Cron Trigger's: pending quotes, undecided withdrawals and refunds asked again, owed refunds
+        opened, overdue quotes, withdrawals and top-ups expired, holds a crash left given back, the hourly
+        reconciliation, due events handed on."""
         await self.rechecks.sweep()
         await self.topups.expire_due()
         if self.stale_holds is not None:
@@ -91,10 +95,12 @@ def build_background(
     """`jobs`, for tests, takes every job of both kinds and keeps it until it is run."""
     events = Events(Subscriptions(db), transport, clock, allow_loopback=settings.enable_test_routes)
     spending = contexts["airtime"].wallet
+    paystack = {name: context.paystack for name, context in contexts.items()}
+    refunds = RefundOutcomes(db, clock, paystack, audit)
     background = Background(
         events,
         Delivery(db, transport, clock, audit),
-        Rechecks(db, dict(contexts), clock, audit, withdrawals),
+        Rechecks(db, dict(contexts), clock, audit, withdrawals, refunds),
         topups,
         StaleHolds(spending, db, clock, audit) if spending is not None else None,
         reconciliation,
@@ -102,9 +108,14 @@ def build_background(
     if jobs is not None:
         jobs.run = background.run
         background.delivery.jobs = background.rechecks.jobs = jobs
-        return background
-    queues = queues or {}
-    inline = InlineJobs(background.run)
-    background.delivery.jobs = QueueJobs(queues["EVENT_JOBS"]) if queues.get("EVENT_JOBS") else inline
-    background.rechecks.jobs = QueueJobs(queues["PROVIDER_JOBS"]) if queues.get("PROVIDER_JOBS") else inline
+    else:
+        queues = queues or {}
+        inline = InlineJobs(background.run)
+        background.delivery.jobs = QueueJobs(queues["EVENT_JOBS"]) if queues.get("EVENT_JOBS") else inline
+        background.rechecks.jobs = (
+            QueueJobs(queues["PROVIDER_JOBS"]) if queues.get("PROVIDER_JOBS") else inline
+        )
+    for context in contexts.values():
+        if context.refunds is not None:
+            context.refunds.jobs = background.rechecks.jobs
     return background

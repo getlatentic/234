@@ -167,8 +167,11 @@ class TestACheckoutPaidOrderReversed:
         assert await entries(stack, "refund") == []
         assert _audited(stack, "refund.due") == 1
         view = await stack.airtime.status(quote_id)
-        assert view["phase"] == "attention"
-        assert view["message"].startswith("VTpass reversed this order after delivering it. Refund due")
+        assert view["phase"] == "attention" and view["refund"]["title"] == "Refunding ₦500"
+        assert view["message"] == (
+            "VTpass reversed this order after delivering it. ₦500 is being refunded to the card or account "
+            "that paid."
+        )
 
 
 class TestTheGuards:

@@ -359,7 +359,7 @@ async function live() {
     await frame.getByRole("button", { name: "Approve" }).click();
     await shows(frame, "Open checkout");
     await paySim(WORKERS.plain, page);
-    check(await shows(frame, "Refund due"), "a paid order VTpass could not deliver shows Refund due");
+    check(await shows(frame, "Refunding ₦500"), "a paid order VTpass could not deliver shows it is refunding");
     await context.close();
   }
   console.log("transfer with a one-time code");

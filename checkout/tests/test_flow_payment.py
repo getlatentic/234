@@ -251,7 +251,7 @@ class TestAtTheCheckout:
         await flow.verify(issued.quote["id"], checkout_closed=True)
         await stack.complete_checkout(url, "success")
         view = await flow.verify(issued.quote["id"])
-        assert view["phase"] == "attention" and "Refund due" in view["message"]
+        assert view["phase"] == "attention" and view["refund"]["title"] == "Refunding ₦5,000"
         assert (await stack.ledger.budget()).spent_today_kobo == 500_000
 
     async def test_marks_a_payment_for_the_wrong_amount_as_a_refund_due_not_as_paid(self, stack, flow):

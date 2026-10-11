@@ -17,17 +17,18 @@ from .money import format_naira
 from .network import NETWORK_LABEL
 from .paystack.sim import SIMULATED_OTP
 from .receipts import receipt_for
+from .refunds.words import is_refunded, refund_view
 from .wallet.spending import paid_from_wallet
 
 WAITING = ("awaiting_checkout", "processing")
+OWED = ("attention", "refunded")
+"""The phases of a paid quote whose order could not be completed: its payment owed back, or refunded."""
 
 FIXED_MESSAGES = {
     "abandoned": "Checkout closed. Nothing was charged.",
     "expired": "Quote expired. Ask for a new one.",
     "declined": "Declined. Nothing was charged.",
 }
-REFUND_NOTE = "Refund due; this demo does not issue refunds."
-
 PHASE_WORDS = {
     "awaiting_approval": "waiting for the person to approve it on the card",
     "awaiting_checkout": "approved; the person is completing the Paystack checkout",
@@ -35,6 +36,7 @@ PHASE_WORDS = {
     "processing": "in progress",
     "succeeded": "succeeded",
     "attention": "paid, but the order could not be completed; a refund is due",
+    "refunded": "paid, but the order could not be completed; the payment was refunded",
     "failed": "failed; nothing was charged",
     "abandoned": "abandoned; nothing was charged",
     "expired": "expired before approval",
@@ -53,7 +55,8 @@ def _approved_phase(quote: Quote) -> str:
 
 
 def phase_of(quote: Quote) -> str:
-    """A reversed order shows as its money stands: given back to the wallet (failed), or owed (attention)."""
+    """A reversed order shows as its money stands: given back to the wallet (failed), refunded at Paystack
+    (refunded), or owed (attention)."""
     match quote.state:
         case "open":
             return "awaiting_approval"
@@ -63,8 +66,10 @@ def phase_of(quote: Quote) -> str:
             return "succeeded"
         case "refund_due":
             return "attention"
+        case "reversed" if paid_from_wallet(quote):
+            return "failed"
         case "reversed":
-            return "failed" if paid_from_wallet(quote) else "attention"
+            return "refunded" if is_refunded(quote) else "attention"
         case state:
             return state
 
@@ -84,10 +89,13 @@ def _ended_message(quote: Quote, phase: str) -> str | None:
         return f"{reason or 'Payment failed.'} Nothing was charged."
     if phase == "unavailable":
         return progress.get("failureReason") or "Not available on this account. Nothing was charged."
-    if phase == "attention":
-        reason = progress.get("failureReason") or "Paid, but the order could not be completed."
-        return f"{reason} {REFUND_NOTE}"
+    if phase in OWED:
+        return refund_view(quote, _owed_reason(quote))[1]
     return None
+
+
+def _owed_reason(quote: Quote) -> str:
+    return quote.progress.get("failureReason") or "Paid, but the order could not be completed."
 
 
 def message_for(quote: Quote, phase: str) -> str | None:
@@ -203,6 +211,7 @@ def present_quote(
         "otpHint": _otp_hint(phase, modes),
         "tracking": tracking,
         "receipt": receipt_for(quote, mode.label),
+        "refund": refund_view(quote, _owed_reason(quote))[0] if phase in OWED else None,
         "message": _tracking_message(quote, tracking) if tracking else message_for(quote, phase),
         "poll": phase in WAITING,
     }

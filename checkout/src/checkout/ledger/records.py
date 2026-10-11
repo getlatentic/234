@@ -9,7 +9,16 @@ from typing import Any
 from ..money import Kobo
 
 SPENDING_STATES = ("approved", "settled", "refund_due")
-ENDED_STATES = ("settled", "failed", "abandoned", "declined", "unavailable", "refund_due", "reversed")
+ENDED_STATES = (
+    "settled",
+    "failed",
+    "abandoned",
+    "declined",
+    "unavailable",
+    "refund_due",
+    "reversed",
+    "refunded",
+)
 SPENDING_SQL = ", ".join(f"'{s}'" for s in SPENDING_STATES)
 
 
