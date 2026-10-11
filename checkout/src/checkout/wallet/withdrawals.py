@@ -13,7 +13,7 @@ batch, as D1 has no interactive transactions:
 
 1. the `withdraw` entry (ref = the withdrawal id), one INSERT whose WHERE holds every rule: the owner's own
    `open` withdrawal, not expired, of the amount the card showed, under the name the card showed; within
-   the per-withdrawal cap; the owner's wallet not frozen and not blocked from withdrawing
+   the per-withdrawal cap; the owner's wallet not frozen (freeze.py) and not blocked from withdrawing
    (withdrawal_block.py); the balance covering it; and today's withdrawals (each `withdraw` entry of the
    Lagos day that was not given back) plus this one within the daily cap;
 2. `open → sent`, only while that entry exists.
@@ -36,6 +36,7 @@ from ..ids import new_wallet_entry_id, new_withdrawal_id
 from ..mask import mask_account
 from ..money import Kobo
 from ..paystack.api import PaystackApi, PaystackError, Recipient, RecipientRequest
+from .freeze import unfrozen_sql
 from .journal import Journal, withdrawn_since
 from .withdrawal_block import blocked_sql
 from .withdrawal_outcome import WithdrawalOutcomes
@@ -49,14 +50,14 @@ _OPEN = (
     "INSERT INTO wallet_withdrawal (id, owner, amount_kobo, bank_code, bank_name, account_number, "
     "account_name, recipient_code, state, created_at, expires_at) "
     "SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ? "
-    "WHERE EXISTS (SELECT 1 FROM wallet WHERE owner = ? AND frozen = 0) AND ? <= ?"
+    f"WHERE {unfrozen_sql('?')} AND ? <= ?"
 )
 _TAKE = (
     "INSERT INTO wallet_entry (id, owner, kind, sign, amount_kobo, ref, quote_id, created_at) "
     "SELECT ?, w.owner, 'withdraw', -1, w.amount_kobo, w.id, NULL, ? FROM wallet_withdrawal AS w "
     "WHERE w.id = ? AND w.owner = ? AND w.state = 'open' AND w.expires_at > ? "
     "AND w.amount_kobo = ? AND w.account_name = ? AND w.amount_kobo <= ? "
-    "AND EXISTS (SELECT 1 FROM wallet AS v WHERE v.owner = w.owner AND v.frozen = 0) "
+    f"AND {unfrozen_sql('w.owner')} "
     f"AND NOT {blocked_sql('w.owner')} "
     "AND (SELECT COALESCE(SUM(e.sign * e.amount_kobo), 0) FROM wallet_entry AS e "
     "WHERE e.owner = w.owner) >= w.amount_kobo "

@@ -61,8 +61,8 @@ TAKING = [
     withdraw(
         "a frozen wallet sends nothing",
         START,
-        "v.owner = w.owner AND v.frozen = 0)",
-        "v.owner = w.owner AND v.frozen IN (0, 1))",
+        "f\"AND {unfrozen_sql('w.owner')} \"",
+        '"AND 1 "',
     ),
     withdraw("a blocked owner sends nothing", START, "f\"AND NOT {blocked_sql('w.owner')} \"", '"AND 1 "'),
     withdraw(

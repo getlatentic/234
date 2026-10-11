@@ -7,7 +7,7 @@ is one INSERT ... SELECT whose WHERE holds the rule, and the rows it inserted sa
 
 * no negative balance: a debit lands only while the owner's signed sum, taken in that same statement, covers
   it, so two debits that cannot both fit cannot both land;
-* a frozen wallet pays nothing: the same debit requires the wallet row with `frozen = 0`;
+* a frozen wallet pays nothing: the same debit requires the wallet unfrozen (freeze.py);
 * the balance cap: a `fund` lands only while the sum plus the amount stays within the cap;
 * once per ref: UNIQUE (owner, kind, ref), so a webhook delivered twice or a retried call is answered by the
   entry the first one wrote, never by a second row.
@@ -21,10 +21,11 @@ from ..db import Db
 from ..errors import DomainError
 from ..ids import new_wallet_entry_id
 from ..money import Kobo
+from .freeze import unfrozen_sql, wallet_frozen
 from .settings import WalletSettings
 
-CREDIT_KINDS = frozenset({"fund", "release", "refund", "withdraw_back", "adjust"})
-DEBIT_KINDS = frozenset({"spend", "withdraw", "adjust"})
+CREDIT_KINDS = frozenset({"fund", "release", "refund", "withdraw_back", "dispute_back", "adjust"})
+DEBIT_KINDS = frozenset({"spend", "withdraw", "dispute", "adjust"})
 CAPPED_KIND = "fund"
 """Only money coming in from outside is capped: a release, refund or failed withdrawal gives back what the
 wallet already held, and refusing it would lose that money."""
@@ -109,8 +110,7 @@ class Journal:
         return changed == 1
 
     async def is_frozen(self, owner: str) -> bool:
-        row = await self._db.row("SELECT frozen FROM wallet WHERE owner = ?", owner)
-        return bool(row and row["frozen"])
+        return bool(await wallet_frozen(self._db, owner))
 
     async def credit(
         self, owner: str, kind: str, amount: Kobo, ref: str, quote_id: str | None = None
@@ -153,8 +153,7 @@ class Journal:
             raise ValueError(f"{kind} is not a debit")
         _assert_amount(amount)
         changed = await self._db.execute(
-            f"{_INSERT}WHERE EXISTS (SELECT 1 FROM wallet WHERE owner = ? AND frozen = 0) "
-            f"AND {BALANCE_SQL} >= ?{_ON_CONFLICT}",
+            f"{_INSERT}WHERE {unfrozen_sql('?')} AND {BALANCE_SQL} >= ?{_ON_CONFLICT}",
             new_wallet_entry_id(),
             owner,
             kind,

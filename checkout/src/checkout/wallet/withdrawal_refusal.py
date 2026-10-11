@@ -6,6 +6,7 @@ any bank is asked; the rules themselves are held by the statements that open a w
 from ..db import Db
 from ..errors import DomainError
 from ..money import Kobo, format_naira
+from .freeze import wallet_frozen
 from .journal import Journal, withdrawn_since
 from .withdrawal_block import withdrawals_blocked
 from .withdrawal_record import Withdrawal
@@ -37,10 +38,10 @@ class WithdrawalRefusals:
             )
 
     async def _assert_open_wallet(self, owner: str) -> None:
-        row = await self._db.row("SELECT frozen FROM wallet WHERE owner = ?", owner)
-        if row is None:
+        frozen = await wallet_frozen(self._db, owner)
+        if frozen is None:
             raise DomainError("WALLET_NONE", "A wallet is for signed-in accounts.")
-        if row["frozen"]:
+        if frozen:
             raise DomainError("WALLET_FROZEN", "This wallet is frozen, so nothing can leave it.")
 
     async def _withdrawn_today(self, owner: str, day_start: int) -> Kobo:

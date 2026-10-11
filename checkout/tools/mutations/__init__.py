@@ -14,6 +14,7 @@ from tools.mutations import (
     config_rules,
     connected_rules,
     cost_rules,
+    dispute_rules,
     event_rules,
     host_rules,
     input_rules,
@@ -88,4 +89,5 @@ MUTATIONS: list[Mutation] = [
     *topup_rules.MUTATIONS,
     *wallet_card_rules.MUTATIONS,
     *withdrawal_rules.MUTATIONS,
+    *dispute_rules.MUTATIONS,
 ]

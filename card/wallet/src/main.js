@@ -2,7 +2,8 @@
 // The wallet card: the balance and the latest entries as the server holds them; Add money, which asks the
 // server for a checkout and opens it; and Withdraw: the amount, the bank and the account number, then the name
 // the bank gives for the account, which the person confirms by pressing Withdraw. Money arrives only through the
-// checkout's webhook and leaves only on that press; the card reads the wallet again until either shows.
+// checkout's webhook and leaves only on that press; the card reads the wallet again until either shows. While a
+// payment into the wallet is disputed, Withdraw gives way to one line saying so.
 const POLL_MS = 3000;
 const POLL_FOR_MS = 30 * 60 * 1000;
 const MIN_NAIRA = 100;
@@ -47,7 +48,8 @@ function walletView() {
   setText(card, "balance", wallet.balance);
   slot(card, "entries").replaceChildren(...wallet.entries.map(entryOf));
   setText(card, "pay", state.topup ? `Pay ${state.topup.amount}` : "");
-  show(slot(card, "withdraw"), wallet.balanceKobo > 0 && !wallet.frozen);
+  show(slot(card, "withdraw"), wallet.balanceKobo > 0 && !wallet.frozen && !wallet.withdrawalsBlocked);
+  setText(card, "paused", wallet.withdrawalsBlocked ? "Withdrawals paused for a dispute." : "");
   setText(card, "status", sending() ? `${state.withdrawal.status} ${state.withdrawal.amount}` : "");
   return card;
 }

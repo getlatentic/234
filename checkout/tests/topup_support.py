@@ -26,6 +26,11 @@ async def started(stack: Stack, amount: int = 500_000, owner: str = ALICE) -> To
     return await topups(stack).start(owner, amount)
 
 
+def charge_of(topup: TopUp) -> str:
+    """The card charge Bachs reports for this top-up: one per top-up, as Bachs makes one per payment."""
+    return f"ch_{topup.id.removeprefix('wt-')}"
+
+
 def succeeded(topup: TopUp, **data: Any) -> bytes:
     """The `collection.succeeded` Bachs sends for this top-up; `data` changes any of its fields."""
     body = {
@@ -34,7 +39,7 @@ def succeeded(topup: TopUp, **data: Any) -> bytes:
         "created_at": "2026-09-29T10:00:00.000Z",
         "organization_id": "acct_7KpQ2mNv4XbR9dLc",
         "data": {
-            "charge_id": "ch_1a2b3c4d5e6f",
+            "charge_id": charge_of(topup),
             "checkout_id": topup.provider_ref,
             "reference": topup.id,
             "status": "SUCCEEDED",

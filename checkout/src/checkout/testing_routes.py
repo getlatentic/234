@@ -10,6 +10,7 @@ from .app import App
 from .naive import naive_approve
 from .owner import acting_for, is_owner_key
 from .responses import HttpResponse, json_response
+from .sim_bachs_dispute import raise_dispute
 from .transport import TransportError, WorkerFetch
 
 RESET_TABLES = (
@@ -99,5 +100,9 @@ async def _route(app: App, method: str, path: str, query: str) -> HttpResponse:
             return await _summary(app)
         case "GET", ["fetch-probe"]:
             return await _fetch_probe(parse_qs(query).get("url", [""])[0])
+        case "POST", ["bachs-dispute", checkout_id]:
+            asked = {name: values[0] for name, values in parse_qs(query).items()}
+            event, status = asked.get("event", "dispute.created"), asked.get("status", "needs_response")
+            return await raise_dispute(app, checkout_id, event, status, asked.get("amount"))
         case _:
             return HttpResponse(404, "No such test route")

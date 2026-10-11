@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The wallet card's picture of a wallet: the balance and the latest entries in plain words, read from the
-journal and never from what the model said."""
+"""The wallet card's picture of a wallet: the balance, the latest entries in plain words, and whether it is
+frozen or blocked from withdrawing (a dispute), read from the database and never from what the model said."""
 
 from datetime import UTC, datetime
 from typing import Any
@@ -8,6 +8,7 @@ from typing import Any
 from ..db import Db
 from ..money import Kobo, format_naira
 from .journal import Entry, Journal
+from .withdrawal_block import withdrawals_blocked
 
 RECENT = 5
 WORDS = {
@@ -16,6 +17,8 @@ WORDS = {
     "refund": "Returned",
     "withdraw": "Withdrawn",
     "withdraw_back": "Returned",
+    "dispute": "Held for a dispute",
+    "dispute_back": "Returned after a dispute",
     "adjust": "Adjusted",
 }
 PAID_FOR = {"airtime": "Paid airtime", "data": "Paid data"}
@@ -42,6 +45,7 @@ class WalletView:
             "balanceKobo": balance,
             "balance": format_naira(balance),
             "frozen": await self.journal.is_frozen(owner),
+            "withdrawalsBlocked": await withdrawals_blocked(self._db, owner),
             "entries": [self._line(entry, kinds) for entry in recent],
         }
 

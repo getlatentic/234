@@ -50,8 +50,8 @@ SIGNED = [
     topup(
         "only collection.succeeded is acted on",
         f"{SRC}/bachs/events.py",
-        ' or event.get("type") != COLLECTION_SUCCEEDED:',
-        ":",
+        "event = event_of(raw, (COLLECTION_SUCCEEDED,))",
+        'event = event_of(raw, (COLLECTION_SUCCEEDED, "checkout.completed"))',
     ),
     topup(
         "sandbox takes only the endpoint's secret",
@@ -99,12 +99,11 @@ MATCHED = [
 
 STARTED = [
     topup(
-        "only a signed-in owner's wallet takes a top-up",
+        "only a signed-in owner's unfrozen wallet takes a top-up",
         TOPUPS,
-        "WHERE EXISTS (SELECT 1 FROM wallet WHERE owner = ? AND frozen = 0) ",
-        "WHERE NOT EXISTS (SELECT 1 FROM wallet WHERE owner = ? AND frozen = 1) ",
+        "f\"WHERE {unfrozen_sql('?')} \"",
+        "f\"WHERE ({unfrozen_sql('?')} OR 1) \"",
     ),
-    topup("a frozen wallet takes no top-up", TOPUPS, "AND frozen = 0) ", "AND frozen IN (0, 1)) "),
     topup(
         "a top-up fits under the cap when it starts",
         TOPUPS,

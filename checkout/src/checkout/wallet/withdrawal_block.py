@@ -2,11 +2,10 @@
 """Whether an owner may withdraw now (docs/wallet.md, disputes): not while any block on them is unlifted.
 
 A block is a row of `wallet_withdrawal_block` (migrations/0014_wallet_withdrawal.sql): a dispute on one of
-their top-ups adds one, keyed by the dispute, and lifts it when the dispute ends (getlatentic/planning#641).
-Until something adds a row, nobody is blocked.
+their top-ups adds one, keyed by the dispute, and lifts it when the dispute ends (disputes.py).
 
 The rule is held inside the statement that takes a withdrawal's money (withdrawals.py), as `blocked_sql`;
-`withdrawals_blocked` is only for saying why a withdrawal was refused, or for refusing one early."""
+`withdrawals_blocked` is only for saying why a withdrawal was refused, refusing one early, or the card."""
 
 from ..db import Db
 

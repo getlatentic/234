@@ -24,6 +24,11 @@ BASE = "/sim/bachs"
 CHOICES = (("pay", "primary", "Pay by bank transfer"), ("close", "quiet", "Close without paying"))
 
 
+def charge_of(checkout: SimCheckout) -> str:
+    """The charge a paid checkout made, which a dispute names (sim_bachs_dispute.py)."""
+    return f"ch_{checkout.checkout_id.removeprefix('chk_')}"
+
+
 def collection_body(checkout: SimCheckout, at_ms: int) -> bytes:
     """What Bachs sends when a checkout is paid, in the documented shape, with the checkout's own terms."""
     event = {
@@ -32,6 +37,7 @@ def collection_body(checkout: SimCheckout, at_ms: int) -> bytes:
         "created_at": iso(at_ms),
         "data": {
             "checkout_id": checkout.checkout_id,
+            "charge_id": charge_of(checkout),
             "reference": checkout.reference,
             "status": "SUCCEEDED",
             "amount": checkout.amount,
@@ -43,10 +49,9 @@ def collection_body(checkout: SimCheckout, at_ms: int) -> bytes:
     return json.dumps(event).encode()
 
 
-async def _announce(app: App, checkout: SimCheckout) -> int:
-    now = app.clock.now()
-    body = collection_body(checkout, now)
-    headers = {SIGNATURE_HEADER: header_for(app.funding.hook.secrets, now // 1000, body)}
+async def announce(app: App, body: bytes) -> int:
+    """Hands a body to /hooks/bachs signed as the simulated Bachs signs it; the hook's status."""
+    headers = {SIGNATURE_HEADER: header_for(app.funding.hook.secrets, app.clock.now() // 1000, body)}
     return (await app.funding.hook.answer(headers, body)).status
 
 
@@ -73,7 +78,7 @@ async def handle_bachs_checkout(app: App, method: str, path: str, headers: dict[
         return HttpResponse(403, "Refused: this page only takes its own buttons", HTML_HEADERS)
     if action == "pay" and await store.pay(checkout.checkout_id, app.clock.now()):
         checkout = await store.checkout(checkout.checkout_id) or checkout
-        await _announce(app, checkout)
+        await announce(app, collection_body(checkout, app.clock.now()))
     body, closing = _body(checkout, app.clock.now(), action == "close")
     amount = format_naira(kobo_of(checkout.amount) or 0)
     return HttpResponse(200, page(WHO, amount, body, closing=closing, title=TITLE), PAGE_HEADERS)
