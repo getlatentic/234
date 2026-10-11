@@ -17,7 +17,7 @@ import { csrfOf, freshLedger, HOST, inCard, MODEL, openHome, say, sendFirst, set
 
 const { check, finish } = suite("The wallet");
 const base = Number(process.env.PORT_BASE ?? 8900);
-const EMULATOR = `127.0.0.1:${base + 7}`;
+const EMULATOR = `localhost:${base + 7}`;
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
 mkdirSync(screens, { recursive: true });
 await freshLedger();

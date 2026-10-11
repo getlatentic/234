@@ -97,7 +97,9 @@ shell_settings() {  # NAME=value for each setting that shapes a page's policy, o
   case "${AUTH:-}" in
     1 | keys) settings="$settings FIREBASE_PROJECT_ID=demo-twothreefour FIREBASE_API_KEY=fake-api-key-for-the-emulator FIREBASE_AUTH_DOMAIN=localhost ACCOUNT_KEY=dummy-local-account-key FIREBASE_KEYS_URL=http://127.0.0.1:$keys_port/keys" ;;
   esac
-  if [ "${AUTH:-}" = "1" ]; then settings="$settings FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:$auth_port"; fi
+  # localhost, the page's own site: from 127.0.0.1 the relay iframe and the popup commit together in a new renderer
+  # process, and under Playwright that iframe's navigation is sometimes never committed
+  if [ "${AUTH:-}" = "1" ]; then settings="$settings FIREBASE_AUTH_EMULATOR_HOST=localhost:$auth_port"; fi
   # Cloudflare's published test keys: the real script and the real siteverify, a token that always passes
   if [ "${TURNSTILE:-}" = "1" ]; then settings="$settings TURNSTILE_SITE_KEY=1x00000000000000000000AA TURNSTILE_SECRET=1x0000000000000000000000000000000AA"; fi
   echo "$settings"

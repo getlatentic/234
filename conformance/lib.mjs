@@ -174,10 +174,9 @@ export async function relayReady(page, timeout = 8000) {
 }
 
 /** Presses the button that opens Google's sign-in (`press`) and returns the popup once the page's relay iframe
- * has loaded. In headless Chromium about one sign-in in twenty leaves that iframe loading forever: its response
- * arrives, its document never parses, and the popup can then hand its result to no one. That is not waited
- * on: the popup is closed, the page reloaded, `reopen` brings the button back, and it is pressed again, at most
- * twice more, each time with a note in the output. */
+ * has loaded. An iframe whose navigation is never committed (tools/stack.sh: the emulator is on the page's own
+ * site so that it is not) is not waited on: the popup is closed, the page reloaded, `reopen` brings the button
+ * back, and it is pressed again, at most twice more, each time with a note in the output. */
 export async function popupWhenRelayReady(page, press, reopen = async () => {}) {
   for (let attempt = 0; ; attempt += 1) {
     const opened = page.waitForEvent("popup");

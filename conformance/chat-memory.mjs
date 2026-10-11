@@ -16,7 +16,7 @@ import { cardFrames, csrfOf, freshLedger, HOST, inCard, MODEL, openDrawer, openH
 
 const { check, finish } = suite("What 234 remembers");
 const base = Number(process.env.PORT_BASE ?? 8900);
-const EMULATOR = `127.0.0.1:${base + 7}`;
+const EMULATOR = `localhost:${base + 7}`;
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
 mkdirSync(screens, { recursive: true });
 await freshLedger();

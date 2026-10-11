@@ -16,7 +16,7 @@ import { cardIn, chooseGoogleAccount, freshLedger, HOST, openHome, popupWhenRela
 
 const { check, finish } = suite("Sign in with Google");
 const base = Number(process.env.PORT_BASE ?? 8900);
-const EMULATOR = `127.0.0.1:${base + 7}`;
+const EMULATOR = `localhost:${base + 7}`;
 const KEYS = `http://127.0.0.1:${base + 17}`;
 const KEY_DIR = new URL(`../.stack/${base}/keys/`, import.meta.url).pathname;
 const screens = new URL("../docs/screens/", import.meta.url).pathname;
