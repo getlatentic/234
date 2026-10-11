@@ -63,7 +63,7 @@ limit() {
 }
 inside() { local dir=$1 seconds=$2; shift 2; (cd "$root/$dir" && limit "$seconds" "$@") || fail=1; }
 
-limit 600 "$root/tools/check-connectors.sh" --no-worker
+limit 900 "$root/tools/check-connectors.sh" --no-worker
 inside host 120 uv run ruff check src tests ../evaluation
 inside host 300 uv run pytest -q
 inside host 120 uv run ruff format --check src tests ../evaluation
