@@ -26,6 +26,8 @@ ENDED = {
     "unavailable": "not sent: the provider was not available",
     "refund_due": "owed a refund",
     "expired": "expired before it was approved",
+    "reversed": "delivered, then reversed by the provider: paid from the wallet, the money is back in the "
+    "wallet; paid at the checkout, a refund is due",
 }
 
 

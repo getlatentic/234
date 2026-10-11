@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """What happens to a quote after it is made: its progress, its state, and the step a provider call holds.
 
+A settled quote changes state only to `reversed`, and a reversed one never again: a trigger holds it
+(migrations/0016_quote_reversed.sql).
+
 Progress: `json_patch` merges in SQL, so two writers touching different keys both land.
 """
 
 import json
 from typing import Any
 
+from ..db import Statement
 from ..errors import DomainError
 from .records import ENDED_STATES, Quote
 from .store import QuoteStore
@@ -69,6 +73,23 @@ class ProgressWrites(QuoteStore):
                 "QUOTE_NOT_OPEN", f"This quote is {quote.state}, not {' or '.join(from_states)}."
             )
         return quote
+
+    async def reverse(
+        self, quote_id: str, patch: dict[str, Any], alongside: list[Statement]
+    ) -> tuple[Quote, bool]:
+        """Ends a delivered quote as reversed; true when this caller moved it. `alongside` runs after the
+        UPDATE in the same batch, so what the reversal owes lands with it or not at all."""
+        results = await self._db.batch(
+            [
+                (
+                    "UPDATE quotes SET state = 'reversed', settled_at = ?, "
+                    "progress = json_patch(progress, ?) WHERE id = ? AND owner = ? AND state = 'settled'",
+                    (self._clock.now(), json.dumps(patch), quote_id, self.owner()),
+                ),
+                *alongside,
+            ]
+        )
+        return await self._must_get(quote_id), results[0].changes == 1
 
     async def acquire_step(
         self, quote_id: str, stale_after_ms: int, patch: dict[str, Any] | None = None

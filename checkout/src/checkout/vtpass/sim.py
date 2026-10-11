@@ -9,6 +9,10 @@ delivered. The sandbox's documented trigger numbers keep their outcomes: 2010000
 and 500000000000 (unexpected reply), 400000000000 (no reply) and 300000000000 (timeout) count as pending.
 The sandbox has no number that means failure, so the simulator adds 100000000000 for it, and a number
 that is not a valid Nigerian mobile still fails. `VTPASS_MODE=sandbox` uses the real sandbox and its rules.
+
+A delivered order can be reversed later, from the test routes alone: from then on a requery answers code 040
+with status `reversed`, and `reversal_update` is the transaction-update callback VTpass sends for it
+(https://vtpass.com/documentation/transaction-update-webhook-api/).
 """
 
 import json
@@ -67,6 +71,15 @@ def _transaction_body(order: SimOrder, status: str, code: str, description: str,
         "transaction_date": _iso(now),
         "purchased_code": "",
     }
+
+
+def _reversed_body(order: SimOrder, now: int) -> dict[str, Any]:
+    return _transaction_body(order, "reversed", "040", "TRANSACTION REVERSAL TO WALLET", now)
+
+
+def reversal_update(order: SimOrder, now: int) -> bytes:
+    """The transaction-update callback VTpass sends for an order it reversed."""
+    return json.dumps({"type": "transaction-update", "data": _reversed_body(order, now)}).encode()
 
 
 def _whole(amount: float) -> int | float:
@@ -147,6 +160,8 @@ class VtpassSimulator:
 
     def _status_now(self, order: SimOrder) -> Reply:
         now = self._clock.now()
+        if order.reversed_at is not None:
+            return _json_reply(_reversed_body(order, now))
         delivered = _transaction_body(order, "delivered", "000", "TRANSACTION SUCCESSFUL", now)
         match order.scenario:
             case "success":

@@ -48,12 +48,14 @@ class DataPlan:
 class VtpassOutcome:
     """What VTpass said about an order, in the three states the card can show. `pending` also covers a
     reply that never came: the order may still go through. `unknown_request` is true when VTpass says
-    it never saw the request id, so the same order can be sent again."""
+    it never saw the request id, so the same order can be sent again. `reversed` is true, on a failed
+    outcome, when VTpass says it took the order back: after delivery, a reversal (flows/reversal.py)."""
 
     status: Literal["delivered", "pending", "failed"]
     code: str | None
     description: str
     unknown_request: bool = False
+    reversed: bool = False
 
 
 @dataclass(frozen=True)

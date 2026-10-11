@@ -79,3 +79,27 @@ class TestInterpretVtpass:
     def test_a_missing_confirmation_is_pending(self):
         outcome = no_confirmation("timeout")
         assert (outcome.status, outcome.code) == ("pending", None)
+
+
+class TestReversals:
+    """A reversal as VTpass's transaction-update callback documents it: code 040, status `reversed`."""
+
+    @pytest.mark.parametrize("code", ["040", "000", "001"])
+    def test_status_reversed_with_the_reversal_or_a_processed_code_is_a_reversal(self, code):
+        payload = {"code": code, "content": {"transactions": {"status": "reversed"}}}
+        outcome = interpret_vtpass(payload)
+        assert (outcome.status, outcome.reversed) == ("failed", True)
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"code": "040", "response_description": "TRANSACTION REVERSAL"},
+            {"code": "000", "content": {"transactions": {"status": "failed"}}},
+            {"code": "016", "content": {"transactions": {"status": "reversed"}}},
+        ],
+    )
+    def test_anything_less_is_not(self, payload):
+        assert interpret_vtpass(payload).reversed is False
+
+    def test_a_delivered_order_is_not_reversed(self):
+        assert interpret_vtpass(processed("delivered")).reversed is False

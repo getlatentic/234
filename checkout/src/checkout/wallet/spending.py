@@ -12,13 +12,15 @@ statement runs first wins, so a retried approval, a claim whose answer was lost,
 approval can neither keep a quote paid without its hold nor give back money a delivered quote spent.
 
 A provider that fails after a wallet approval pays back with `refund`, written only for a quote in
-`refund_due` that the wallet paid, and for exactly what its hold took.
+`refund_due` that the wallet paid, and for exactly what its hold took. A provider that reverses a delivered
+order pays back the same way, only for a quote in `reversed`, in the reversal's own batch (flows/reversal.py).
+Both are the one `refund` of the quote, so a quote is refunded once whichever way it ended.
 """
 
 from typing import Any
 
 from ..clock import Clock
-from ..db import Db
+from ..db import Db, Statement
 from ..errors import DomainError
 from ..ids import new_wallet_entry_id
 from ..ledger import ClaimTerms, Ledger, Quote
@@ -40,6 +42,10 @@ _GIVE_BACK = (
 )
 _NOT_PAID_FROM_WALLET = (
     "NOT EXISTS (SELECT 1 FROM quotes AS q WHERE q.id = h.ref AND q.owner = h.owner "
+    "AND json_extract(q.progress, '$.funding') = 'wallet')"
+)
+_PAID_AND_REVERSED = (
+    "EXISTS (SELECT 1 FROM quotes AS q WHERE q.id = h.ref AND q.owner = h.owner AND q.state = 'reversed' "
     "AND json_extract(q.progress, '$.funding') = 'wallet')"
 )
 _PAID_AND_REFUND_DUE = (
@@ -105,13 +111,18 @@ class WalletSpending:
         """Pays back a wallet-paid quote its provider failed; true when the refund is now recorded."""
         return await self._give_back(owner, quote_id, "refund", _PAID_AND_REFUND_DUE)
 
-    async def _give_back(self, owner: str, quote_id: str, kind: str, condition: str) -> bool:
-        await self._db.execute(
+    def reversal_refund(self, owner: str, quote_id: str) -> Statement:
+        """Pays back a wallet-paid quote its provider reversed after delivery: a statement for the reversal's
+        own batch, so the refund lands with the reversal or not at all."""
+        return self._give_back_statement(owner, quote_id, "refund", _PAID_AND_REVERSED)
+
+    def _give_back_statement(self, owner: str, quote_id: str, kind: str, condition: str) -> Statement:
+        return (
             f"{_GIVE_BACK}{condition}{_ON_CONFLICT}",
-            new_wallet_entry_id(),
-            kind,
-            self._clock.now(),
-            owner,
-            quote_id,
+            (new_wallet_entry_id(), kind, self._clock.now(), owner, quote_id),
         )
+
+    async def _give_back(self, owner: str, quote_id: str, kind: str, condition: str) -> bool:
+        sql, params = self._give_back_statement(owner, quote_id, kind, condition)
+        await self._db.execute(sql, *params)
         return await self.journal.entry(owner, kind, quote_id) is not None

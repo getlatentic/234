@@ -5,7 +5,7 @@ account on this connector ends, with the state it ended in."""
 from typing import Any
 
 QUOTE_FINISHED = "quote.finished"
-STATES = ("settled", "failed", "abandoned", "declined", "unavailable", "refund_due", "expired")
+STATES = ("settled", "failed", "abandoned", "declined", "unavailable", "refund_due", "expired", "reversed")
 
 
 def definition(connector: str) -> dict[str, Any]:
@@ -13,7 +13,8 @@ def definition(connector: str) -> dict[str, Any]:
         "name": QUOTE_FINISHED,
         "description": (
             f"A {connector} quote of this account ended: paid and delivered (settled), failed, abandoned, "
-            "declined, unavailable, owed a refund (refund_due) or expired. Give quote_id to follow one quote."
+            "declined, unavailable, owed a refund (refund_due), expired, or delivered and then taken back by "
+            "the provider (reversed). Give quote_id to follow one quote."
         ),
         "delivery": ["webhook"],
         "inputSchema": {

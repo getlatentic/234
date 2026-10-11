@@ -4,7 +4,7 @@ ending refreshes the card and is put to the model, which answers it, once howeve
 
 import pytest
 
-from turns import kinds, messages
+from turns import kinds, messages, quote_events
 from turns.ledger_owner import ledger_owner
 
 from .support import FakeHub, ScriptedModel, quote_result, tool_call
@@ -80,3 +80,11 @@ async def test_the_model_reads_an_ending_as_an_event_not_as_the_person(core):
     await c.settle()
     rendered = messages.render(await c.core.log.read(), "system")
     assert {"role": "user", "content": "[event] Quote qt-1 (₦500, MTN) paid and done."} in rendered
+
+
+def test_a_reversal_is_told_as_one_with_where_the_money_went():
+    said = quote_events.told(
+        {"quote_id": "qt-1", "amount_kobo": 50_000, "description": "MTN airtime", "state": "reversed"}
+    )
+    assert said.startswith("Quote qt-1 (₦500, MTN airtime) delivered, then reversed by the provider")
+    assert "back in the wallet" in said and "a refund is due" in said

@@ -29,5 +29,8 @@ async def paystack_hook(
 async def vtpass_hook(rechecks: Rechecks, raw: bytes) -> HttpResponse:
     if len(raw) > MAX_BODY:
         return HttpResponse(413, "Too large")
-    await rechecks.ask(vtpass.quote_of(raw), "vtpass")
+    if vtpass.says_reversed(raw):
+        await rechecks.ask_reversal(vtpass.quote_of(raw))
+    else:
+        await rechecks.ask(vtpass.quote_of(raw), "vtpass")
     return json_response(vtpass.ACKNOWLEDGED)

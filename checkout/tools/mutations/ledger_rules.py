@@ -79,7 +79,7 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         "a quote cannot be changed once made (database trigger)",
-        "migrations/0007_payer_group.sql",
+        "migrations/0016_quote_reversed.sql",
         "BEFORE UPDATE OF connector, kind, amount_kobo, currency, description, merchant, merchant_ref,",
         "BEFORE UPDATE OF connector, kind, merchant_ref,",
         LEDGER,

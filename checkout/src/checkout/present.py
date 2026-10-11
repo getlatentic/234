@@ -17,6 +17,7 @@ from .money import format_naira
 from .network import NETWORK_LABEL
 from .paystack.sim import SIMULATED_OTP
 from .receipts import receipt_for
+from .wallet.spending import paid_from_wallet
 
 WAITING = ("awaiting_checkout", "processing")
 
@@ -52,6 +53,7 @@ def _approved_phase(quote: Quote) -> str:
 
 
 def phase_of(quote: Quote) -> str:
+    """A reversed order shows as its money stands: given back to the wallet (failed), or owed (attention)."""
     match quote.state:
         case "open":
             return "awaiting_approval"
@@ -61,6 +63,8 @@ def phase_of(quote: Quote) -> str:
             return "succeeded"
         case "refund_due":
             return "attention"
+        case "reversed":
+            return "failed" if paid_from_wallet(quote) else "attention"
         case state:
             return state
 

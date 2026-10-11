@@ -9,8 +9,11 @@ from urllib.parse import parse_qs, urlsplit
 from .app import App
 from .naive import naive_approve
 from .owner import acting_for, is_owner_key
+from .provider_hooks.http import vtpass_hook
 from .responses import HttpResponse, json_response
 from .transport import TransportError, WorkerFetch
+from .vtpass.sim import reversal_update
+from .vtpass.sim_store import VtpassSimStore
 
 RESET_TABLES = (
     "quote_events",
@@ -75,6 +78,15 @@ async def _fetch_probe(url: str) -> HttpResponse:
     return json_response({"status": reply.status, "body": reply.body, "contentType": reply.content_type})
 
 
+async def _reverse_vtpass_order(app: App, request_id: str) -> HttpResponse:
+    """The simulated VTpass takes back an order it delivered and sends the transaction-update callback for it,
+    through the same hook VTpass's own reaches."""
+    order = await VtpassSimStore(app.db).reverse(request_id, app.clock.now())
+    if order is None:
+        return HttpResponse(404, "No delivered order")
+    return await vtpass_hook(app.background.rechecks, reversal_update(order, app.clock.now()))
+
+
 async def handle_test(app: App, method: str, path: str, query: str) -> HttpResponse:
     """`?owner=` acts for that owner in the routes that read or write as one."""
     owner = parse_qs(query).get("owner", [""])[0]
@@ -95,6 +107,8 @@ async def _route(app: App, method: str, path: str, query: str) -> HttpResponse:
             return json_response({"approved": await naive_approve(app.ledger, quote_id)})
         case "POST", ["batch-rollback"]:
             return json_response(await _batch_rollback_probe(app))
+        case "POST", ["vtpass-reverse", request_id]:
+            return await _reverse_vtpass_order(app, request_id)
         case "GET", ["summary"]:
             return await _summary(app)
         case "GET", ["fetch-probe"]:
