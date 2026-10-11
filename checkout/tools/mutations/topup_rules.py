@@ -107,8 +107,8 @@ STARTED = [
     topup(
         "a top-up fits under the cap when it starts",
         TOPUPS,
-        'f"AND {BALANCE_SQL} + ? <= ?"',
-        'f"AND {BALANCE_SQL} + ? <= ? + 1000000000"',
+        'f"AND {BALANCE_SQL} + ? <= ? AND {funding_open_sql()}"',
+        'f"AND {BALANCE_SQL} + ? <= ? + 1000000000 AND {funding_open_sql()}"',
     ),
     topup(
         "a top-up is a positive amount",
@@ -127,8 +127,8 @@ STARTED = [
     topup(
         "the reference is the Idempotency-Key",
         f"{SRC}/bachs/client.py",
-        '"Idempotency-Key": request.reference,',
-        '"Idempotency-Key": "fixed",',
+        '"Idempotency-Key": request.reference}',
+        '"Idempotency-Key": "fixed"}',
     ),
     topup(
         "the stand-in takes only its own page's press",
