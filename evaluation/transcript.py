@@ -17,6 +17,7 @@ from turns.sources import SOURCE_SERVERS
 REPEATED_PREFIX = "Not made again: "
 RESULT_CHARS = 600
 IGNORED = {"text", "card_state", "card_message", "card_context"}
+SENT = frozenset({"user", "card_message"})
 
 
 def _card(payload: dict[str, Any]) -> dict[str, Any]:
@@ -86,8 +87,9 @@ def _record(say: str, events: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def turns_of(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One record per `user` event: the events from it up to the next one."""
-    starts = [i for i, e in enumerate(events) if e["type"] == "user"]
+    """One record per message sent: a `user` event, or a `card_message` (a case's turn sent through a card),
+    with the events from it up to the next one."""
+    starts = [i for i, e in enumerate(events) if e["type"] in SENT]
     bounds = [*starts, len(events)]
     return [
         _record(events[s]["payload"]["text"], [e for e in events[s:end] if e["type"] not in IGNORED])

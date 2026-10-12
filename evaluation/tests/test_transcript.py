@@ -60,6 +60,14 @@ def test_each_user_message_starts_a_turn():
     assert first["end"] == "input_required" and second["end"] == "completed"
 
 
+def test_a_message_sent_through_a_card_starts_a_turn_of_its_own():
+    events = chat()
+    events[9] = event(10, "card_message", {"text": "make it 2000 naira"})
+    first, second = turns_of(events)
+    assert second["say"] == "make it 2000 naira" and second["reply"] == "You're welcome."
+    assert first["reply"] == "Sure Press Approve."
+
+
 def test_a_turn_holds_its_calls_cards_reply_and_finish_reasons():
     first, second = turns_of(chat())
     assert [c["repeated"] for c in first["calls"]] == [False, True]
