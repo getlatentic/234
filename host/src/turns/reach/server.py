@@ -13,7 +13,8 @@ from typing import Any
 import httpx
 
 from ..db import Db
-from ..hub import ACCOUNT_META, MIME_TYPE, HubError
+from ..hub import ACCOUNT_META, MIME_TYPE
+from ..mcp_http import HubError
 from ..settings import Settings
 from . import agent
 from .config import SERVER, ReachSettings, reach_settings

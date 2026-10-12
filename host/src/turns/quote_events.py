@@ -11,7 +11,9 @@ from typing import Any
 
 import httpx
 
-from .hub import MEMORY_SERVER, Hub, HubError, ToolOutcome
+from .connector_tools import ToolOutcome
+from .hub import MEMORY_SERVER, Hub
+from .mcp_http import HubError
 from .settings import Settings
 
 CALLBACK_PATH = "/hooks/events"

@@ -21,7 +21,8 @@ from .budget import add_tokens, take_model_call, tokens_used_up
 from .compaction.compactor import Compactor
 from .db import Db
 from .eventlog import Event, EventLog
-from .hub import Hub, HubError
+from .hub import Hub
+from .mcp_http import HubError
 from .memory import notes_message, read_index, with_notes
 from .metrics import Metrics
 from .model import ContextTooLong, Finished, Model, ModelError, TextDelta

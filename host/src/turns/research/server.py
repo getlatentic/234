@@ -10,7 +10,7 @@ from typing import Any, Protocol
 import httpx
 
 from .. import trace
-from ..hub import HubError
+from ..mcp_http import HubError
 from ..settings import Settings
 from .store import ResearchStore
 

@@ -17,9 +17,10 @@ from .card_calls import CardCalls
 from .db import Db
 from .eventlog import Event, EventLog
 from .fanout import Fanout, SocketPool
-from .hub import Hub, HubError, paying_as
+from .hub import Hub
 from .inputs import InputRefused, clean_text, redact_card_numbers
 from .ledger_owner import is_account, ledger_owner
+from .mcp_http import HubError, paying_as
 from .metrics import Metrics
 from .model import Model
 from .runner import TurnRunner, new_id

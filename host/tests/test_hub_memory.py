@@ -7,7 +7,8 @@ import json
 import httpx
 import pytest
 
-from turns.hub import MEMORY_OWNER_HEADER, OWNER_HEADER, Hub
+from turns.hub import Hub
+from turns.mcp_http import MEMORY_OWNER_HEADER, OWNER_HEADER
 
 OWNER = "ab" * 16
 SEEN: list[httpx.Request] = []

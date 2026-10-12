@@ -5,7 +5,9 @@ import json
 import httpx
 import pytest
 
-from turns.hub import CardPage, Hub, HubError, ToolOutcome
+from turns.connector_tools import CardPage, ToolOutcome
+from turns.hub import Hub
+from turns.mcp_http import HubError
 
 TOOLS = [
     {"name": "create_quote", "description": "d", "inputSchema": {"type": "object", "$schema": "x"},
@@ -136,7 +138,7 @@ async def test_the_client_initializes_before_its_first_request(hub):
 
 
 async def test_a_call_inside_a_payer_group_names_it_and_no_other_call_does(hub):
-    from turns.hub import GROUP_HEADER, paying_as
+    from turns.mcp_http import GROUP_HEADER, paying_as
 
     await hub.call_model_tool("s__create_quote", {"a": 1}, OWNER, KEY)
     with paying_as("cd" * 16):
@@ -148,7 +150,7 @@ async def test_a_call_inside_a_payer_group_names_it_and_no_other_call_does(hub):
 
 async def test_a_call_inside_a_turn_names_its_task_and_no_other_call_does(hub):
     from turns import trace
-    from turns.hub import TASK_HEADER
+    from turns.mcp_http import TASK_HEADER
 
     await hub.call_model_tool("s__create_quote", {"a": 1}, OWNER, KEY)
     with trace.bound("chat-1", OWNER, "task-9"):
@@ -166,7 +168,7 @@ NO_REPLY = [
 
 @pytest.mark.parametrize("reply", NO_REPLY)
 async def test_a_connector_that_sends_no_json_rpc_reply_is_one_that_could_not_be_reached(reply):
-    from turns.hub import HubError
+    from turns.mcp_http import HubError
 
     def broken(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)

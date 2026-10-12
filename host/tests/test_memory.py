@@ -8,8 +8,9 @@ import copy
 import httpx
 
 from turns import memory
-from turns.hub import MEMORY_SERVER, HubError
+from turns.hub import MEMORY_SERVER
 from turns.ledger_owner import is_account
+from turns.mcp_http import HubError
 
 from .memory_support import ACCOUNT, AGENT, INDEX, TRANSFER, VISITOR, MemoryHub, key_of, transfer_tool
 

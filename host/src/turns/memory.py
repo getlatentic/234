@@ -12,8 +12,9 @@ from typing import Any
 
 import httpx
 
-from .hub import MEMORY_SERVER, SEPARATOR, Hub, HubError
+from .hub import MEMORY_SERVER, SEPARATOR, Hub
 from .ledger_owner import is_account, ledger_owner
+from .mcp_http import HubError
 
 MEMORY_TOOLS = f"{MEMORY_SERVER}{SEPARATOR}"
 INDEX_TOOL = "memory_index"

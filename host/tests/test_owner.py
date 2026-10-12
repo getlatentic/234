@@ -12,8 +12,9 @@ import pytest
 from chat.models import Access
 from turns import kinds
 from turns.chat_core import ChatCore
-from turns.hub import OWNER_HEADER, Hub, HubError
+from turns.hub import Hub
 from turns.ledger_owner import ledger_owner
+from turns.mcp_http import OWNER_HEADER, HubError
 from turns.settings import Settings
 
 from .card_support import LISTING, CardHub, ordered

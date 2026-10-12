@@ -2,7 +2,8 @@
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
-from turns.hub import MEMORY_SERVER, WALLET_SERVER, HubError
+from turns.hub import MEMORY_SERVER, WALLET_SERVER
+from turns.mcp_http import HubError
 
 from .. import card_csp, sandbox
 from ..access import chat_for

@@ -9,7 +9,8 @@ import httpx
 import pytest
 
 from turns.binding import ServiceBindingTransport, connector_client, response_headers
-from turns.hub import Hub, McpHttp
+from turns.hub import Hub
+from turns.mcp_http import McpHttp
 
 
 class FakeReply:
