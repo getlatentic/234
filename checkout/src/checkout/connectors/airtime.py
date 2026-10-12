@@ -2,12 +2,14 @@
 """The `airtime` connector: airtime or data for a Nigerian mobile number. The person pays through
 Paystack, then VTpass delivers."""
 
+from dataclasses import replace
 from typing import Annotated
 
 from pydantic import Field
 
 from ..flows.airtime import AirtimeFlow
 from ..flows.context import Context, QuoteIssued
+from ..flows.wallet_leg import wallet_told
 from ..mcp.registry import Connector, ToolResult
 from ..money import format_naira
 from ..network import NETWORK_LABEL, Network
@@ -23,6 +25,10 @@ PhoneField = Annotated[
         max_length=16,
         description="The Nigerian mobile number to top up, such as 08031234567 or +2348031234567.",
     ),
+]
+FromWallet = Annotated[
+    bool,
+    Field(description="True when the person asked to pay from their 234 wallet; otherwise leave it out."),
 ]
 
 
@@ -47,6 +53,7 @@ class CreateAirtimeQuote(Strict):
         ),
     ]
     idempotency_key: IdempotencyKey
+    from_wallet: FromWallet = False
 
 
 class CreateDataQuote(Strict):
@@ -56,6 +63,7 @@ class CreateDataQuote(Strict):
         str, Field(min_length=1, max_length=60, description="A plan code from list_data_plans.")
     ]
     idempotency_key: IdempotencyKey
+    from_wallet: FromWallet = False
 
 
 class ListDataPlans(Strict):
@@ -66,11 +74,16 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
     flow = AirtimeFlow(ctx)
     kit = CardConnector(NAME, "Airtime and data", ctx, flow, card_html)
 
+    def told(issued: QuoteIssued, asked: bool) -> QuoteIssued:
+        return replace(issued, told=wallet_told(ctx, issued.quote, asked))
+
     async def create_airtime(args: CreateAirtimeQuote) -> QuoteIssued:
-        return await flow.create_airtime_quote(**args.model_dump())
+        made = await flow.create_airtime_quote(**args.model_dump(exclude={"from_wallet"}))
+        return told(made, args.from_wallet)
 
     async def create_data(args: CreateDataQuote) -> QuoteIssued:
-        return await flow.create_data_quote(**args.model_dump())
+        made = await flow.create_data_quote(**args.model_dump(exclude={"from_wallet"}))
+        return told(made, args.from_wallet)
 
     async def list_plans(args: ListDataPlans) -> ToolResult:
         plans = await flow.list_data_plans(args.network)

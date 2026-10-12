@@ -135,8 +135,8 @@ class CardConnector:
         read_back = issued.quote["details"].get("readBack")
         ask = f' Read this back to the person before they approve: "{read_back}".' if read_back else ""
         return (
-            f"{summarise(issued.quote)}{ask} The approval card is now shown to the person. You cannot "
-            f"approve it. Wait for them, then call get_quote_status on the {self.name} connector to "
+            f"{issued.told}{summarise(issued.quote)}{ask} The approval card is now shown to the person. You "
+            f"cannot approve it. Wait for them, then call get_quote_status on the {self.name} connector to "
             "report what happened."
         )
 

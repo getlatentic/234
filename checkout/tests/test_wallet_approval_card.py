@@ -3,6 +3,7 @@
 wallet only for an account whose balance covers the quote, `approve_quote` takes `funding` from the card
 alone, and an approval without it is the checkout as it always was."""
 
+from checkout.flows.wallet_leg import COVERED, NOT_COVERED
 from tests.connector_support import CONNECTORS, listed, text_of, visibility
 from tests.support import ALICE, BOB
 from tests.wallet_card_support import CARD_ID, airtime_quote, approve, call, ok, wallet
@@ -51,6 +52,25 @@ class TestTheOffer:
         await funded(stack, 2_000_000)
         made = await call(stack, "paystack-pay", "create_payment_quote", ALICE, True, **PAYMENT)
         assert offer_of(made["result"]) is None
+
+    async def test_a_person_who_asked_to_pay_from_the_wallet_is_told_if_it_covers_and_never_the_balance(
+        self, stack
+    ):
+        await funded(stack, 60_000)
+        covered = text_of(await airtime_quote(stack, from_wallet=True))
+        short = text_of(
+            await airtime_quote(stack, amount_kobo=100_000, amount_as_user_said="₦1000", from_wallet=True)
+        )
+        assert COVERED.strip() in covered and NOT_COVERED.strip() in short
+        assert "600" not in covered + short
+
+    async def test_a_quote_nobody_asked_to_pay_from_the_wallet_says_nothing_of_it(self, stack):
+        await funded(stack, 60_000)
+        short = text_of(await airtime_quote(stack, amount_kobo=100_000, amount_as_user_said="₦1000"))
+        assert "wallet" not in short.lower()
+        await funded(stack, 200_000, BOB)
+        told = text_of(await airtime_quote(stack, BOB, account=False, from_wallet=True))
+        assert "wallet" not in told.lower()
 
     async def test_the_offer_is_gone_once_the_quote_is_approved(self, stack):
         await funded(stack, 200_000)

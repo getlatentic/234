@@ -45,3 +45,5 @@ class QuoteIssued:
     quote: dict[str, Any]
     approval_token: str
     replayed: bool
+    told: str = ""
+    """What the model is told beside the quote for this request alone (flows/wallet_leg.py)."""
