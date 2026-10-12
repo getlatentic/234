@@ -11,7 +11,7 @@ the script fills in. The live demo (https://ask234.wintern.workers.dev) is one s
 - Your account's workers.dev subdomain, in the variable `SUBDOMAIN`. Put it in the untracked file
   `.env.deploy.local` at the repository root (`SUBDOMAIN=<your-subdomain>`) or in the environment. Any other name
   below can be set the same way.
-- `tools/deploy.sh init` creates the two databases and the connectors' four Queues (each deploy also makes any that are missing); `tools/deploy.sh names` prints what is deployed and where.
+- `tools/deploy.sh init` creates the two databases and the connectors' four Queues (each deploy also makes any that are missing); `tools/deploy.sh names` prints what is deployed and where, and `tools/deploy.sh secrets host|connectors|sandbox` the names of the secrets a Worker has. A deploy first reads the secrets of all three Workers and stops, changing nothing, when it cannot (Cloudflare's API answering 504, say): a guess of "none" would make the shared token, the events secret and the PACT keys again and upload some of them, leaving the host and the connectors with different tokens (the connectors answer the host 401 and every turn says a connector could not be reached; `tools/deploy.sh rotate token` repairs it).
 
 | | Default name | Address |
 |---|---|---|

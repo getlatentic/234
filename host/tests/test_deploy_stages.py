@@ -4,6 +4,7 @@ rate-limit namespace named apart from production's, no custom domain, and its ow
 deploys only a commit staging already runs. No network: `names`, and a deploy refused before it does anything
 (never one that would go on: these tests run inside a deploy's own checks)."""
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -67,3 +68,39 @@ def test_deploy_fills_the_site_key_into_the_host_template_and_the_keys_file_is_i
     assert ".env.turnstile.local" in (root / ".gitignore").read_text().replace(
         ".env.*", ".env.turnstile.local"
     )
+
+
+def fake_wrangler(tmp_path: Path, stdout: str, stderr: str, status: int) -> str:
+    """A wrangler that answers every call the same way and records that it was called."""
+    script = tmp_path / "wrangler"
+    lines = [
+        "#!/bin/bash",
+        f"echo \"$@\" >> '{tmp_path}/calls'",
+        f"printf '%s' '{stdout}'",
+        f"printf '%s' '{stderr}' >&2",
+        f"exit {status}",
+    ]
+    script.write_text("\n".join(lines) + "\n")
+    script.chmod(0o755)
+    return str(script)
+
+
+def test_the_secrets_of_a_worker_are_listed_by_name(tmp_path):
+    kept = ("APPROVAL_SECRET", "MCP_ACCESS_TOKEN")
+    listed = json.dumps([{"name": name, "type": "secret_text"} for name in kept])
+    done = run("secrets", "connectors", WRANGLER=fake_wrangler(tmp_path, listed, "", 0))
+    assert done.returncode == 0 and done.stdout.split() == ["APPROVAL_SECRET", "MCP_ACCESS_TOKEN"]
+
+
+def test_a_worker_that_does_not_exist_yet_has_no_secrets(tmp_path):
+    missing = 'X Worker "ask234-connectors" not found.'
+    done = run("secrets", "connectors", WRANGLER=fake_wrangler(tmp_path, "", missing, 1))
+    assert done.returncode == 0 and done.stdout.strip() == ""
+
+
+def test_secrets_that_cannot_be_read_are_not_read_as_none(tmp_path):
+    """Cloudflare's API answering 504 once made a deploy think no Worker had a secret, make a new token for
+    the connectors, and fail before giving it to the host."""
+    down = "A request to the Cloudflare API failed: 504 Gateway Timeout"
+    done = run("secrets", "host", WRANGLER=fake_wrangler(tmp_path, "", down, 1))
+    assert done.returncode != 0 and "cannot read those secrets" in done.stderr

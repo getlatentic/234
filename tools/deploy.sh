@@ -20,6 +20,7 @@
 #   tools/deploy.sh versions|rollback|tail host|connectors|sandbox
 #   tools/deploy.sh auth                  what .env.auth.local holds for sign-in with Google (names only) and what a deploy does with it
 #   tools/deploy.sh names                 what this deploys and where it answers
+#   tools/deploy.sh secrets host|connectors|sandbox   the names of the secrets that Worker has (never a value)
 #   tools/deploy.sh destroy               deletes the three Workers and both databases, after you type the host's name
 #
 # A deploy refuses when the working tree has uncommitted changes, so what is live is a commit.
@@ -68,7 +69,7 @@ if [ -n "$CUSTOM_DOMAIN" ]; then
     { echo "deploy: CUSTOM_DOMAIN is a host name of a zone in your account (for example 234.example.com), not a URL and not on workers.dev" >&2; exit 1; }
 fi
 
-wrangler="$root/node_modules/.bin/wrangler"
+wrangler="${WRANGLER:-$root/node_modules/.bin/wrangler}"
 HOST_URL="https://$HOST_WORKER.$SUBDOMAIN.workers.dev"
 CONNECTORS_URL="https://$CONNECTORS_WORKER.$SUBDOMAIN.workers.dev"
 SANDBOX_URL="https://$SANDBOX_WORKER.$SUBDOMAIN.workers.dev"
@@ -206,12 +207,27 @@ render() {  # template output: the template with this file's names filled in
   rm -f "$edits"
 }
 
-secrets_present() {  # worker: the names of the secrets it already has
-  "$wrangler" secret list --name "$1" --format json < /dev/null 2>/dev/null |
-    python3 -c 'import json,sys; print(" ".join(s["name"] for s in json.load(sys.stdin)))' 2>/dev/null || true
+secrets_present() {  # worker: the names of the secrets it already has; fails when they cannot be read
+  # A Worker that does not exist yet has none. Any other failure (Cloudflare's API answering 504, say) must not
+  # read as "none": a deploy would then make every secret again and upload some of them, leaving the host and
+  # the connectors with different tokens.
+  local listed errors status=0
+  errors=$(mktemp)
+  listed=$("$wrangler" secret list --name "$1" --format json < /dev/null 2>"$errors") || status=$?
+  if [ "$status" -ne 0 ]; then
+    grep -q 'Worker ".*" not found' "$errors" && status=0 || true
+    rm -f "$errors"
+    return "$status"
+  fi
+  rm -f "$errors"
+  python3 -c 'import json,sys; print(" ".join(s["name"] for s in json.load(sys.stdin)))' <<< "$listed" 2>/dev/null
 }
 
-has_secret() { case " $(secrets_present "$1") " in *" $2 "*) return 0 ;; *) return 1 ;; esac; }
+has_secret() {
+  local names
+  names=$(secrets_present "$1") || die "cannot read the secrets of $1 (is Cloudflare's API answering?): nothing was changed"
+  case " $names " in *" $2 "*) return 0 ;; *) return 1 ;; esac
+}
 
 secret_lines() {  # worker names... : NAME=value for each secret the worker lacks, freshly generated; the values stay in the pipe
   local worker=$1 name; shift
@@ -317,6 +333,10 @@ deploy_all() {
   load_auth; AUTH_LOADED=1
   load_turnstile
   run_checks
+  local worker
+  for worker in "$SANDBOX_WORKER" "$CONNECTORS_WORKER" "$HOST_WORKER"; do
+    secrets_present "$worker" > /dev/null || die "cannot read the secrets of $worker (is Cloudflare's API answering?): nothing was changed"
+  done
   local shared="" ops
   ops=$(openssl rand -hex 32)
   has_secret "$CONNECTORS_WORKER" MCP_ACCESS_TOKEN && has_secret "$HOST_WORKER" CHECKOUT_MCP_TOKEN || shared=$(openssl rand -hex 32)
@@ -574,6 +594,7 @@ case "$cmd" in
   rotate) cmd_rotate "${2:?what to rotate}" ;;
   upload) cmd_upload "${2:?host, connectors or sandbox}" ;;
   names) cmd_names ;;
+  secrets) secrets_present "$(worker_of "${2:?host, connectors or sandbox}")" || die "cannot read those secrets (is Cloudflare's API answering?)" ;;
   render) render "${2:?template}" "${3:?output}" ;;
   auth) cmd_auth ;;
   destroy) cmd_destroy ;;
