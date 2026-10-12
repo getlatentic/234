@@ -247,7 +247,7 @@ def test_the_card_route_is_the_visitors_own(visitor, other_chat):
 
 @pytest.mark.django_db
 def test_a_refused_card_is_a_400_with_a_reason(visitor, backend):
-    from turns.hub import HubError
+    from turns.mcp_http import HubError
 
     def refuse(server, uri):
         raise HubError("s declares no card at x.")

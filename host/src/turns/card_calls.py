@@ -16,9 +16,11 @@ from typing import Any
 import httpx
 
 from . import kinds, wallet
+from .connector_tools import card_uri_of
 from .db import Db
 from .eventlog import EventLog
-from .hub import MEMORY_SERVER, WALLET_SERVER, Hub, HubError, card_uri_of
+from .hub import MEMORY_SERVER, WALLET_SERVER, Hub
+from .mcp_http import HubError
 from .memory import NOT_AN_ACCOUNT
 
 CARD_FIELDS = ("content", "structuredContent")

@@ -10,7 +10,7 @@ from django.test import Client
 
 from accounts.owner import account_owner
 from chat.models import Access
-from turns.hub import HubError
+from turns.mcp_http import HubError
 
 from .account_support import ACCOUNT_KEY, Device
 

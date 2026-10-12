@@ -90,14 +90,14 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "the model is not shown a property the connector hides from it",
-        "turns/hub.py",
+        "turns/connector_tools.py",
         "if spec.get(MODEL_HIDDEN)} | {KEY_FIELD}",
         "if False} | {KEY_FIELD}",
         KEYS,
     ),
     host(
         "a property the connector requires of the model is required in its schema",
-        "turns/hub.py",
+        "turns/connector_tools.py",
         '*tool["inputSchema"].get(MODEL_REQUIRED, [])]',
         "]",
         KEYS,

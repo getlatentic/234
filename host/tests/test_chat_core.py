@@ -5,7 +5,7 @@ import pytest
 
 from turns import kinds
 from turns.chat_core import ChatCore
-from turns.hub import HubError
+from turns.mcp_http import HubError
 from turns.settings import Settings
 
 from .card_support import LISTING

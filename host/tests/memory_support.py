@@ -4,8 +4,10 @@ index from a value a test changes, and records which calls reached it and for wh
 
 from typing import Any
 
-from turns.hub import MEMORY_SERVER, HubError, ToolOutcome
+from turns.connector_tools import ToolOutcome
+from turns.hub import MEMORY_SERVER
 from turns.ledger_owner import ledger_owner
+from turns.mcp_http import HubError
 
 ACCOUNT_HEX = "ab" * 16
 ACCOUNT = f"u:{ACCOUNT_HEX}"

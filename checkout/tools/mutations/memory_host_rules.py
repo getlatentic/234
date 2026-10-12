@@ -100,7 +100,7 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "no other connector is told the owner of the notes",
-        "turns/hub.py",
+        "turns/mcp_http.py",
         "            if notes:\n                headers[MEMORY_OWNER_HEADER] = owner",
         "            headers[MEMORY_OWNER_HEADER] = owner",
         HUB,

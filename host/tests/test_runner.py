@@ -7,7 +7,7 @@ import pytest
 from turns import kinds
 from turns.budget import GLOBAL_SCOPE, day_of
 from turns.eventlog import EventLog
-from turns.hub import HubError
+from turns.mcp_http import HubError
 from turns.model import ModelError
 from turns.runner import TurnRunner
 from turns.settings import Settings

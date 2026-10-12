@@ -9,7 +9,7 @@ import pytest
 
 from turns import kinds, messages
 from turns.eventlog import EventLog
-from turns.hub import HubError
+from turns.mcp_http import HubError
 from turns.memory import NOT_AN_ACCOUNT, NOTES_LABEL
 from turns.prompt import system_prompt
 from turns.runner import TurnRunner

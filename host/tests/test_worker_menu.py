@@ -9,7 +9,8 @@ import os
 import httpx
 import pytest
 
-from turns.hub import HubError, build_hub
+from turns.hub import build_hub
+from turns.mcp_http import HubError
 
 from .worker_client import FAKE_MODEL, HOST, Visitor, finished, until
 
