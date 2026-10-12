@@ -107,6 +107,7 @@ class LongChat:
             "approve_quote",
             {"displayed_amount_kobo": quote["amount"]["kobo"], "readback_confirmed": True},
         )
+        assert "structuredContent" in approved, f"the approval was refused: {approved}"
         checkout = approved["structuredContent"]["quote"]["checkoutUrl"]
         async with httpx.AsyncClient() as bank:
             await bank.post(checkout.rstrip("/") + "/pay")

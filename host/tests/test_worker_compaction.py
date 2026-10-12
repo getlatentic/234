@@ -184,9 +184,9 @@ async def test_a_summary_that_forgets_facts_is_asked_again_and_then_completed_by
         await chat.say("Send 5k to Ada Okafor, GTBank 0123456789 when you are ready")
         for n in range(20):
             await chat.say(talk(n))
-        compactions = chat.compactions()
-        assert compactions and compactions[0]["payload"]["verified"] == "block"
-        summary = compactions[0]["payload"]["summary"]
+        blocked = [c for c in chat.compactions() if c["payload"]["verified"] == "block"]
+        assert blocked, "no summary was completed by rule"
+        summary = blocked[-1]["payload"]["summary"]  # the rule's block lists every fact up to its own cut
         assert (
             "Facts recorded mechanically" in summary and "07031234567" in summary and "0123456789" in summary
         )
