@@ -32,7 +32,7 @@ async def recall(k: int = 5) -> tuple[float, dict[str, float], list[str]]:
     store, known = KnowledgeStore(loaded()), corpus()
     hits: dict[str, list[bool]] = defaultdict(list)
     missed = []
-    for q in (q for q in questions() if q.kind != "abstain"):
+    for q in (q for q in questions() if q.answer):
         found, _ = await store.search(q.q, Filters(), k)
         ok = bool({p["passage_id"] for p in found} & set(gold(q, known)))
         hits[q.lang].append(ok)
