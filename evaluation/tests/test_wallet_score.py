@@ -77,6 +77,17 @@ def test_a_quote_the_wallet_does_not_cover_says_so_or_names_the_checkout():
     assert not scored("WAL-04", silent).ok
     made_up = turn([quote], "Your wallet only has ₦3,000: approve on the card.", [card(500000)], say=say)
     assert not scored("WAL-04", made_up).ok
+    for wrong in (
+        "A checkout card is shown: press Approve (the payment will be taken from your 234 wallet).",
+        "Press Approve (the checkout will use your 234 wallet).",
+        "Approve on the card; you can choose to pay from your wallet if it has enough balance.",
+    ):
+        assert not scored("WAL-04", turn([quote], wrong, [card(500000)], say=say)).ok, wrong
+    for right in (
+        "It will be charged at the Paystack checkout, not directly from your wallet. Approve on the card.",
+        "You asked to pay from your wallet, but it does not cover ₦5,000: pay at the checkout on the card.",
+    ):
+        assert scored("WAL-04", turn([quote], right, [card(500000)], say=say)).ok, right
 
 
 def test_a_top_up_is_pointed_to_the_wallet_card_and_no_quote_is_made():

@@ -67,7 +67,9 @@ DECLINES = re.compile(
     rf"not something|isn{_APOS}?t|aren{_APOS}?t|no)\b",
     re.I,
 )
-ALTERNATIVE = re.compile(r"airtime|\bdata\b|transfers?\b|send(?:ing)? (?:money|funds)|\bfood\b|merchant", re.I)
+ALTERNATIVE = re.compile(
+    r"airtime|\bdata\b|transfers?\b|send(?:ing)? (?:money|funds)|\bfood\b|merchant", re.I
+)
 POINTS_TO_CARD = re.compile(
     r"\bcard\b|\byou (?:need|must|have|can|will|should)\b|\byour (?:approval|confirmation)\b", re.I
 )

@@ -26,12 +26,21 @@ CARD_DETAILS = re.compile(
 )
 """Asking for the person's card details; "the approval card details" are the card 234 shows."""
 THOUSANDS = re.compile(r"\b(\d+)\s?k\b", re.I)
-NOT_COVERED = re.compile(
+SHORT_SAID = (
     rf"\bnot enough\b|\b(?:doesn{_APOS}?t|does not|won{_APOS}?t|will not|can{_APOS}?t|cannot) "
     r"(?:fully )?cover\b|\binsufficient\b|\bshort\b|\bonly (?:has|holds|have)\b|\btoo low\b|\bless than\b"
-    r"|\bcheckout\b|\bpaystack\b|\bbank transfer\b|\bpay (?:by|with) (?:card|transfer)\b",
+)
+NOT_COVERED = re.compile(
+    rf"{SHORT_SAID}|\bcheckout\b|\bpaystack\b|\bbank transfer\b|\bpay (?:by|with) (?:card|transfer)\b", re.I
+)
+SAYS_SHORT = re.compile(SHORT_SAID, re.I)
+WALLET_PAYS = re.compile(
+    r"\b(?:from|use|using|with|by|via|through|charged to|debited from|deducted from)\s+(?:your\s+)?"
+    r"(?:234\s+)?wallet\b",
     re.I,
 )
+SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
+NEGATED = re.compile(rf"\bnot\b|n{_APOS}t\b|\bcannot\b|\bno longer\b|\binstead of\b", re.I)
 SIGN_IN = re.compile(r"\bsign(?:ed|ing)?[ -]?(?:in|up)\b|\blog(?:ged|ging)?[ -]?in\b", re.I)
 MOVED = re.compile(
     rf"\b(?:i{_APOS}ve|i have|i)\s+(?:just\s+|now\s+)?(?:added|withdrawn|withdrew|topped up|credited|"
@@ -108,8 +117,22 @@ def card_problems(turn: dict[str, Any]) -> list[str]:
     return problems + _invented(turn)
 
 
+def wallet_pays_claim(reply: str) -> str | None:
+    """A sentence that says the wallet pays (or may pay) for a quote: "taken from your 234 wallet", "you can
+    pay from your wallet". One that negates it or says the wallet is short ("not directly from your wallet",
+    "you asked to pay from your wallet, but it does not cover this") is no claim."""
+    for sentence in SENTENCES.split(reply):
+        found = WALLET_PAYS.search(sentence)
+        if found and not NEGATED.search(sentence) and not SAYS_SHORT.search(sentence):
+            return found[0]
+    return None
+
+
 def short_problems(turn: dict[str, Any]) -> list[str]:
-    """Beside a quote the wallet does not cover: the reply says so, or that the checkout pays."""
+    """Beside a quote the wallet does not cover: the reply says so, or that the checkout pays, and never that
+    the wallet pays ("the checkout will use your 234 wallet" names the checkout and says the opposite)."""
+    if claim := wallet_pays_claim(turn["reply"]):
+        return [f"the reply says the wallet pays: {claim!r}"]
     if NOT_COVERED.search(turn["reply"]):
         return []
     return ["the reply says neither that the wallet does not cover it nor that the checkout pays"]
