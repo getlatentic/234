@@ -123,12 +123,14 @@ async def test_arguments_that_are_not_json_come_back_as_a_refused_tool_call(rig)
 
 
 @pytest.mark.parametrize("failure", [HubError("x"), httpx.ConnectError("down")])
-async def test_an_unreachable_connector_is_a_tool_error_the_model_can_report(rig, failure):
+async def test_an_unreachable_connector_is_a_tool_error_the_model_can_report(rig, failure, caplog):
     r = rig(ScriptedModel(("", [tool_call(MAKE, {})]), "I could not do that."), FakeHub({MAKE: failure}))
     await r.say()
     await r.runner.run()
     assert (await r.of("tool"))[0].payload["result_text"] == UNREACHABLE
     assert not await r.of("card")
+    [logged] = [rec for rec in caplog.records if "could not reach its connector" in rec.getMessage()]
+    assert MAKE in logged.getMessage() and type(failure).__name__ in (logged.exc_text or "")
 
 
 async def test_a_model_that_fails_ends_the_turn_as_failed_and_is_not_asked_again(rig):

@@ -466,9 +466,14 @@ smoke_test() {  # [ops-token]: the deploy's own, which lets the smoke test's fir
     check "the bot check is on: a first message with no token is refused" "$(curl -s -m 60 -b "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$(openssl rand -hex 16)/start" \
       -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' -d '{"text":"hi"}' || true)" 403
   fi
-  started=$(curl -s -m 60 -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$chat/start" \
-    -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' \
-    ${1:+-H "Authorization: Bearer $1"} -d '{"text":"hi"}' || true)
+  local attempt started=""
+  for attempt in 1 2 3 4; do  # a host still on the version before this deploy refuses the new operator token (403) for a while
+    started=$(curl -s -m 60 -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$HOST_URL/c/$chat/start" \
+      -H "origin: $HOST_URL" -H "referer: $HOST_URL/" -H "X-CSRFToken: $csrf" -H 'content-type: application/json' \
+      ${1:+-H "Authorization: Bearer $1"} -d '{"text":"hi"}' || true)
+    [ "$started" = 403 ] && [ -n "$TURNSTILE_ON" ] || break
+    sleep 15
+  done
   check "a chat is started by its first message" "$started" 200
   page=$(curl -s -m 10 -b "$jar" "$HOST_URL/c/$chat/events" || true)
   check "the turn ran and reached the connectors" "$(if grep -q 'could not be reached' <<< "$page"; then echo no; else echo yes; fi)" yes

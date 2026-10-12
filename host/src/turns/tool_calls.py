@@ -171,6 +171,7 @@ class ToolCalls:
                 return refused(server, tool, TOO_SLOW.format(tool=tool)), "slow"
             return await self._unknown(name, WHY_SLOW), "unknown"
         except HubError, httpx.HTTPError:
+            log.warning("A call to %s could not reach its connector", name, exc_info=True)
             return refused(server, tool, UNREACHABLE), "unreachable"
         return outcome, "error" if outcome.is_error else "ok"
 
