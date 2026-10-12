@@ -1,30 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Whether the source lines the host shows under an answer are proven by the pages the turn read (#645). Pure,
-and independent of the host's own rule: it reads the lines from the notices and the pages from the text the
-tool calls brought back, and compares the figures of the reply with the figures of each page."""
+"""Whether the source lines the host shows under an answer are proven by the pages the turn read (#645). Pure:
+it reads the lines from the notices and the pages from the text the tool calls brought back, and compares
+the figures of the reply with those of each page. What a figure is comes from the host (turns/sources.py); the
+verdict on the lines is not the host's own."""
 
 import re
 from typing import Any
+
+from turns.sources import distinctive, figures_of
 
 _LINE = re.compile(r"^Source: (?P<title>.+?)(?: — (?P<url>\S+))? \(read [^)]*\)$")
 _BLOCK = re.compile(
     r"^\[\d+\] (?P<title>.+?) \((?P<meta>[^\n]*?)\); id \S+\n(?P<body>(?:>[^\n]*(?:\n|$))*)", re.M
 )
 _ADDRESS = re.compile(r"https?://[^\s,)]+")
-_NUMBER = re.compile(r"\d{1,3}(?:[,\u202f\u00a0 ]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
-_GROUPING = re.compile(r"[,\u202f\u00a0 ]")
-_LIST_MARKER = re.compile(r"(?m)^[>\s]*(?:[-*]\s*)?\d+[.)]\s")
-
-
-def figures(text: str) -> set[str]:
-    """The numbers of a text as digits, without its links and the numbers that count a list."""
-    bare = _LIST_MARKER.sub(" ", _ADDRESS.sub(" ", text))
-    return {_GROUPING.sub("", n) for n in _NUMBER.findall(bare)}
-
-
-def distinctive(figure: str) -> bool:
-    """An amount, a percentage or a count that names one page's claim: not a day, a small count or a year."""
-    return "." in figure or (int(figure) >= 100 and not 1900 <= int(figure) <= 2099)
 
 
 def shown(turn: dict[str, Any]) -> list[tuple[str, str | None]]:
@@ -49,7 +38,7 @@ def unproven(turn: dict[str, Any], read: str, words_ok: bool) -> list[str]:
     not allow a line on words alone."""
     lines = shown(turn)
     held = pages(read)
-    claims = (figures(turn["reply"]) & figures(" ".join(held.values()))) - figures(turn["say"])
+    claims = (figures_of(turn["reply"]) & figures_of(" ".join(held.values()))) - figures_of(turn["say"])
     if not claims:
         return (
             []
@@ -58,7 +47,7 @@ def unproven(turn: dict[str, Any], read: str, words_ok: bool) -> list[str]:
         )
     problems, backed = [], set()
     for title, url in lines:
-        mine = claims & figures(held.get(url or title, ""))
+        mine = claims & figures_of(held.get(url or title, ""))
         backed |= mine
         if not mine:
             problems.append(f"the page {title!r} holds none of the figures {sorted(claims)}")

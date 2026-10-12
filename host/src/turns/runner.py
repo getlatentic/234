@@ -410,7 +410,7 @@ class TurnRunner:
             logs.event(logger, "ungrounded", figures=len(missing))
             await self._notice(sources.NOT_IN_SOURCES.format(items=", ".join(missing)))
         references = [r for e in reads for r in e.payload.get("sources", [])]
-        for reference in sources.drawn_on(references, answer):
+        for reference in sources.drawn_on(references, answer, said):
             await self._notice(sources.source_line(reference))
 
     async def _notice(self, text: str) -> None:

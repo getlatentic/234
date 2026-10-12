@@ -191,17 +191,14 @@ async def test_an_answer_that_does_not_draw_on_what_was_read_shows_no_source(cha
     assert notices(await events_of(made)) == []
 
 
-def test_an_answer_draws_on_a_source_by_a_shared_number_or_three_long_words():
-    ref = {
-        "title": "T",
-        "url": None,
-        "date": "2026-10-01",
-        "terms": sorted(sources.terms_of(PASSAGE["text"])),
-    }
+def test_an_answer_draws_on_a_source_by_a_figure_it_holds():
+    (ref,) = sources.references({"structuredContent": {"passages": [PASSAGE]}})
     assert sources.drawn_on([ref], "It is 15,000 naira.") == [ref]
     assert sources.drawn_on([ref], "It costs 9,000 naira.") == []
     assert sources.drawn_on([ref], "Pay naira at https") == []
-    assert sources.source_line(ref) == "Source: T (read 2026-10-01)"
+    assert (
+        sources.source_line({**ref, "url": None}) == "Source: Renewing a driver's licence (read 2026-10-01)"
+    )
 
 
 def test_a_web_page_is_a_reference_with_its_address_and_day():
@@ -332,3 +329,158 @@ def test_a_page_on_the_same_subject_that_does_not_hold_the_answer_is_not_its_sou
         "said, citing heightened global uncertainties and inflation."
     )
     assert [r["title"] for r in sources.drawn_on(refs, answer)] == ["CBN retains MPR"]
+
+
+def refs(*pages: tuple[str, str]) -> list[dict]:
+    hits = [
+        {"title": title, "url": f"https://{i}.example.com/", "published": None, "text": text}
+        for i, (title, text) in enumerate(pages)
+    ]
+    return sources.references({"structuredContent": {"results": hits, "searched_on": "2026-10-10"}})
+
+
+def titles(drawn: list[dict]) -> list[str]:
+    return [r["title"] for r in drawn]
+
+
+LICENCE = (
+    "To renew a driver's licence, book a slot, bring the old licence and pay the renewal fee of 12,500 naira."
+)
+INSPECTION = "A private car is inspected once a year at an inspection yard and pays 4,000 naira."
+BRING = "Bring the old licence, one passport photograph and the supporting document to the agency office."
+HEALTH = "An adult enrols for health insurance with a national identity number and pays 7,200 naira."
+
+
+def test_a_page_on_the_same_subject_without_the_figure_is_not_shown_beside_the_page_that_holds_it():
+    pages = refs(
+        ("Licence", LICENCE), ("Licence in Pidgin", "How to renew your driver licence, bring old licence.")
+    )
+    answer = "To renew your driver's licence, book a slot and pay the renewal fee of 12,500 naira."
+    assert titles(sources.drawn_on(pages, answer)) == ["Licence"]
+
+
+def test_a_source_is_shown_for_each_page_that_holds_a_figure_of_the_answer():
+    pages = refs(("Licence", LICENCE), ("Inspection", INSPECTION), ("Health", HEALTH))
+    answer = "A licence renewal costs 12,500 naira and the yearly inspection of a private car 4,000 naira."
+    assert titles(sources.drawn_on(pages, answer)) == ["Licence", "Inspection"]
+
+
+def test_two_pages_that_both_state_the_figure_are_both_shown_the_one_that_holds_more_first():
+    pages = refs(
+        ("Late fees", "A person who renews a driver's licence late pays a late fee of 5,000 naira."),
+        ("Licence", LICENCE + " A late fee of 5,000 naira is added."),
+        ("Health", HEALTH),
+    )
+    answer = "To renew a driver's licence you pay 12,500 naira, and a late fee of 5,000 naira if it is late."
+    assert titles(sources.drawn_on(pages, answer)) == ["Licence", "Late fees"]
+
+
+def test_a_figure_two_pages_hold_is_credited_to_the_one_that_shares_more_words():
+    pages = refs(
+        ("Identity", "A correction of a name is processed within 14 working days."),
+        ("Inspection", "A car that fails an inspection is inspected again within 14 days, free of charge."),
+    )
+    answer = "A car that fails its inspection is inspected again within 14 days."
+    assert titles(sources.drawn_on(pages, answer)) == ["Inspection"]
+
+
+def test_an_amount_that_looks_like_a_year_is_an_amount_and_a_bare_year_is_not():
+    pages = refs(("Tax", "Registering a tax number costs 2,000 naira. Bring the identity card."))
+    assert titles(sources.drawn_on(pages, "It costs 2000 naira.")) == ["Tax"]
+    assert sources.drawn_on(pages, "The office has been open since 2000.") == []
+    assert sources.figures_of("About 2,000 people came in 2000 and 2026.") == {"2000"}
+
+
+def test_a_figure_spelled_out_is_held_by_the_page_that_spells_it_or_writes_it():
+    pages = refs(("Licence", "A renewed licence is valid for three years from the day it is issued."))
+    assert titles(sources.drawn_on(pages, "Your licence is valid for 3 years.")) == ["Licence"]
+    assert titles(sources.drawn_on(pages, "Your licence is valid for three years.")) == ["Licence"]
+
+
+def test_at_most_three_sources_are_shown():
+    pages = refs(*((f"Page {i}", f"The licence fee is 12,500 naira, page {i}.") for i in range(5)))
+    assert len(sources.drawn_on(pages, "The licence fee is 12,500 naira.")) == 3
+
+
+def test_a_number_that_names_a_form_and_not_an_amount_or_a_time_is_no_claim():
+    pages = refs(("Identity", "A correction of a name is processed within 14 working days at the office."))
+    answer = "File Form CAC 14 at the registry office for the name correction, then wait."
+    assert sources.drawn_on(pages, answer) == []
+    assert sources.figures_of(answer) == set()
+    assert sources.figures_of("Open 8 am to 4 pm, 14 working days, 7 October, 26.5%, 3 photographs") == {
+        "8", "4", "14", "7", "26.5",
+    }  # fmt: skip
+
+
+def test_a_small_figure_makes_a_source_only_together_with_three_long_words_of_the_answer():
+    pages = refs(("Identity", "A correction of a name is processed within 14 working days."))
+    assert sources.drawn_on(pages, "It takes 14 days.") == []
+    assert titles(sources.drawn_on(pages, "A correction is processed within 14 working days.")) == [
+        "Identity"
+    ]
+
+
+def test_a_figure_the_person_wrote_is_not_a_claim_and_nor_are_a_link_or_a_list_number():
+    pages = refs(("Licence", LICENCE + " Step 2 is the photograph."))
+    answer = "Yes, 12,500 naira. See https://x.example.com/fee/15000:\n1. Book a slot\n2. Pay"
+    assert sources.figures_of(answer) == {"12500"}
+    assert sources.drawn_on(pages, "Yes, 12,500 naira.", said="Is it 12,500 naira?") == []
+
+
+def test_an_answer_without_a_figure_shows_the_one_page_whose_words_make_up_most_of_it():
+    pages = refs(
+        ("Licence", BRING),
+        ("Health", HEALTH),
+    )
+    answer = "Bring your old licence, a passport photograph and the supporting document to the agency office."
+    assert titles(sources.drawn_on(pages, answer, said="what do I bring?")) == ["Licence"]
+
+
+def test_a_figure_no_source_gave_does_not_turn_the_words_of_an_answer_into_a_claim():
+    answer = "Bring your old licence, a passport photograph and the supporting document to the agency office."
+    assert titles(sources.drawn_on(refs(("Licence", BRING)), answer + " It takes 9 days.")) == ["Licence"]
+
+
+def test_the_passages_of_one_source_are_read_together():
+    first = {**PASSAGE, "passage_id": "frsc-licence#0", "text": "The fee is 15,000 naira."}
+    second = {**PASSAGE, "passage_id": "frsc-licence#1", "text": "A late fee of 5,000 naira is added."}
+    (ref,) = sources.references({"structuredContent": {"passages": [first, second]}})
+    assert sources.drawn_on([ref], "The fee is 15,000 naira.") == [ref]
+
+
+def test_an_answer_that_is_mostly_other_words_shows_no_page_for_the_few_it_shares():
+    answer = (
+        "Bring your old licence, a passport photograph and the supporting document to the agency office. "
+        "Remember that processing occasionally requires considerable patience elsewhere, "
+        "particularly during holidays."
+    )
+    assert sources.drawn_on(refs(("Licence", BRING)), answer) == []
+
+
+def test_an_answer_without_a_figure_shows_no_page_for_the_words_of_the_question_or_a_tie():
+    answer = "Bring your old licence, a passport photograph and the supporting document to the agency office."
+    assert sources.drawn_on(refs(("A", BRING)), answer, said=answer) == []
+    assert sources.drawn_on(refs(("A", BRING), ("B", BRING)), answer) == []
+    abstain = "The sources I have do not say whether you can renew a driver's licence from abroad."
+    assert (
+        sources.drawn_on(refs(("Licence", LICENCE)), abstain, said="Can I renew a driver's licence abroad?")
+        == []
+    )
+
+
+async def test_an_answer_that_restates_the_question_without_a_figure_shows_no_source(chat, sql, clock):
+    made, _, _ = core(
+        chat,
+        sql,
+        clock,
+        ("", [tool_call(SEARCH, {}, "c1")]),
+        "The sources do not cover that fee for a driver's licence.",
+    )
+    await ask(made, "what is the fee for a driver's licence")
+    assert notices(await events_of(made)) == []
+
+
+async def test_a_figure_the_person_wrote_does_not_make_the_page_that_holds_it_a_source(chat, sql, clock):
+    made, _, _ = core(chat, sql, clock, ("", [tool_call(SEARCH, {}, "c1")]), "Yes, 15,000 naira.")
+    await ask(made, "is the fee 15,000 naira?")
+    assert notices(await events_of(made)) == []

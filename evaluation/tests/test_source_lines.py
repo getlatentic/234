@@ -2,6 +2,8 @@
 """The proof of a source line (#645): the pages a turn read, the lines the host showed, and the kinds of the
 knowledge split that score them. No model and no stack."""
 
+import json
+
 import pytest
 
 from evaluation import source_lines
@@ -44,21 +46,8 @@ def test_the_lines_the_host_shows_are_read_with_or_without_a_link():
     assert lines == [("Renewing a driver's licence", ROADS), ("A page", None)]
 
 
-def test_a_figure_is_a_number_of_the_text_and_not_a_link_or_a_list_number():
-    assert source_lines.figures(
-        "Pay ₦12 500 or 12,500.00 at https://x.example.com/p2.\n1. Bring 2 photos"
-    ) == {
-        "12500",
-        "12500.00",
-        "2",
-    }
-    assert [source_lines.distinctive(f) for f in ("12500", "26.5", "14", "2026", "100")] == [
-        True,
-        True,
-        False,
-        False,
-        True,
-    ]
+def test_a_figure_that_names_a_claim_is_an_amount_or_a_decimal_or_a_count_of_a_hundred():
+    assert [source_lines.distinctive(f) for f in ("12500", "26.5", "14", "100")] == [True, True, False, True]
 
 
 def test_a_line_whose_page_holds_the_figures_of_the_reply_is_proven():
@@ -140,3 +129,15 @@ def test_the_new_kinds_have_outcomes_that_name_the_sources_and_links():
     assert [p["source"] for p in both["parts"]] == ["business-name-registration", "roads-licence-renewal"]
     assert CASES["S04"].turns[0].expect[0]["not_shown"] == [known["identity-record-correction"].meta["url"]]
     assert CASES["S06"].turns[0].expect[0]["near"] == ROADS
+
+
+def test_a_results_file_is_scored_again_and_tabulated_by_kind(tmp_path):
+    from evaluation import knowledge_report
+
+    reply = "A business name costs 10,000 naira and a licence renewal 12,500 naira."
+    path = tmp_path / "draws.jsonl"
+    path.write_text(json.dumps({"case": "S10", "draw": 0, "turns": [record(reply, [ROADS_LINE])]}) + "\n")
+    (draw,) = knowledge_report.scored(path)
+    assert (draw["kind"], draw["ok"], draw["unproven"]) == ("combined", False, False)
+    assert "| combined | 1 |" in knowledge_report.table([draw])[2]
+    assert "S10#0 combined ok=False unproven=False" in knowledge_report.failures([draw])[0]

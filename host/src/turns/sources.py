@@ -101,63 +101,135 @@ def _address(url: str) -> str:
     return url.rstrip(".,;:/").lower()
 
 
-_WORD = re.compile(r"[^\W\d_]{5,}|\d[\d,]*(?:\.\d+)?")
-FIGURE_WEIGHT = 3
+_WORD = re.compile(r"[^\W\d_]{5,}")
+_SPELLED = {
+    "two": "2", "three": "3", "four": "4", "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+    "ten": "10", "eleven": "11", "twelve": "12", "twenty": "20", "thirty": "30", "forty": "40", "fifty": "50",
+    "sixty": "60", "seventy": "70", "eighty": "80", "ninety": "90", "hundred": "100",
+}  # fmt: skip
+_SPELLED_WORD = re.compile(r"\b(" + "|".join(_SPELLED) + r")\b")
+_TIME_UNIT = re.compile(
+    r"\s?(?:%|percent|(?:working |business |calendar )?(?:days?|weeks?|months?|years?|hours?|minutes?)\b"
+    r"|[ap]\.?m\b|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b)",
+    re.I,
+)
+MAX_TERMS = 300
+MAX_PAGE_FIGURES = 200
+MIN_SHARED_WORDS = 3
+WORDS_NEEDED = 4
+WORD_SHARE = 0.5
 
 
-def terms_of(text: str) -> set[str]:
-    """The long words and the numbers of a text, to tell whether an answer drew on it. A number under 100 or
-    a year is left out: every page has days and years, and naming one does not draw on a page."""
-    terms = {t.replace(",", "").casefold() for t in _WORD.findall(text)}
-    return {t for t in terms if not t.isdigit() or (int(t) >= 100 and not 1900 <= int(t) <= 2099)}
+def figures_of(text: str) -> set[str]:
+    """The claims in the numbers of a text, as digits: amounts, percentages and other decimals, counts from a
+    hundred up, and numbers under a hundred that count a time (14 days, 8 am, 7 October) or are spelled out.
+    Not a year, a form number, a list number or a link: they are on every page and claim nothing."""
+    bare = _URL.sub(" ", text)
+    amounts = set(amounts_in(bare))
+    kept = {
+        value
+        for m in _NUMBER.finditer(bare)
+        if (value := _digits(m.group())) in amounts or _claims_a_number(value, m.group(), bare[m.end() :])
+    }
+    return kept | {_SPELLED[w] for w in _SPELLED_WORD.findall(bare.casefold())}
 
 
-def _figure(term: str) -> bool:
-    return term[0].isdigit()
+def _claims_a_number(value: str, raw: str, after: str) -> bool:
+    if "." in value or _GROUPING.search(raw):
+        return True
+    if int(value) < 100:
+        return bool(_TIME_UNIT.match(after))
+    return not 1900 <= int(value) <= 2099
+
+
+def words_of(text: str) -> list[str]:
+    """The long words of a text, each once, in the order they come."""
+    return list(dict.fromkeys(w.casefold() for w in _WORD.findall(text)))
+
+
+def distinctive(figure: str) -> bool:
+    """Whether a figure names one page's claim, as an amount or a decimal does, and not a day or another
+    small count that many pages hold."""
+    return "." in figure or int(figure) >= 100
 
 
 def references(result: dict[str, Any]) -> list[dict[str, Any]]:
-    """The sources a source call brought back, each with the terms of its text, kept on the tool event so
-    that the person is shown where an answer came from without the model having to say it."""
+    """The sources a source call brought back, each with the long words and the figures of its text, kept on
+    the tool event so that the person is shown where an answer came from without the model saying it."""
     data = result.get("structuredContent") or {}
     found: dict[str, dict[str, Any]] = {}
     for p in data.get("passages") or []:
         entry = found.setdefault(
             p["source_id"],
-            {"title": p["title"], "url": p.get("url"), "date": p["retrieved_at"], "terms": set()},
+            {"title": p["title"], "url": p.get("url"), "date": p["retrieved_at"], "text": ""},
         )
-        entry["terms"] |= terms_of(p["text"])
+        entry["text"] += " " + p["text"]
     for hit in data.get("results") or []:
         date = (hit.get("published") or data.get("searched_on") or "")[:10]
-        found[hit["url"]] = {
-            "title": hit["title"],
-            "url": hit["url"],
-            "date": date,
-            "terms": terms_of(hit["text"]),
-        }
+        found[hit["url"]] = {"title": hit["title"], "url": hit["url"], "date": date, "text": hit["text"]}
     if page := data.get("page"):
         found[page["url"]] = {
             "title": page["title"] or page["url"],
             "url": page["url"],
             "date": page["read_on"],
-            "terms": terms_of(page["text"]),
+            "text": page["text"],
         }
-    return [{**e, "terms": sorted(e["terms"])[:80]} for e in found.values()]
+    return [_reference(e) for e in found.values()]
 
 
-def drawn_on(references: list[dict[str, Any]], answer: str) -> list[dict[str, Any]]:
-    """The references an answer draws on, at most three: each shares a figure or three long words with it,
-    and at least half as much as the one it shares most with. A shared figure counts three words, so a page on
-    the same subject without the answer's figures (another central bank's report) is left out."""
-    mine = terms_of(answer)
-    scored = []
-    for ref in references:
-        shared = mine & set(ref["terms"])
-        figures = sum(_figure(t) for t in shared)
-        if figures or len(shared) >= 3:
-            scored.append((figures * FIGURE_WEIGHT + len(shared) - figures, ref))
-    best = max((score for score, _ in scored), default=0)
-    return [ref for score, ref in scored if score * 2 >= best][:MAX_SHOWN]
+def _reference(entry: dict[str, Any]) -> dict[str, Any]:
+    text = entry["text"]
+    return {
+        **{k: v for k, v in entry.items() if k != "text"},
+        "terms": words_of(text)[:MAX_TERMS],
+        "figures": sorted(figures_of(text))[:MAX_PAGE_FIGURES],
+    }
+
+
+def drawn_on(references: list[dict[str, Any]], answer: str, said: str = "") -> list[dict[str, Any]]:
+    """The references an answer draws on, at most three, each proven by the page and not by its subject: a
+    source is shown for the figures of the answer that it holds, or, where the answer has none from a source,
+    for its words alone when they clearly carry it. Better no source than one that does not hold the claim."""
+    claims = _claims(answer, references, said)
+    return _holding(references, answer, claims) if claims else _worded(references, answer, said)
+
+
+def _claims(answer: str, references: list[dict[str, Any]], said: str) -> set[str]:
+    """The figures of an answer that a source gave. One the person wrote is theirs, and one no source gave is
+    the answer's own (a total of two amounts, or a figure `ungrounded` names)."""
+    held = {f for r in references for f in r["figures"]}
+    return (figures_of(answer) & held) - figures_of(said)
+
+
+def _holding(references: list[dict[str, Any]], answer: str, claims: set[str]) -> list[dict[str, Any]]:
+    """The references that hold a claim, the one that holds most first. A page counts when it holds a
+    distinctive claim, or a small one together with three long words of the answer: a day that an answer and a
+    page share does not make the page a source, and a page that shares only words with the answer is not one
+    either."""
+    mine = set(words_of(answer))
+    held = [(ref, claims & set(ref["figures"])) for ref in references]
+    counted = [
+        (ref, figures, len(mine & set(ref["terms"])))
+        for ref, figures in held
+        if any(distinctive(f) for f in figures)
+        or (figures and len(mine & set(ref["terms"])) >= MIN_SHARED_WORDS)
+    ]
+    counted.sort(key=lambda c: (sum(map(distinctive, c[1])), len(c[1]), c[2]), reverse=True)
+    return [ref for ref, _, _ in counted[:MAX_SHOWN]]
+
+
+def _worded(references: list[dict[str, Any]], answer: str, said: str) -> list[dict[str, Any]]:
+    """For an answer with no figure from a source: the one reference whose long words make up most of the
+    answer, or none. The words the person wrote are the subject of the question and not an answer to it, so
+    they do not count; a page needs four of the rest, half of them, and more than any other page."""
+    mine = set(words_of(answer)) - set(words_of(said))
+    ranked = sorted(references, key=lambda r: len(mine & set(r["terms"])), reverse=True)
+    if not mine or not ranked:
+        return []
+    top = len(mine & set(ranked[0]["terms"]))
+    runner_up = len(mine & set(ranked[1]["terms"])) if len(ranked) > 1 else 0
+    clear = top >= WORDS_NEEDED and top >= WORD_SHARE * len(mine) and top > runner_up
+    return ranked[:1] if clear else []
 
 
 def source_line(ref: dict[str, Any]) -> str:

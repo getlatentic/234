@@ -50,8 +50,11 @@ vector). The Web Search tool is offered in **us-east-1** only.
   makes three calls to sources at most (`SEARCHES_PER_TURN`), and a research run twelve. At $0.007 a search the
   worst case for a person's day is about $0.21.
 - **What a result is:** a snippet and an address, never a page. An address that is not https or not public is
-  dropped; the model reads a result with `web_fetch`, which obeys robots.txt. The host shows the sources an
-  answer draws on, as it does for the sources and the web.
+  dropped; the model reads a result with `web_fetch`, which obeys robots.txt. The host shows a result or a page as a
+  source under an answer only when its text holds a figure of the answer (or, for an answer with none, when its
+  words clearly carry it), as it does for the sources: [knowledge.md](knowledge.md#what-the-person-sees). A snippet
+  is short, so a figure that a search result's snippet does not hold is not credited to it; `web_fetch` the page
+  and the whole text is checked.
 
 ## Not built yet
 
