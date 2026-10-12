@@ -16,6 +16,7 @@ from ..audit import Audit
 from ..clock import Clock
 from ..db import Db
 from ..money import Kobo
+from ..refunds.attention import needing_operator, summary
 from .books import Books, books_of
 from .funding_pause import funding_paused
 from .treasury import Held, Treasury
@@ -37,6 +38,8 @@ class Report:
     held: Held
     gap_kobo: Kobo | None
     funding_paused: bool
+    refunds: dict[str, Any]
+    """The refunds only an operator can finish (refunds/attention.py): owed to payers, not to wallets."""
 
     @property
     def short(self) -> bool:
@@ -63,6 +66,7 @@ class Report:
                 "writtenOffKobo": books.written_off_kobo,
                 "feesUsd": books.disputes * DISPUTE_FEE_USD,
             },
+            "refundsNeedingAnOperator": self.refunds,
         }
 
 
@@ -84,7 +88,8 @@ class Reconciliation:
             books.withdrawing_kobo, books.disputes, books.open_disputes, books.open_disputed_kobo,
             books.written_off_kobo, 1 if gap is not None and gap > 0 else 0,
         )  # fmt: skip
-        report = Report(now, books, held, gap, await funding_paused(self._db))
+        refunds = summary(await needing_operator(self._db, now))
+        report = Report(now, books, held, gap, await funding_paused(self._db), refunds)
         self._audit.log(
             "wallet.reconciled" if not report.short else "wallet.reconcile.short",
             owed_kobo=books.owed_kobo,

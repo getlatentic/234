@@ -1,20 +1,38 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Operator routes under /ops/, for a person who holds OPS_TOKEN: corrections to a wallet
-(POST /ops/wallet/adjust, wallet/adjustments.py) and the wallet's reconciliation, run now
-(GET /ops/wallet/reconcile, wallet/reconciliation.py). A request without the token, or to a Worker that has
-none set, is answered 404, as if the route did not exist."""
+(POST /ops/wallet/adjust, wallet/adjustments.py), the wallet's reconciliation, run now
+(GET /ops/wallet/reconcile, wallet/reconciliation.py), and the refunds only an operator can finish
+(GET /ops/refunds, refunds/attention.py). A request without the token, or to a Worker that has none set, is
+answered 404, as if the route did not exist."""
 
 import hmac
 import json
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from .app import App
 from .errors import DomainError
+from .refunds.attention import needing_operator
 from .responses import HttpResponse, json_response
 from .wallet.correction import correction_of
 
 MAX_BODY = 8 * 1024
 STATUS = {"INVALID_INPUT": 400, "CORRECTION_CONFLICT": 409}
-ADJUST, RECONCILE = ["ops", "wallet", "adjust"], ["ops", "wallet", "reconcile"]
+ADJUST = ["ops", "wallet", "adjust"]
+
+
+async def _reconcile(app: App) -> Any:
+    return (await app.reconciliation.run()).view()
+
+
+async def _refunds(app: App) -> Any:
+    return {"refunds": [r.view() for r in await needing_operator(app.db, app.clock.now())]}
+
+
+READS: dict[tuple[str, ...], Callable[[App], Awaitable[Any]]] = {
+    ("ops", "wallet", "reconcile"): _reconcile,
+    ("ops", "refunds"): _refunds,
+}
 
 
 def holds_ops_token(app: App, headers: dict[str, str]) -> bool:
@@ -26,12 +44,13 @@ def holds_ops_token(app: App, headers: dict[str, str]) -> bool:
 async def handle_ops(
     app: App, method: str, parts: list[str], headers: dict[str, str], raw: bytes
 ) -> HttpResponse:
-    if not holds_ops_token(app, headers) or parts not in (ADJUST, RECONCILE):
+    read = READS.get(tuple(parts))
+    if not holds_ops_token(app, headers) or (read is None and parts != ADJUST):
         return HttpResponse(404, "Not found")
-    if parts == RECONCILE:
+    if read is not None:
         if method != "GET":
             return HttpResponse(405, "", {"allow": "GET"})
-        return json_response((await app.reconciliation.run()).view())
+        return json_response(await read(app))
     if method != "POST":
         return HttpResponse(405, "", {"allow": "POST"})
     if len(raw) > MAX_BODY:

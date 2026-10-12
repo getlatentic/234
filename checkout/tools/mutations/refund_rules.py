@@ -13,6 +13,7 @@ REFUND = [
     "tests/test_refund_guards.py",
     "tests/test_refund_migration.py",
     "tests/test_paystack_refunds.py",
+    "tests/test_refund_attention.py",
 ]
 OPENING = f"{SRC}/refunds/opening.py"
 OUTCOME = f"{SRC}/refunds/outcome.py"
@@ -251,4 +252,38 @@ SIMULATED = [
     ),
 ]
 
-MUTATIONS: list[Mutation] = [*OPENING_RULES, *SENDING, *FOLLOWING, *DATABASE, *SIMULATED]
+ATTENTION = f"{SRC}/refunds/attention.py"
+OPERATOR = [
+    refund(
+        "a refund only an operator can finish is listed for one",
+        ATTENTION,
+        'NEEDING = ("needs_attention", "failed", "refused")',
+        'NEEDING = ("refused",)',
+    ),
+    refund(
+        "an owed refund never opened is listed once it is stuck",
+        ATTENTION,
+        "AND NOT EXISTS (SELECT 1 FROM quote_refund AS r WHERE r.quote_id = q.id) ",
+        "AND 0 ",
+    ),
+    refund(
+        "an owed refund is listed only once it is stuck",
+        ATTENTION,
+        "rows = await db.rows(_LISTED, now - NOT_OPENED_AFTER_MS, LIMIT)",
+        "rows = await db.rows(_LISTED, now, LIMIT)",
+    ),
+    refund(
+        "only an operator reads the refunds",
+        f"{SRC}/ops.py",
+        "if not holds_ops_token(app, headers) or (read is None and parts != ADJUST):",
+        "if read is None and parts != ADJUST:",
+    ),
+    refund(
+        "the report counts the refunds an operator must finish",
+        f"{SRC}/wallet/reconciliation.py",
+        "        refunds = summary(await needing_operator(self._db, now))",
+        "        refunds = summary([])",
+    ),
+]
+
+MUTATIONS: list[Mutation] = [*OPENING_RULES, *SENDING, *FOLLOWING, *DATABASE, *SIMULATED, *OPERATOR]

@@ -91,10 +91,14 @@ merchant). Paystack documents no idempotency key for a refund, so 234 makes the 
 
 The card says where the money is: "Refunding ₦500", "Refunded ₦500", "Refund delayed" (Paystack needs the payer's
 account), "Refund failed" or "Refund due" (refused), the last three with "234 will follow up." A failed refund is
-audited `refund.failed`, and an operator finds what needs following up with
-`SELECT * FROM quote_refund WHERE state IN ('failed', 'refused', 'needs_attention')`. The simulated Paystack
-queues a refund `pending`, never refunds more than the payment, and moves a payment's refunds on, with the signed
-event, only from the test routes (`POST /test/paystack-refund/<reference>?status=processed|failed|needs-attention|processing`).
+audited `refund.failed`. What only an operator can finish is listed at `GET /ops/refunds` (holding `OPS_TOKEN`;
+`checkout/src/checkout/refunds/attention.py`), newest first: a refund that failed, that 234 refused, that Paystack
+holds for the payer's bank account, or that a quote has owed for a quarter of an hour without it being opened; the
+reconciliation report counts them and their amount (`refundsNeedingAnOperator`). The simulated Paystack queues a
+refund `pending` and never refunds more than the payment. Where the test routes are on, it moves a payment's
+refunds on, with the signed event, only from them
+(`POST /test/paystack-refund/<reference>?status=processed|failed|needs-attention|processing`); where they are off,
+as on a deployed simulated stack, it processes a refund the first time 234 asks about it.
 
 ## Funding
 
