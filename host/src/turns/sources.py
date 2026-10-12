@@ -129,16 +129,16 @@ def figures_of(text: str) -> set[str]:
     kept = {
         value
         for m in _NUMBER.finditer(bare)
-        if (value := _digits(m.group())) in amounts or _claims_a_number(value, m.group(), bare[m.end() :])
+        if (value := _digits(m.group())) in amounts or _claims_a_number(value, m, bare)
     }
     return kept | {_SPELLED[w] for w in _SPELLED_WORD.findall(bare.casefold())}
 
 
-def _claims_a_number(value: str, raw: str, after: str) -> bool:
-    if "." in value or _GROUPING.search(raw):
+def _claims_a_number(value: str, found: re.Match[str], text: str) -> bool:
+    if "." in value or _GROUPING.search(found.group()):
         return True
     if int(value) < 100:
-        return bool(_TIME_UNIT.match(after))
+        return bool(_TIME_UNIT.match(text, found.end()))
     return not 1900 <= int(value) <= 2099
 
 
