@@ -95,6 +95,20 @@ MUTATIONS: list[Mutation] = [
         APPROVAL,
     ),
     wallet(
+        "the model is told of the wallet for an account alone",
+        "flows/wallet_leg.py",
+        "if not asked or ctx.wallet is None or account_of_call() is None:",
+        "if not asked or ctx.wallet is None:",
+        APPROVAL,
+    ),
+    wallet(
+        "the model is told of the wallet only when the person asked to pay from it",
+        "flows/wallet_leg.py",
+        "if not asked or ctx.wallet is None or account_of_call() is None:",
+        "if ctx.wallet is None or account_of_call() is None:",
+        APPROVAL,
+    ),
+    wallet(
         "the card offers the wallet only while the quote is open",
         "flows/wallet_leg.py",
         'if ctx.wallet is None or quote.state != "open":',

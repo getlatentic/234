@@ -152,11 +152,12 @@ def _tools(tools: WalletTools) -> tuple[Tool, ...]:
         Tool(
             "wallet_balance",
             "Wallet balance",
-            "Shows the person's 234 wallet card: the balance, the latest entries, Add money, and Withdraw "
-            "to their own bank account. Call it when they ask about their wallet or its balance, or want to "
-            "add money to it or withdraw or send wallet money to their bank: they do that on this card, "
-            "never with a transfer quote. You never move wallet money yourself; paying from the wallet is "
-            "their choice on an approval card.",
+            "Shows the person's 234 wallet card: the balance, the latest entries, an Add money button, and "
+            "a Withdraw button that sends wallet money to their own bank account. Call it in this reply when "
+            "they ask about their wallet or its balance, or want to add money, withdraw, cash out or send "
+            "wallet money to their own bank; then tell them to press Add money or Withdraw on the card, "
+            "which does it, not a transfer quote. A purchase paid from the wallet is quoted as usual, and "
+            "its approval card offers Pay from wallet when the wallet covers it.",
             Nothing,
             tools.balance,
             CARD_URI,

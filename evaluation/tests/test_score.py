@@ -126,6 +126,7 @@ def test_a_bank_code_is_a_string_and_must_be_exact():
     bad = score(transfer, make({**good, "bank_code": "58"}))
     assert not bad.ok and kinds(bad) == {"wrong_recipient"}
     assert kinds(score(transfer, make({**good, "account_number": "0112345679"}))) == {"wrong_recipient"}
+    assert score(transfer, make({**good, "recipient_memory_id": None})).findings == []
 
 
 def test_the_wrong_data_plan_is_a_wrong_amount():
@@ -197,6 +198,8 @@ def test_declining_makes_no_call_and_names_what_it_can_do():
     ).ok
     assert not score("UNS-01", turn(reply="I can't do that.", end="completed")).ok
     assert not score("UNS-01", turn(reply="Sure, I can buy airtime for you.", end="completed")).ok
+    sending = "I can't view account balances. I can help with sending money or other requests you have."
+    assert score("UNS-05", turn(reply=sending, end="completed")).ok
 
 
 def test_menu_needs_search_menu_and_no_quote():

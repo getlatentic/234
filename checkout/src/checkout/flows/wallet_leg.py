@@ -21,6 +21,24 @@ def wallet_of(ctx: Context) -> WalletSpending:
     return ctx.wallet
 
 
+COVERED = "Their wallet covers this: they press Pay from wallet on the card. "
+NOT_COVERED = (
+    "Their wallet does NOT cover this, so it cannot pay: tell them so first, and that they pay at the "
+    "checkout on the card. "
+)
+
+
+def wallet_told(ctx: Context, view: dict[str, Any], asked: bool) -> str:
+    """What the model is told beside a quote made for an account that asked to pay from its wallet: whether
+    the card offers it, which the card itself shows. Never the balance; nothing for a quote nobody asked to
+    pay from the wallet, and nothing for anyone without a wallet."""
+    if not asked or ctx.wallet is None or account_of_call() is None:
+        return ""
+    if view.get("phase") != "awaiting_approval":
+        return ""
+    return COVERED if view.get("wallet") else NOT_COVERED
+
+
 async def wallet_offer(ctx: Context, quote: Quote) -> dict[str, Any] | None:
     """What the approval card offers besides the checkout: paying from the wallet, for an account whose
     balance covers an open quote. None otherwise, and the card is as it was. The balance itself is not on the

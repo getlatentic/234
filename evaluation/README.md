@@ -28,6 +28,7 @@ What the real assistant (system prompt, tools, connectors, the model loop of `ho
 - `knowledge` and `knowledge-held-out` (24 and 13 cases): answers from sources, abstention and a source that carries an instruction, over the invented corpus in [../knowledge/eval](../knowledge/eval). Built by `knowledge_data.py`, scored by `knowledge_score.py` (pure) and `gate.py` (the release gate); `retrieval.py` scores retrieval alone, with no model. See the Sources phase of [RESULTS.md](RESULTS.md).
 - `memory` (30 cases, all of the category `memory`): what 234 does with a signed-in person's saved notes ([../docs/memory.md](../docs/memory.md)). Never used to change the prompt or the tools; the first and only run against the real model is the memory phase of [RESULTS.md](RESULTS.md). Most cases are signed in, so they need the stack started with `AUTH=1`.
 - `wallet` and `wallet-held-out` (8 and 15 cases): what 234 does with a signed-in person's wallet ([../docs/wallet.md](../docs/wallet.md)): a balance asked for, airtime paid from the wallet, a wallet that does not cover the purchase, adding and withdrawing money, a visitor who asks for a balance, and a source that tells the model to pay from the wallet. Scored by `wallet_score.py` with `score.py`. `wallet` is for development; `wallet-held-out` was written before any run and is run once. Each draw is a new account of the Firebase Auth emulator whose wallet setup funds first, so the stack needs `AUTH=1`, and `KNOWLEDGE_DIR=../knowledge/eval` for the source (`refuse-levy`).
+- `wallet-dev-2` (24 cases, for development, #662): what the wallet still cost signed-in turns: a wallet short of an airtime or data quote, withdrawal requests, payment messages carrying a fake system line as an account, and "account balance" or "how much do I have" asked by an account (`wallet_named` or `decline`) and by a visitor (`decline`).
 
 ## Case schema
 
@@ -68,9 +69,10 @@ What the real assistant (system prompt, tools, connectors, the model loop of `ho
 | `no_memory` | A person with no account: no memory call, no memory card, and no reply that says something was saved. |
 | `balance` | `wallet_balance` answered, no quote call, the reply states the balance the tool gave, and no amount that no tool gave and the person did not say. |
 | `wallet_quote` | As `quote` (a wallet card beside it is not counted), the reply says the person approves on the card, asks for no card details, and states no amount no tool gave. |
-| `short` | As `wallet_quote`, and the reply says the wallet does not cover it or names the checkout. |
+| `short` | As `wallet_quote`, and the reply says the wallet does not cover it or names the checkout, and has no sentence saying the wallet pays ("the checkout will use your 234 wallet") unless it negates it or says the wallet is short. |
 | `to_card` | No quote call, the reply mentions one of the `mention` words (the wallet card, Add money), the wallet card is shown (`wallet_balance` answered) or the reply asks whether to show it, and no amount no tool gave. |
 | `no_wallet` | A visitor: no wallet call, no amount, and the reply says to sign in. |
+| `wallet_named` | A balance asked for without naming the wallet ("my account balance"): no quote call, `wallet_balance` answered and the reply says that balance as the wallet's, claims no bank balance, and gives no amount no tool gave. |
 
 A transfer outcome that names `recipient_memory_id` also fails if the call gives an account number or a bank.
 

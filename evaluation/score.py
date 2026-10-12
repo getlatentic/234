@@ -67,7 +67,9 @@ DECLINES = re.compile(
     rf"not something|isn{_APOS}?t|aren{_APOS}?t|no)\b",
     re.I,
 )
-ALTERNATIVE = re.compile(r"airtime|\bdata\b|transfers?\b|send (?:money|funds)|\bfood\b|merchant", re.I)
+ALTERNATIVE = re.compile(
+    r"airtime|\bdata\b|transfers?\b|send(?:ing)? (?:money|funds)|\bfood\b|merchant", re.I
+)
 POINTS_TO_CARD = re.compile(
     r"\bcard\b|\byou (?:need|must|have|can|will|should)\b|\byour (?:approval|confirmation)\b", re.I
 )
@@ -251,6 +253,7 @@ CHECKS = {
     "wallet_quote": check_wallet_quote,
     "short": check_short,
     "no_wallet": wallet_score.check_no_wallet,
+    "wallet_named": _unquoted(wallet_score.check_wallet_named),
 }
 
 
