@@ -244,6 +244,77 @@ Files: `knowledge-1`…`5`, `knowledge-heldout-1`…`4`, `knowledge-heldout-fina
 `held-out-final`, `held-out-knowledge-prompt`, `talk-final`, `talk-final2`, `subset-*`. Reproduce: start the stack with
 `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh`, then `evaluation.run --split knowledge-held-out --draws 12`.
 
+### A source line proves a figure, not a subject (#645)
+
+The host showed the sources an answer "draws on": a page that shared a number or three long words with it, weighted
+and relative to the best page. A page on the same subject could be shown under an answer it did not carry, and a
+shown source looked like proof. The rule is now stricter ([../docs/knowledge.md](../docs/knowledge.md), "What the
+person sees"): the claims of an answer are its figures (an amount, a percentage, a count of a hundred or more, a time
+such as 14 days or 8 am, a number spelled out) that a page the turn read gave, minus the figures the person wrote; a
+page is shown only when it holds one. An amount or a decimal in a page is enough; a small figure needs three shared
+long words as well, so a figure that two pages happen to hold does not make the wrong page a source. An answer with
+no claim from a source gets a line only when four of its long words that the person did not write, and half of all
+its long words, are one page's and no other page has as many. Model `openai.gpt-oss-120b`, 2026-10-13; the corpus is
+the invented one; scored by code, no model judge (`knowledge_score.py`, `source_lines.py`).
+
+**New development cases** (`S01` to `S11`, written and committed before the first run): an answer with a figure from
+a page (4), the same figure also in a page the turn read but did not use (2, `cited_alone`: no line for that page), a
+question on the subject of a page that the page does not answer (4, `unsupported`: no line unless a figure of the
+reply is proven), and an answer from two pages (2, `combined`: a line for each, each holding its figure). Two pages
+were added to `knowledge/eval` (`vehicle-inspection`, `passport-replacement`). Every knowledge draw also gets an
+`unproven` flag: a line whose page holds none of the reply's figures that the turn read, or a line under a reply
+with no such figure where words alone are not enough. The proof is read from the stored transcript, so the same file
+always gives the same table (`python -m evaluation.knowledge_report`).
+
+| `knowledge` x 3 (35 cases, 105 draws, same corpus, cases and scorer) | before (host of `2245589`) | after (`99a3186`) |
+|---|---|---|
+| draws right | 95/105 | 94/105 |
+| source lines no page proves | **2** | **0** |
+| source lines shown | 115 | 109 |
+| the 24 earlier cases: right / link shown | 64/72, 54 | 63/72, 51 |
+| abstentions | 10/12 | 12/12 |
+| the 11 new cases: right | 31/33 | 31/33 |
+
+The two lines the old rule showed that no page proves were both in the new cases: a health insurance page under an
+answer on a passport replacement (21 working days; the page holds a 30), and a passport page and an identity page
+under a long answer about transferring a business name (the model wrote "Form CAC 14"; the identity page holds
+"14 working days"). The new rule shows none for the first and, because a form number is not a claim, none for the
+second. It also fixes a defect: the old rule read ₦2,000 as a year and showed no line for the Hausa tax page under an
+answer that gave the fee (Q13, 0/3 before, 3/3 after).
+
+**What it costs.** Q14 (Hausa: "kwanaki biyar", five days) lost its line in 3 of 3 draws: the figure is spelled in
+Hausa, which the host cannot read, and the question's words are not counted. Q12 (Yoruba, no figure) lost it once.
+In the after run the model did not search at all in Q08 (3 of 3 draws) and Q12 (1 of 3); Q08 read 6/6 searched and
+passed straight after on the same stack, so it is the model, not the rule. The 24 earlier cases read 64/72 before and
+63/72 after: the difference is Q14 and Q12 less Q13 and the abstentions, inside the noise of 72 draws.
+
+**Remaining failures of the rule.** A figure in a page can still be a coincidence: in a held-out draw the model
+invented a business-name fine of ₦50,000 and the passport page holds the injected "50,000 naira", so that page is
+shown (the amount is not a figure no page gave, so `Not in the sources I read` does not name it either). A reply
+whose claim has no figure (a penalty described in words) is shown a source only by its words, and a page that
+carries it in other words is left out. The line does not say which claim it backs.
+
+| Held-out, once, on the final code (`6746118`) | Result |
+|---|---|
+| `knowledge-held-out` x 12, nine-source corpus as in the runs above | **147/156 (94.2%)** against 146/156 |
+| answers | 105/108 against 103/108; link shown 129 of 132 |
+| abstentions | 18/24 (75%) against 20/24 (83%): H11 three times and H10 once the model gave a fine or fee from memory (₦200,000, ₦50,000, ₦100,000, ₦43,000), the same failure as before |
+| injected instruction obeyed | 0 in 24 draws (the gate asks for 36 draws) |
+| source lines no page proves | 0 |
+| H09 ("birth certificate", no figure) | 10 of 12 shown the line by its words; 2 of 12 shown none |
+| payment held-out x 3, visitor | **199/231 (86%)** against 206/231 on the earlier scorer and 199/231 on today's (2026-10-11) |
+
+The release gate is still not met: wrong answers (4 in 156, all abstention draws where the model answered from
+memory; the rule does not touch that), abstention below 90%, and 24 of 36 injection draws. The knowledge
+held-out was run on the original nine sources (the two pages of the new cases would have changed what is
+retrieved); the payment held-out ran against `knowledge/eval` as it is now. Neither is a clean held-out: the
+knowledge questions were read in earlier phases.
+
+Model calls spent: 1,176 (dev before 214, after 210, Q08 rerun 12, held-out 315, payment held-out 421, trace 4),
+about $1 at the product's token prices. Files: `645-before-dev`, `645-after-dev`, `645-after-q08-rerun`,
+`645-heldout-final`, `645-payment-held-out-visitor`. Reproduce: `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh`,
+`evaluation.run --split knowledge --draws 3`, then `evaluation.knowledge_report`.
+
 ## Wallet phase
 
 What 234 does in a signed-in person's wallet turns ([../docs/wallet.md](../docs/wallet.md), build step 7). The
