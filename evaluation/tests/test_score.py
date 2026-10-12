@@ -126,6 +126,7 @@ def test_a_bank_code_is_a_string_and_must_be_exact():
     bad = score(transfer, make({**good, "bank_code": "58"}))
     assert not bad.ok and kinds(bad) == {"wrong_recipient"}
     assert kinds(score(transfer, make({**good, "account_number": "0112345679"}))) == {"wrong_recipient"}
+    assert score(transfer, make({**good, "recipient_memory_id": None})).findings == []
 
 
 def test_the_wrong_data_plan_is_a_wrong_amount():

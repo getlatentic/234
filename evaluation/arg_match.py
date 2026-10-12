@@ -39,8 +39,10 @@ def arg_matches(name: str, want: Any, got: Any) -> bool:
 
 
 def arguments_of(call: dict[str, Any], said: str) -> dict[str, Any]:
-    """What the call asks for, the bank resolved to its code."""
-    return with_resolved_bank(call["arguments"], said)
+    """What the call asks for, the bank resolved to its code. A field sent as null is left out, as the
+    connector reads it."""
+    given = {name: value for name, value in call["arguments"].items() if value is not None}
+    return with_resolved_bank(given, said)
 
 
 BY_HAND = ("account_number", "bank_code")
