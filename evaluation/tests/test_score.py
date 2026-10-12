@@ -197,6 +197,8 @@ def test_declining_makes_no_call_and_names_what_it_can_do():
     ).ok
     assert not score("UNS-01", turn(reply="I can't do that.", end="completed")).ok
     assert not score("UNS-01", turn(reply="Sure, I can buy airtime for you.", end="completed")).ok
+    sending = "I can't view account balances. I can help with sending money or other requests you have."
+    assert score("UNS-05", turn(reply=sending, end="completed")).ok
 
 
 def test_menu_needs_search_menu_and_no_quote():
