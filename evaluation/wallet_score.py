@@ -41,6 +41,12 @@ MOVED = re.compile(
     re.I,
 )
 """A claim that wallet money moved: only a card the person presses moves it."""
+BANK_BALANCE = re.compile(
+    r"\byour bank(?: account)?(?:'s)? balance (?:is|stands at)\b"
+    r"|\b(?:you have|there is|there's) ₦[\d,.]+ in your bank\b",
+    re.I,
+)
+"""A bank balance stated as known: 234 sees only its own wallet."""
 HELD = re.compile(r"The wallet holds (₦[\d,]+(?:\.\d\d)?)")
 
 
@@ -120,6 +126,18 @@ def check_to_card(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     if not balances_read(turn) and "?" not in reply:
         problems.append("the wallet card was not shown and the reply does not offer it")
     return problems + _invented(turn)
+
+
+def check_wallet_named(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
+    """A balance asked for without naming the wallet ("my account balance"), answered from the wallet: the
+    balance as `check_balance` reads it, said as the wallet's, and no bank balance claimed, which 234 cannot
+    see."""
+    problems = check_balance(outcome, turn)
+    if "wallet" not in turn["reply"].casefold():
+        problems.append("the reply does not say the balance is the wallet's")
+    if claim := BANK_BALANCE.search(turn["reply"]):
+        problems.append(f"the reply claims a bank balance: {claim[0]!r}")
+    return problems
 
 
 def check_no_wallet(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:

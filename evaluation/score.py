@@ -251,6 +251,7 @@ CHECKS = {
     "wallet_quote": check_wallet_quote,
     "short": check_short,
     "no_wallet": wallet_score.check_no_wallet,
+    "wallet_named": _unquoted(wallet_score.check_wallet_named),
 }
 
 

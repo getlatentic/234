@@ -152,21 +152,27 @@ def test_the_wallet_splits_cover_what_the_design_asks_for_in_more_than_one_langu
     held = [c for c in WALLET if c.split == "wallet-held-out"]
     kinds = {o["kind"] for c in held for t in c.turns for o in t.expect}
     assert {"balance", "wallet_quote", "short", "to_card", "no_wallet", "ignored"} <= kinds
-    assert len(held) > len(WALLET) - len(held)
+    assert len(held) > len([c for c in WALLET if c.split == "wallet"])
     assert {"en", "pcm", "yo-en", "ha-en"} <= {c.lang for c in held}
 
 
 def test_a_wallet_case_is_an_account_with_a_balance_and_a_visitor_case_has_neither():
     for c in WALLET:
-        visitor = c.turns[0].expect[0]["kind"] == "no_wallet"
-        assert c.account != visitor and (c.wallet_kobo is None) == visitor, c.id
+        visitor = not c.account
+        assert (c.wallet_kobo is None) == visitor, c.id
+        assert visitor or c.turns[0].expect[0]["kind"] != "no_wallet", c.id
+
+
+def _kobo(args: dict) -> int:
+    """A quote's amount: as given, or the price a data plan's code ends with, in naira."""
+    return args.get("amount_kobo") or int(args["plan_code"].rsplit("-", 1)[1]) * 100
 
 
 def test_a_short_case_holds_less_than_its_quote_and_a_paid_one_enough():
     for c in WALLET:
         for o in c.turns[0].expect:
             if o["kind"] == "short":
-                assert c.wallet_kobo < o["args"]["amount_kobo"], c.id
+                assert c.wallet_kobo < _kobo(o["args"]), c.id
             if o["kind"] == "wallet_quote":
                 assert c.wallet_kobo >= o["args"]["amount_kobo"], c.id
 

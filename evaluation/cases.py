@@ -17,6 +17,7 @@ SPLITS = (
     "knowledge-held-out",
     "wallet",
     "wallet-held-out",
+    "wallet-dev-2",
 )
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
@@ -41,6 +42,7 @@ OUTCOME_KINDS = {
     "short": {"tool", "args"},
     "to_card": {"mention"},
     "no_wallet": set(),
+    "wallet_named": set(),
 }
 NOTE_KEYS = {
     "recipient": {"ref", "kind", "title", "account_number", "bank"},

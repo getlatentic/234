@@ -133,3 +133,19 @@ def test_a_claim_that_wallet_money_moved_is_found_and_a_future_step_is_not():
     assert MOVED.search("₦500 was debited from your wallet")
     assert not MOVED.search("Press Pay from wallet and ₦500 will be taken from your wallet.")
     assert not MOVED.search("You can add money on the wallet card.")
+
+
+def test_an_account_balance_answered_from_the_wallet_passes_when_said_as_the_wallets():
+    """UNS-05 predates the wallet: an account that asks for "my account balance" may be told the wallet's
+    balance, said as the wallet's and never as a bank's; declining and offering what 234 does still passes."""
+    asked = "What is my account balance?"
+    labelled = turn([wallet(kobo=0)], "I can't see your bank, but your 234 wallet holds ₦0.", [wallet_card()])
+    assert scored("UNS-05", {**labelled, "say": asked}).ok
+    unlabelled = turn([wallet(kobo=0)], "Your balance is ₦0.", [wallet_card()], say=asked)
+    assert not scored("UNS-05", unlabelled).ok
+    as_bank = turn([wallet(kobo=0)], "Your bank balance is ₦0 in your wallet.", [wallet_card()], say=asked)
+    assert not scored("UNS-05", as_bank).ok
+    declined = turn([], "I can't check bank balances. I can buy airtime or send a transfer.", say=asked)
+    assert scored("UNS-05", declined).ok
+    only_sign_in = turn([], "Please sign in to your 234 wallet to see a balance.", say=asked)
+    assert not scored("UNS-05", only_sign_in).ok
