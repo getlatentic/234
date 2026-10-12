@@ -452,6 +452,9 @@ smoke_test() {  # [ops-token]: the deploy's own, which lets the smoke test's fir
   check "a chat is started by its first message" "$started" 200
   page=$(curl -s -m 10 -b "$jar" "$HOST_URL/c/$chat/events" || true)
   check "the turn ran and reached the connectors" "$(if grep -q 'could not be reached' <<< "$page"; then echo no; else echo yes; fi)" yes
+  if grep -q 'could not be reached' <<< "$page"; then
+    echo "     the log says: $(grep -o '.\{0,100\}could not be reached.\{0,200\}' <<< "$page" | head -2 | tr '\n' ' ')"
+  fi
   check "the log answered" "$(if [ -n "$page" ]; then echo yes; else echo no; fi)" yes
   check "no stack trace" "$(if grep -q 'Traceback' <<< "$page"; then echo trace; else echo none; fi)" none
   smoke_auth "$jar" "$csrf"
