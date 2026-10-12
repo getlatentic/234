@@ -173,14 +173,14 @@ MUTATIONS: list[Mutation] = [
     host(
         "sources: a number of a hundred or more that is grouped is not a year",
         "turns/sources.py",
-        'if "." in value or _GROUPING.search(raw):',
+        'if "." in value or _GROUPING.search(found.group()):',
         'if "." in value:',
         SOURCES,
     ),
     host(
         "sources: a form number or a count is no claim without a time or an amount",
         "turns/sources.py",
-        "return bool(_TIME_UNIT.match(after))",
+        "return bool(_TIME_UNIT.match(text, found.end()))",
         "return True",
         SOURCES,
     ),
