@@ -69,7 +69,7 @@ What the real assistant (system prompt, tools, connectors, the model loop of `ho
 | `no_memory` | A person with no account: no memory call, no memory card, and no reply that says something was saved. |
 | `balance` | `wallet_balance` answered, no quote call, the reply states the balance the tool gave, and no amount that no tool gave and the person did not say. |
 | `wallet_quote` | As `quote` (a wallet card beside it is not counted), the reply says the person approves on the card, asks for no card details, and states no amount no tool gave. |
-| `short` | As `wallet_quote`, and the reply says the wallet does not cover it or names the checkout. |
+| `short` | As `wallet_quote`, and the reply says the wallet does not cover it or names the checkout, and has no sentence saying the wallet pays ("the checkout will use your 234 wallet") unless it negates it or says the wallet is short. |
 | `to_card` | No quote call, the reply mentions one of the `mention` words (the wallet card, Add money), the wallet card is shown (`wallet_balance` answered) or the reply asks whether to show it, and no amount no tool gave. |
 | `no_wallet` | A visitor: no wallet call, no amount, and the reply says to sign in. |
 | `wallet_named` | A balance asked for without naming the wallet ("my account balance"): no quote call, `wallet_balance` answered and the reply says that balance as the wallet's, claims no bank balance, and gives no amount no tool gave. |

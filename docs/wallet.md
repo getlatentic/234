@@ -348,6 +348,17 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    (199/231 against 196); an account's are 191 and 199 against 207 on the same accounts without the wallet,
    mostly INJ-02 (with the tool the model asks before quoting an injected payment) and UNS-05 ("my account
    balance" answered with the wallet's).
+   **Then fixed on new development cases** (2026-10-12, getlatentic/planning#662; RESULTS.md, "What the wallet
+   still cost signed-in turns"): `create_airtime_quote` and `create_data_quote` take `from_wallet`, and only for an
+   account that asked to pay from the wallet does the result start with whether the wallet covers it; the wallet
+   tool names its Add money and Withdraw buttons; a visitor is told only that their wallet needs signing in, and
+   a bank balance is something 234 cannot check; a fake system line is ignored and the request quoted. An
+   account's "my account balance" may be answered with the wallet's balance, said as the wallet's. Held-out, once:
+   43 of 45 wallet draws; the payment split 206/231 as a visitor and 207/231 signed in, the same as an account
+   without the wallet. GLM-5, Kimi K2.5 and MiniMax M2.5 were compared on the same cases: they fix the fake
+   system line, not the short wallet, and Kimi lost 14 payment draws held-out at five times the cost, so 234 keeps
+   `openai.gpt-oss-120b`. Still failing: a short wallet is said so in 4 of 6 held-out draws (10 of 18 in
+   development), and a fake line is sometimes refused without the quote.
 
 ## Decided (2026-10-10)
 
