@@ -11,7 +11,7 @@ import pytest
 
 from turns import fold, kinds, messages, tokens
 from turns.compaction import facts
-from turns.hub import ToolOutcome
+from turns.connector_tools import ToolOutcome
 
 from . import scripted_recall
 from .compaction_support import Rig, RoutedModel

@@ -109,7 +109,7 @@ class FakeHub:
         self.refuse_subscriptions = False
 
     async def subscribe(self, server: str, params: dict, owner: str) -> None:
-        from turns.hub import HubError
+        from turns.mcp_http import HubError
 
         if self.refuse_subscriptions:
             raise HubError("events/subscribe: the callback did not answer")
@@ -133,7 +133,7 @@ class FakeHub:
     async def call_model_tool(
         self, qualified: str, arguments: dict, owner: str, key: str, account: bool = False
     ):
-        from turns.hub import ToolOutcome
+        from turns.connector_tools import ToolOutcome
 
         self.calls.append((qualified, arguments))
         self.owners.append(owner)
@@ -264,7 +264,7 @@ class FakeBackend:
         self.erased.append(chat_id)
 
     def card_page(self, server, uri):
-        from turns.hub import CardPage
+        from turns.connector_tools import CardPage
 
         return CardPage(self.html, self.ui)
 

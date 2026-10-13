@@ -217,7 +217,7 @@ async def test_an_alarm_that_sees_the_log_move_starts_counting_again(rig):
 
 
 async def test_a_chat_in_a_payer_group_makes_its_turns_and_card_calls_inside_it(rig, chat, sql):
-    from turns import hub as hub_module
+    from turns import mcp_http
 
     c = rig(("", [tool_call(SEND, {})]), "Sent.")
     await sql.execute("UPDATE chat_chat SET payer_group = ? WHERE id = ?", "cd" * 16, chat.id)
@@ -225,7 +225,7 @@ async def test_a_chat_in_a_payer_group_makes_its_turns_and_card_calls_inside_it(
     called = c.hub.call_model_tool
 
     async def recording(*args, **kwargs):
-        seen.append(hub_module._payer_group.get())
+        seen.append(mcp_http._payer_group.get())
         return await called(*args, **kwargs)
 
     c.hub.call_model_tool = recording

@@ -21,7 +21,8 @@ from .budget import add_tokens, take_model_call, tokens_used_up
 from .compaction.compactor import Compactor
 from .db import Db
 from .eventlog import Event, EventLog
-from .hub import Hub, HubError
+from .hub import Hub
+from .mcp_http import HubError
 from .memory import notes_message, read_index, with_notes
 from .metrics import Metrics
 from .model import ContextTooLong, Finished, Model, ModelError, TextDelta
@@ -410,7 +411,7 @@ class TurnRunner:
             logs.event(logger, "ungrounded", figures=len(missing))
             await self._notice(sources.NOT_IN_SOURCES.format(items=", ".join(missing)))
         references = [r for e in reads for r in e.payload.get("sources", [])]
-        for reference in sources.drawn_on(references, answer):
+        for reference in sources.drawn_on(references, answer, said):
             await self._notice(sources.source_line(reference))
 
     async def _notice(self, text: str) -> None:

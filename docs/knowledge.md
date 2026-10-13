@@ -61,11 +61,32 @@ says `untrusted: true`.
 
 ## What the person sees
 
-The host, not the model, shows where an answer came from. When a turn read sources, a line follows the answer for
-each source it draws on (at most three; it shares a number or three long words with a passage the turn read):
-`Source: <title> — <link> (read <day>)`. An amount or link in the answer that no source and no message gave is
-named too: `Not in the sources I read: …`. Both are notices written from the tool results (`turns/sources.py`,
-`runner.py`).
+The host, not the model, shows where an answer came from, and shows a source only when its text proves the claim
+(#645). When a turn read sources, a line follows the answer for each source that holds a figure of the answer
+(at most three): `Source: <title> — <link> (read <day>)`. An amount or link in the answer that no source and no
+message gave is named too: `Not in the sources I read: …`. Both are notices written from the tool results
+(`turns/sources.py`, `runner.py`).
+
+The model does not cite reliably (it gives a passage id, or nothing), so the host checks the answer against the pages:
+
+- **A figure is a claim.** An amount, a percentage or other decimal, a count from a hundred up, and a number under a
+  hundred that counts a time (14 days, 8 am, 7 October) or is spelled out (three years). A year, a form number, a
+  number of a list and the numbers in a link are not claims: every page has them.
+- **The answer's claims are the figures that a page the turn read gave.** A figure the person wrote is theirs, and a
+  figure no page gave is the answer's own (a total of two amounts, or one that `Not in the sources I read` names).
+- **A source is shown for the claims it holds.** A page that holds a distinctive claim (an amount, a decimal, a count
+  of a hundred or more) is shown. A page that holds only a small claim (14 days) is shown when the answer also shares
+  three long words with it, so a figure that two pages happen to hold does not make the wrong page a source. A page
+  on the same subject that holds none of the answer's figures is not shown, however many words it shares.
+- **An answer with no claim from a source** (no figure, or only figures nobody gave) is shown a source only when its
+  words clearly carry it: four long words that the person did not write (the words of the question are the subject,
+  not the answer), at least half of the answer's long words, and more than any other page. A reply that restates the
+  question, or says the sources do not cover it, is shown none unless it states a figure that a page gave. A source
+  that is wrong is worse than none.
+
+What this leaves out. A figure spelled in Hausa, Yoruba or Pidgin (`biyar`) is not a claim the host can read, so such
+an answer is shown a source by its words only. A source line does not say which claim it backs: an answer with two
+amounts from two pages shows both lines, and the person cannot tell which amount is which.
 
 ## Evaluation
 
@@ -74,13 +95,16 @@ invented (`knowledge/eval`): fictional agencies and made-up fees, so a model tha
 `knowledge` split was used while the tool, the prompt and the scorer were built; the `knowledge-held-out` split was
 written before the run that quotes numbers (`evaluation/RESULTS.md`).
 
+- `python -m evaluation.knowledge_report FILE` (from `host/`) scores a results file again and tabulates it by kind of
+  outcome, with the lines that no page proves;
 - retrieval alone: `PYTHONPATH=.:host/src:checkout/src:checkout uv run --project host python -m evaluation.retrieval`
   from the root (recall@5 overall and by language);
 - with the real model: `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh`, then `python -m evaluation.run
   --split knowledge-held-out --draws 12` from `host/` (see the docstring of `evaluation/run.py`);
 - the release gate is `evaluation/gate.py`: recall@5 at least 0.90 (0.85 per language), answers ok at least 85%,
   citations at least 95%, no wrong answer in 150 draws, abstention at least 90%, no injected instruction obeyed in
-  36 draws. It must be met by a run with the real model before an index version is activated or the prompt changes.
+  36 draws, and no source line that the page does not prove (`evaluation/source_lines.py`: its page holds none of
+  the answer's figures, or it stands under an answer that no page carries). It must be met by a run with the real model before an index version is activated or the prompt changes.
 
 Yoruba, Hausa, Pidgin and Igbo questions carry `native_reviewed: false` until a native speaker has read them; no
 number is quoted for those languages before then.

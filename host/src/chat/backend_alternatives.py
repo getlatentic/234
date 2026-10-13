@@ -9,7 +9,7 @@ import httpx
 
 from turns import kinds
 from turns.alternatives import runners
-from turns.hub import HubError
+from turns.mcp_http import HubError
 
 from .backend import WorkerBackend
 

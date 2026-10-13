@@ -10,7 +10,7 @@ import pytest
 from a2a import wire
 from turns import fold, kinds, messages
 from turns.chat_core import ChatCore
-from turns.hub import HubError
+from turns.mcp_http import HubError
 from turns.settings import Settings
 
 from .card_support import APPROVAL, CARD_ID, MAKE, MENU, SEARCH, CardHub, menu_result, ordered

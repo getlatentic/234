@@ -20,10 +20,12 @@ import httpx
 from . import calls as call_rules
 from . import kinds, logs, permissions, quote_events, sources
 from .card_calls import card_ref
+from .connector_tools import ToolOutcome, refused
 from .eventlog import Draft, EventLog
-from .hub import Hub, HubError, ToolOutcome, refused
+from .hub import Hub
 from .idempotency import derive_key
 from .ledger_owner import is_account, ledger_owner
+from .mcp_http import HubError
 from .metrics import Metrics
 from .settings import Settings
 

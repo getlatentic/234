@@ -9,7 +9,7 @@ import pytest
 from chat.models import Chat, Research
 from turns import kinds, permissions, sources, trace
 from turns.chat_core import RESEARCH_HEAD, ChatCore
-from turns.hub import HubError
+from turns.mcp_http import HubError
 from turns.research import prompt as research_prompt
 from turns.research.core import TIMED, ResearchCore
 from turns.research.server import BUSY, LIMIT, NO_CHAT, STARTED, ResearchServer, research_server

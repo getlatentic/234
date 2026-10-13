@@ -46,7 +46,7 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "a call made inside a payer group names it",
-        "turns/hub.py",
+        "turns/mcp_http.py",
         "            if group := _payer_group.get():",
         "            if group := '':",
         ["tests/test_hub.py"],

@@ -100,7 +100,7 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "the host names whose money a tool call touches, in a header of its own",
-        "turns/hub.py",
+        "turns/mcp_http.py",
         "if owner is not None:\n            headers[OWNER_HEADER] = owner",
         "if False:\n            headers[OWNER_HEADER] = owner",
         OWNER,
@@ -108,13 +108,13 @@ MUTATIONS: list[Mutation] = [
     host(
         "nothing the model or a card sends becomes the owner of a call",
         "turns/hub.py",
-        '"tools/call", params, _owner_key(owner), notes=account or server == MEMORY_SERVER',
+        '"tools/call", params, owner_key(owner), notes=account or server == MEMORY_SERVER',
         '"tools/call", params, arguments.get("owner", owner), notes=account or server == MEMORY_SERVER',
         OWNER,
     ),
     host(
         "a key that is not an owner is refused before a call is sent",
-        "turns/hub.py",
+        "turns/mcp_http.py",
         "if not _OWNER.fullmatch(owner):",
         "if False:",
         OWNER,
@@ -163,14 +163,14 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "the model-facing schema omits the idempotency key",
-        "turns/hub.py",
+        "turns/connector_tools.py",
         'schema["properties"] = {k: v for k, v in properties.items() if k not in hidden}',
         'schema["properties"] = dict(properties)',
         KEYS,
     ),
     host(
         "the model-facing schema does not require the idempotency key",
-        "turns/hub.py",
+        "turns/connector_tools.py",
         'schema["required"] = [name for name in dict.fromkeys(required) if name not in hidden]',
         'schema["required"] = list(dict.fromkeys(required))',
         KEYS,

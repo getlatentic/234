@@ -39,7 +39,7 @@ MUTATIONS: list[Mutation] = [
     ),
     host(
         "logs: the task id travels to the connectors",
-        "turns/hub.py",
+        "turns/mcp_http.py",
         "                headers[TASK_HEADER] = task",
         "                pass",
         ["tests/test_logs.py", "tests/test_hub.py"],

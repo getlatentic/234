@@ -14,7 +14,8 @@ from accounts.owner import account_owner
 from chat.models import Access, Chat
 from turns import kinds, wallet
 from turns.chat_core import ChatCore
-from turns.hub import MEMORY_OWNER_HEADER, OWNER_HEADER, Hub, HubError
+from turns.hub import Hub
+from turns.mcp_http import MEMORY_OWNER_HEADER, OWNER_HEADER, HubError
 from turns.permissions import Permissions
 from turns.prompt import NO_WALLET, WALLET_CAN
 from turns.settings import Settings

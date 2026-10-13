@@ -10,7 +10,8 @@ from django.conf import settings
 
 from config import runtime
 from turns.binding import connector_client
-from turns.hub import MEMORY_SERVER, CardPage, Hub, build_hub
+from turns.connector_tools import CardPage
+from turns.hub import MEMORY_SERVER, Hub, build_hub
 from turns.ledger_owner import ledger_owner
 
 

@@ -20,7 +20,7 @@ from workers import DurableObject, Response
 from . import kinds
 from .assembly import build_core
 from .chat_core import ChatCore
-from .hub import HubError
+from .mcp_http import HubError
 
 log = logging.getLogger(__name__)
 

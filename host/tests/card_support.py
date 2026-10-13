@@ -2,7 +2,7 @@
 """Doubles for a card's calls: a hub that lists the tools each view owns, and results shaped like a menu
 card's search and its order."""
 
-from turns.hub import ToolOutcome
+from turns.connector_tools import ToolOutcome
 
 MENU = "ui://s/menu.html"
 APPROVAL = "ui://s/card.html"

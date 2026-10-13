@@ -11,7 +11,7 @@ import httpx
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
-from turns.hub import HubError
+from turns.mcp_http import HubError
 
 from ..backend import get_backend
 from .send import json_body

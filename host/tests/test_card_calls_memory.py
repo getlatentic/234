@@ -11,7 +11,7 @@ import pytest
 from chat.models import Chat
 from turns import kinds
 from turns.chat_core import ChatCore
-from turns.hub import HubError
+from turns.mcp_http import HubError
 from turns.memory import NOT_AN_ACCOUNT
 from turns.settings import Settings
 
