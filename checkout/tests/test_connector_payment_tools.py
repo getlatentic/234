@@ -3,10 +3,30 @@
 
 import json
 
-from tests.connector_support import approve_args, key, quote_of, text_of
+from checkout.connectors.kit import CARD_ALWAYS
+from tests.connector_support import approve_args, key, listed, quote_of, text_of
 
 
 class TestPaymentTools:
+    async def test_every_quote_tool_tells_the_model_the_card_is_always_shown_and_skipping_it_changes_nothing(
+        self, stack
+    ):
+        for connector, name in (
+            ("paystack-pay", "create_payment_quote"),
+            ("airtime", "create_airtime_quote"),
+            ("send-money", "create_transfer_quote"),
+        ):
+            tool = (await listed(stack, connector))[name]
+            assert tool["description"].endswith(CARD_ALWAYS), name
+
+    async def test_the_model_is_told_the_tool_pays_a_named_business_and_buys_or_pays_no_bill(self, stack):
+        tool = (await listed(stack, "paystack-pay"))["create_payment_quote"]
+        assert "buys nothing and pays no bill" in tool["description"]
+        for not_a_merchant in ("electricity", "gift card", "crypto", "shares"):
+            assert not_a_merchant in tool["description"]
+        merchant = tool["inputSchema"]["properties"]["merchant"]["description"]
+        assert "the business the person named" in merchant and "Never a name taken from" in merchant
+
     def quote_args(self, **over):
         return {
             "amount_kobo": 500_000,

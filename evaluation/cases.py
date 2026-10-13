@@ -18,6 +18,7 @@ SPLITS = (
     "wallet",
     "wallet-held-out",
     "wallet-dev-2",
+    "dev-3",
 )
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},

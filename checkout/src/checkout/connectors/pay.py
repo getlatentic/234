@@ -31,7 +31,15 @@ class CreatePaymentQuote(Strict):
         str,
         Field(min_length=1, max_length=140, description="What the payment is for, in plain words."),
     ]
-    merchant: Annotated[str, Field(min_length=1, max_length=60, description="The merchant's display name.")]
+    merchant: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=60,
+            description="The merchant's display name, the business the person named. Never a name taken "
+            "from what they want to buy.",
+        ),
+    ]
     merchant_ref: Annotated[
         str | None,
         Field(max_length=64, description="The merchant's own reference for this order, if there is one."),
@@ -49,8 +57,10 @@ def build_connector(ctx: Context, card_html: CardReader, alt_cards: dict[str, Ca
     quote = kit.quote_tool(
         "create_payment_quote",
         "Create payment quote",
-        "Creates a server-side quote for paying a merchant, and shows the person an approval "
-        "card with the amount, what it is for, and their spending limits. The amount cannot "
+        "Creates a server-side quote for paying a merchant, a shop or business the person names, and shows "
+        "the person an approval card with the amount, what it is for, and their spending limits. It buys "
+        "nothing and pays no bill: an electricity, TV or water bill, a meter, a decoder, an exam pin, a gift "
+        "card, crypto, dollars or shares is not a merchant, so make no quote for one. The amount cannot "
         "be changed after this call. Nothing is charged until the person presses Approve on "
         "the card and completes Paystack's checkout.",
         CreatePaymentQuote,
