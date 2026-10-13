@@ -2,7 +2,7 @@
 """What a kill in the middle of a compaction leaves: a script, not a test, since it kills and restarts the
 Worker (tools/restart-host.sh) and its answer is a timeline.
 
-usage: CONTEXT_WINDOW_TOKENS=8000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500 [PORT_BASE=8900] \
+usage: CONTEXT_WINDOW_TOKENS=9000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500 [PORT_BASE=8900] \
   uv run python -u -m tests.crash_probe_compaction [--expect-finished]
   (the stack must have been started with the same three values: the restart reads them from this environment)
 

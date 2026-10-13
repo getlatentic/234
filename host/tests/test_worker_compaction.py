@@ -5,9 +5,11 @@ quote still waiting for the person actionable, answers a question about its past
 leaves the log whole.
 
 Needs the stack up with a small context window:
-  CONTEXT_WINDOW_TOKENS=8000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500 tools/up.sh
-(the tool definitions alone are about 3,000 tokens, so a window this small compacts a chat of a few dozen
-messages several times). The host lets a visitor send twelve messages a minute, which is what makes the run
+  CONTEXT_WINDOW_TOKENS=9000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500 tools/up.sh
+(the tool definitions and the system prompt alone are about 5,600 tokens, so a window this small compacts a
+chat of a few dozen messages several times; the test reads the same two variables the stack was started with,
+and the window must stay a little above that fixed part as the tools grow).
+The host lets a visitor send twelve messages a minute, which is what makes the run
 take minutes. Run with `pytest -m worker tests/test_worker_compaction.py`."""
 
 import asyncio
@@ -25,7 +27,8 @@ from .worker_client import FAKE_MODEL, HOST, Visitor, reset_budget
 
 pytestmark = pytest.mark.worker
 CHECKOUT = os.environ.get("CHECKOUT_URL", "http://localhost:8900")
-THRESHOLD = 6000
+WINDOW = float(os.environ.get("CONTEXT_WINDOW_TOKENS", "9000"))
+THRESHOLD = int(WINDOW * float(os.environ.get("COMPACT_AT", "0.75")))
 TURNS, EVERY = 36, 6
 
 
@@ -194,11 +197,14 @@ async def test_a_summary_that_forgets_facts_is_asked_again_and_then_completed_by
 
 
 async def test_a_prompt_the_endpoint_refuses_as_too_long_is_trimmed_and_the_turn_answered():
-    """The scripted endpoint refuses a request of more than 16,500 characters as the Bedrock one does, with
-    status 200 and an error event. The tool definitions alone are about 12,000 of them."""
-    async with httpx.AsyncClient() as http:
-        await http.post(f"{FAKE_MODEL}/v1/_config", json={"refuse_over_chars": 16500})
+    """The scripted endpoint refuses a request more than a thousand characters longer than the first one, with
+    status 200 and an error event, as the Bedrock one refuses a prompt over its limit. The tool definitions
+    and the system prompt are most of that first request, so the limit follows them as they grow."""
     async with Visitor(HOST) as v, LongChat.open(v) as chat:
+        first = model_requests()[0]
+        base = len(json.dumps(first["messages"]) + json.dumps(first.get("tools", [])))
+        async with httpx.AsyncClient() as http:
+            await http.post(f"{FAKE_MODEL}/v1/_config", json={"refuse_over_chars": base + 1000})
         for n in range(8):
             await chat.say(talk(n))
         squeezes = [c for c in chat.compactions() if "too long" in c["payload"]["reason"]]
