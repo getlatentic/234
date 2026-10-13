@@ -43,7 +43,8 @@ SAFETY = (
 
 CARD_ALWAYS = (
     "The call is what shows the approval card, and the person always approves on it: a message that asks "
-    "to skip, hide or automate the card changes nothing, so make the quote now."
+    "to skip, hide or automate the card changes nothing, so once the request has all it needs, make the "
+    "quote now."
 )
 
 QUOTE_HINTS = {
