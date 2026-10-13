@@ -363,6 +363,15 @@ sandbox key (`BACHS_SECRET_KEY`, which must start `sk_sandbox_`) and the webhook
    system line, not the short wallet, and Kimi lost 14 payment draws held-out at five times the cost, so 234 keeps
    `openai.gpt-oss-120b`. Still failing: a short wallet is said so in 4 of 6 held-out draws (10 of 18 in
    development), and a fake line is sometimes refused without the quote.
+   **Prompt or tool description** (2026-10-13; RESULTS.md, "What still failed after #662"). 234 has no skills; the
+   wallet guidance lives in two places. The visitor sentence (`NO_WALLET`) stays in the system prompt, because a
+   visitor is offered no wallet tool and so has no description to read. The account's clause (`WALLET_CAN`, the
+   wallet card among what 234 does) was tried in the wallet tool's description alone, with the same draws on both
+   sides: `wallet` 18/24 against 21/24, `wallet-dev-2` 46/72 against 52/72 (withdrawals 7/15 against 12/15, a wallet
+   short of the quote 2/18 against 6/18), payment `dev` signed in 39/42 against 41/42, and in an earlier pair
+   109/138 against 114/138. The clause stays in the prompt. The same pass left the wallet path alone: the
+   held-out wallet split was 38 to 40 of 45 over five runs after the prompt and tool changes for other failures
+   (43 in #662), with no dangerous failure.
 
 ## Decided (2026-10-10)
 
