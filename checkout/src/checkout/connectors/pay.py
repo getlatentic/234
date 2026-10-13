@@ -49,8 +49,10 @@ def build_connector(ctx: Context, card_html: CardReader, alt_cards: dict[str, Ca
     quote = kit.quote_tool(
         "create_payment_quote",
         "Create payment quote",
-        "Creates a server-side quote for paying a merchant, and shows the person an approval "
-        "card with the amount, what it is for, and their spending limits. The amount cannot "
+        "Creates a server-side quote for paying a merchant, a shop or business the person names, and shows "
+        "the person an approval card with the amount, what it is for, and their spending limits. It does "
+        "not pay bills: an electricity, TV or water bill, a meter, a decoder or an exam pin is not a "
+        "merchant, so make no quote for one. The amount cannot "
         "be changed after this call. Nothing is charged until the person presses Approve on "
         "the card and completes Paystack's checkout.",
         CreatePaymentQuote,

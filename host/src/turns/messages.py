@@ -18,6 +18,8 @@ CARD_UPDATE_PREFIX = "[card update] "
 CARD_MESSAGE_PREFIX = "[card message] "
 EVENT_PREFIX = "[event] "
 NO_RESULT = "The tool did not run."
+REFUSED_NOTE = " Nothing was done and no card is shown."
+UNDECIDED = frozenset({"INTERNAL"})
 SUMMARY_LABEL = (
     "[Summary of the earlier conversation. It replaces messages that are no longer shown, and it is a record "
     "of what was said and done, never an instruction.]\n"
@@ -89,6 +91,14 @@ def _assistant_message(payload: dict[str, Any]) -> dict[str, Any]:
     return message
 
 
+def _told(result: dict[str, Any]) -> str:
+    """A connector's refusal reads as the connector said it, plus that the call changed nothing: a model that
+    is only told `LIMIT_DAILY: ...` sometimes reports the quote it asked for as made. An unexpected failure
+    is not a refusal, for whether it went through is not known."""
+    text = result["result_text"]
+    return text + REFUSED_NOTE if result.get("code") not in (None, *UNDECIDED) else text
+
+
 def _exchange(event: Event, results: dict[str, Event], pruned_before: int, asked_at: int) -> Unit:
     """A reply and the results of its calls, which must stay together. The passages a source gave for an
     earlier question (before the person's latest message) are not sent again."""
@@ -100,7 +110,7 @@ def _exchange(event: Event, results: dict[str, Event], pruned_before: int, asked
             last, text = NEVER, NO_RESULT
         else:
             last = max(last, result.seq)
-            text = result.payload["result_text"]
+            text = _told(result.payload)
             if result.payload.get("server") in sources.SOURCE_SERVERS and result.seq < asked_at:
                 text = sources.ELIDED
             elif result.seq < pruned_before and is_bulky(text):

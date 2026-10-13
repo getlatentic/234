@@ -151,3 +151,20 @@ def test_a_stub_says_how_much_was_left_out():
     assert messages.stub('[{"a": 1}, {"a": 2}]') == "[result omitted: 2 items]"
     assert messages.stub("x" * 900) == "[result omitted: 900 characters]"
     assert messages.stub("Header:\na\nb\nc\nd") == "[result omitted: 4 items]"
+
+
+def _told(**payload):
+    result = {"call_id": "c1", "result_text": "x", "tool": "make", "is_error": True, **payload}
+    events = [ev(1, kinds.USER, {"text": "pay"}), reply(2, "", [CALL], upto=1), ev(3, kinds.TOOL, result)]
+    return messages.render(events, "sys")[3]["content"]
+
+
+def test_a_connectors_refusal_is_told_to_the_model_with_the_note_that_nothing_was_done():
+    told = _told(result_text="LIMIT_DAILY: over the limit.", code="LIMIT_DAILY")
+    assert told == "LIMIT_DAILY: over the limit." + messages.REFUSED_NOTE
+
+
+def test_a_failure_that_may_have_gone_through_or_a_result_without_a_code_is_told_as_it_was():
+    assert _told(result_text="INTERNAL: unexpected.", code="INTERNAL") == "INTERNAL: unexpected."
+    assert _told(result_text="made it", is_error=False) == "made it"
+    assert _told(result_text="slow") == "slow"

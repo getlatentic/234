@@ -9,6 +9,7 @@ from tools.mutations.model import host_mutation as host
 HUB = ["tests/test_hub.py"]
 CARDS = ["tests/test_card_calls.py", "tests/test_chat_core.py"]
 OWNER = ["tests/test_owner.py"]
+MESSAGES = ["tests/test_messages.py"]
 KEYS = ["tests/test_hub_keys.py", "tests/test_idempotency.py", "tests/test_runner_keys.py"]
 
 
@@ -222,5 +223,12 @@ MUTATIONS: list[Mutation] = [
         'return twin if twin and await self._hub.keyed(call["name"]) else None',
         "return twin",
         KEYS,
+    ),
+    host(
+        "the model is told a connector's refusal changed nothing",
+        "turns/messages.py",
+        "return text + REFUSED_NOTE if result.get",
+        "return text if result.get",
+        MESSAGES,
     ),
 ]
