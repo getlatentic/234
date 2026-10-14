@@ -40,7 +40,7 @@ from tests.worker_client import Visitor, finished, until
 from turns.prompt import system_prompt
 from turns.settings import Settings
 
-from .cases import SPLITS, Case, load_cases
+from .cases import SPLITS, Case, free_text_on, load_cases
 from .knowledge_data import knowledge_cases
 from .redo import plan
 from .score import score_case
@@ -206,6 +206,7 @@ def metadata(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
         "tool_choice": "auto",
         "temperature": "not sent: the endpoint's default",
         "connectors": list(settings.connectors),
+        "free_text_merchants": free_text_on(),
         "repo_head": git("rev-parse", "HEAD"),
         "prompt_commit": git("log", "-1", "--format=%H", "--", "host/src/turns/prompt.py"),
         "tree_clean": not git("status", "--porcelain", "--", "host", "checkout"),
@@ -225,6 +226,8 @@ def pick(cases: list[Case], args: argparse.Namespace) -> list[Case]:
     if args.only:
         wanted = set(args.only.split(","))
         chosen = [c for c in chosen if c.id in wanted or c.category in wanted]
+    if not free_text_on():
+        chosen = [c for c in chosen if not c.needs_free_text]
     return chosen
 
 

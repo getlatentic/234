@@ -48,8 +48,8 @@ class CreateAirtimeQuote(Strict):
         Field(
             min_length=1,
             max_length=80,
-            description='The amount exactly as the person said or wrote it, for example "500" or '
-            '"two hundred naira". It is checked against amount_kobo.',
+            description='The amount exactly as the person said it, for example "500". Checked against '
+            "amount_kobo.",
         ),
     ]
     idempotency_key: IdempotencyKey

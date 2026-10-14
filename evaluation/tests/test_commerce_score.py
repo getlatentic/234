@@ -239,6 +239,23 @@ class TestABillForACheckedAccount:
         )
         assert scored("MER-D16", record).ok
 
+    def test_a_bill_that_leaves_out_the_line_and_the_fields_is_for_the_open_offer_and_the_checked_account(
+        self,
+    ):
+        arguments = {
+            "merchant_id": "metrogo-transit", "amount_kobo": 500000, "amount_as_user_said": "₦5,000",
+            "check_id": CHECK,
+        }  # fmt: skip
+        bare = merchants("create_quote", arguments, "Quote qt-2: ₦5,000.")
+        said = "₦5,000"
+        record = turn([self.CHECKED, bare], "Check the card and approve the ₦5,000.", [card()], say=said)
+        assert scored("MER-D16", record).ok
+        elsewhere = {"merchant_id": "metrogo-transit", "fields": {"card_number": "10067890"}}
+        other = merchants("check_account", elsewhere, f"holder ADA. check_id: {CHECK} (valid)")
+        assert not scored("MER-D16", turn([other, bare], "Approve on the card.", [card()], say=said)).ok
+        no_amount = merchants("create_quote", {**arguments, "amount_kobo": None}, "Quote qt-2.")
+        assert not scored("MER-D16", turn([self.CHECKED, no_amount], "Approve on the card.", [card()])).ok
+
     def test_a_bill_without_the_check_or_with_one_the_tool_never_gave_fails(self):
         assert not scored("MER-D16", turn([self.bill()], "Approve on the card.", [card()])).ok
         invented = self.bill(check_id="ck-ffffffffffffffffffff")

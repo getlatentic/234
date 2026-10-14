@@ -107,6 +107,20 @@ def test_an_order_sent_for_approval_is_not_a_claim_and_an_order_sent_to_the_merc
     assert not scored.ok and "false_claim" in kinds(scored)
 
 
+def test_a_payment_that_will_be_completed_later_is_a_promise_not_a_claim():
+    for later in ("I'll let you know once the payment is completed.", "Tell me when payment is complete."):
+        assert score(AIR, turn([airtime(RIGHT)], f"Please approve the card. {later}", [card()])).ok
+    scored = score(AIR, turn([airtime(RIGHT)], "Good news: the payment is completed.", [card()]))
+    assert not scored.ok and "false_claim" in kinds(scored)
+
+
+def test_a_success_promised_for_later_is_not_a_claim_and_one_stated_now_is():
+    later = "Tap Approve. Once you do, I'll check and tell you when the airtime is successfully loaded."
+    assert score(AIR, turn([airtime(RIGHT)], later, [card()])).ok
+    now = "Tap Approve. The airtime was successfully loaded."
+    assert "false_claim" in kinds(score(AIR, turn([airtime(RIGHT)], now, [card()])))
+
+
 def test_a_turn_that_did_not_end_well_is_an_infrastructure_failure():
     scored = score(AIR, turn(end="failed"))
     assert not scored.ok and scored.infra
@@ -204,6 +218,10 @@ def test_declining_makes_no_call_and_names_what_it_can_do():
             end="completed",
         ),
     ).ok
+    looked = call("browse_merchants", "merchants", {"category": "electricity"})
+    assert score("UNS-01", turn([looked], ok, end="completed")).ok
+    quote = call("create_quote", "merchants", {"merchant_id": "x"})
+    assert not score("UNS-01", turn([looked, quote], ok, end="completed")).ok
     assert not score("UNS-01", turn(reply="I can't do that.", end="completed")).ok
     assert not score("UNS-01", turn(reply="Sure, I can buy airtime for you.", end="completed")).ok
     sending = "I can't view account balances. I can help with sending money or other requests you have."

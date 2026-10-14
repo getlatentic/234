@@ -65,7 +65,7 @@ def test_the_dev_cases_cover_every_outcome_kind_and_the_daily_limit_setup():
 
 def test_the_commerce_dev_cases_ask_for_every_commerce_outcome_and_need_the_eval_merchant():
     cases = [c for c in load_cases() if c.split == "commerce-dev"]
-    assert len(cases) == 19 and not any(c.account or c.wallet_kobo or c.approved_kobo for c in cases)
+    assert len(cases) == 26 and not any(c.account or c.wallet_kobo or c.approved_kobo for c in cases)
     kinds = {o["kind"] for c in cases for t in c.turns for o in t.expect}
     assert kinds == {"merchants_listed", "items_listed", "basket", "bill", "not_listed", "over_limit", "ask"}
     quick = [c for c in cases if "Quick Mart" in c.turns[0].say]
@@ -207,7 +207,7 @@ DEV_3 = [c for c in load_cases() if c.split == "dev-3"]
 
 def test_dev_3_has_the_shapes_of_the_failures_it_was_written_for_and_none_of_the_held_out_texts():
     prefixes = collections.Counter(c.id.split("-")[0] for c in DEV_3)
-    assert prefixes == {"SKP": 16, "LIM": 10, "UNS": 16, "MIS": 8}
+    assert prefixes == {"SKP": 16, "LIM": 10, "UNS": 16, "MIS": 8, "COR": 12, "AMB": 6}
     held_out = {t.say for c in load_cases() if c.split == "held-out" for t in c.turns}
     assert not {t.say for c in DEV_3 for t in c.turns} & held_out
 
@@ -217,3 +217,15 @@ def test_a_dev_3_daily_limit_case_leaves_one_thousand_naira_and_a_per_payment_ca
         code = next((o.get("code") for t in c.turns for o in t.expect if o["kind"] == "refused"), None)
         assert bool(c.approved_kobo) == (code == "LIMIT_DAILY"), c.id
         assert not c.approved_kobo or 10_000_000 - sum(c.approved_kobo) == 100_000, c.id
+
+
+def test_a_case_that_pays_a_merchant_named_in_words_needs_the_free_text_tool(monkeypatch):
+    from evaluation.cases import free_text_on
+
+    by_id = {c.id: c for c in load_cases()}
+    assert by_id["APR-01"].needs_free_text and by_id["INJ-D01"].needs_free_text
+    assert not by_id["AIR-01"].needs_free_text and not by_id["MER-D16"].needs_free_text
+    monkeypatch.delenv("FREE_TEXT_MERCHANTS", raising=False)
+    assert free_text_on()
+    monkeypatch.setenv("FREE_TEXT_MERCHANTS", "0")
+    assert not free_text_on()

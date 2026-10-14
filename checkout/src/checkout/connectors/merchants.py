@@ -35,7 +35,10 @@ MerchantId = Annotated[
 ]
 Fields = Annotated[
     dict[str, str],
-    Field(max_length=8, description="What the merchant asks for, by field name, as find_items lists them."),
+    Field(
+        max_length=8,
+        description="What the merchant asks for, by field name, as its line or find_items lists them.",
+    ),
 ]
 
 
@@ -53,7 +56,14 @@ class FindItems(Strict):
 
 class CheckAccount(Strict):
     merchant_id: MerchantId
-    fields: Fields
+    fields: Annotated[
+        Fields,
+        Field(
+            max_length=8,
+            description="What the merchant asks for, by the field name its line gives, such as "
+            '{"card_number": "10012345"}: what the person typed, never left empty.',
+        ),
+    ]
 
 
 class TrackOrder(Strict):
@@ -172,19 +182,19 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
         kit.plain_tool(
             "browse_merchants",
             "Browse merchants",
-            "Lists the shops and services 234 can buy from: id, name, category, status and one line on when "
-            "to choose it. Call it when the person asks what or where they can buy, or names a shop or "
-            "service, that is not airtime, data, a bank transfer or a restaurant menu. A business it does "
-            "not list cannot be paid.",
+            "Lists the shops and services 234 can buy from, with id, category, status and when to choose "
+            "each. Call it when the person asks what or where they can buy, or names a shop or service that "
+            "is not airtime, data, a transfer or a restaurant menu. A business it does not list cannot be "
+            "paid.",
             BrowseMerchants,
             browse,
         ),
         kit.plain_tool(
             "find_items",
             "Find items",
-            "Lists what one merchant sells with the server's prices, and the details its quote needs (a "
-            "delivery area, a card number). Call it to answer what a merchant sells or what something "
-            "costs there, and before a quote. Filter by words or one offer_id. You cannot set a price.",
+            "Lists what one merchant sells with the server's prices and the details its quote needs (a "
+            "delivery area, a card number). Call it to answer what a merchant sells or costs, and before a "
+            "quote. Filter by words or one offer_id. You cannot set a price.",
             FindItems,
             find,
         ),
@@ -192,7 +202,9 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
             "check_account",
             "Check account",
             "Looks up the account the person typed at a merchant that checks accounts (a card number): "
-            "the holder's name and what is due, with the check_id a quote for that merchant must carry.",
+            "the holder's name, what is due, and the check_id its quote must carry. Call it as soon as you "
+            "have the number, with the fields the merchant's line says it needs; the card shows the holder "
+            "to the person, so do not ask them to confirm the number first.",
             CheckAccount,
             check,
         ),
@@ -210,9 +222,9 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
     status = kit.plain_tool(
         STATUS_TOOL,
         "Track order",
-        "Reports where an order stands from the server's own record: waiting for approval, paid, delivered, "
-        "pending, failed or refunded. Use it after the person has used the card, and never say an order "
-        "was delivered until it does.",
+        "Reports where an order stands from the server's own record: waiting for approval, paid, "
+        "delivered, pending, failed or refunded. Use it after the person has used the card; never say an "
+        "order was delivered until it does.",
         TrackOrder,
         track,
     )

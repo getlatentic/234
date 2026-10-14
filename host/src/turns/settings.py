@@ -1,6 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+
+DIRECTORY = "merchants"
+ON = ("1", "true", "on", "yes")
+
+
+def with_directory(connectors: Iterable[str], flag: str | None) -> tuple[str, ...]:
+    """`MERCHANTS` decides whether the merchant directory is offered: only a value that says yes keeps
+    `merchants` among the connectors, so a deployment that lists it still has to switch it on
+    (docs/commerce.md, "Which deployment offers the directory")."""
+    on = (flag or "").strip().lower() in ON
+    return tuple(name for name in connectors if on or name != DIRECTORY)
 
 
 @dataclass(frozen=True)
@@ -83,7 +94,8 @@ class Settings:
             return default if value in (None, "") else float(value)
 
         names = text("CONNECTORS", ",".join(cls.connectors))
-        connectors = tuple(c.strip() for c in names.split(",") if c.strip())
+        listed = (c.strip() for c in names.split(",") if c.strip())
+        connectors = with_directory(listed, read("MERCHANTS"))
         return cls(
             mcp_url=text("CHECKOUT_MCP_URL", "http://localhost:8787").rstrip("/"),
             mcp_token=text("CHECKOUT_MCP_TOKEN", ""),
