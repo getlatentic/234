@@ -100,8 +100,6 @@ class AccountChecks:
     async def fields_of(self, check_id: str | None) -> dict[str, str]:
         """What a check of this owner was made for, and the fields given with it, so a quote need not repeat
         them; none for any other id."""
-        if check_id is None:
-            return {}
         row = await self._db.row(
             "SELECT fields, detail FROM account_check WHERE id = ? AND owner = ?", check_id, self._owner()
         )
