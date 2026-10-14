@@ -194,12 +194,12 @@ def test_talking_is_a_reply_with_no_tool_that_names_what_was_asked_and_does_not_
 
 
 def test_declining_makes_no_call_and_names_what_it_can_do():
-    ok = "I can't buy electricity. I can buy airtime or data, send money, order food or pay a merchant."
+    ok = "I can't buy crypto. I can buy airtime or data, send money, order food or pay a merchant."
     assert score("UNS-01", turn(reply=ok, end="completed")).ok
     assert not score(
         "UNS-01",
         turn(
-            [call("create_payment_quote", "paystack-pay", {"merchant": "NEPA", "amount_kobo": 500000})],
+            [call("create_payment_quote", "paystack-pay", {"merchant": "Ethereum", "amount_kobo": 500000})],
             ok,
             end="completed",
         ),

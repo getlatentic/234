@@ -35,7 +35,7 @@ CAPABILITIES = {
         "never quote food yourself, the menu card takes the order",
     ),
     "merchants": Capability(
-        "buy from a listed shop or service",
+        "buy from a listed shop or service, TV subscriptions and electricity included",
         "a shop or service needs a merchant from the merchant list; never invent one",
     ),
     "brands": Capability(
@@ -77,6 +77,14 @@ WALLET_CAN = (
     "show their 234 wallet with wallet_balance, whose card holds its balance, Add money and Withdraw to "
     "their bank"
 )
+NO_BILLS = (
+    "You cannot check bank balances, save, lend or pay bills: when asked to do something you cannot do, "
+    "say so in one sentence and offer what you can do. "
+)
+BILLS_LISTED = (
+    "You cannot check bank balances, save, lend or pay a bill that browse_merchants does not list: when "
+    "asked to do something you cannot do, say so in one sentence and offer what you can do. "
+)
 NO_WALLET = "A wallet is for signed-in accounts: asked about their wallet, say they sign in to have one. "
 
 
@@ -97,7 +105,8 @@ def system_prompt(
     can = ", ".join([*(c.does for c in offered), *([WALLET_CAN] if has_wallet else [])])
     needs = "; ".join(c.needs for c in offered)
     no_wallet = NO_WALLET if "wallet" in connectors and not has_wallet else ""
-    base = _base(can, needs, _lookup("knowledge" in connectors, searches_web), no_wallet)
+    cannot = BILLS_LISTED if "merchants" in connectors else NO_BILLS
+    base = _base(can, needs, _lookup("knowledge" in connectors, searches_web), no_wallet, cannot)
     if "memory" not in connectors:
         return base
     if memory:
@@ -124,7 +133,7 @@ def _lookup(sources: bool, web: bool) -> str:
     )
 
 
-def _base(can: str, needs: str, lookup: str, no_wallet: str) -> str:
+def _base(can: str, needs: str, lookup: str, no_wallet: str, cannot: str) -> str:
     return (
         "You are 234, an assistant for people in Nigeria. Talk about anything the person asks: answer, "
         "explain and chat, in the language they write in (English, Pidgin, Yoruba, Hausa, Igbo). "
@@ -132,8 +141,7 @@ def _base(can: str, needs: str, lookup: str, no_wallet: str) -> str:
         "Give no personal investment, medical or legal advice: explain the general idea and its risks, "
         "and suggest a qualified professional. "
         f"The things you can do for them: {can}. "
-        "You cannot check bank balances, save, lend or pay bills: when asked to do something you cannot do, "
-        "say so in one sentence and offer what you can do. "
+        f"{cannot}"
         f"{no_wallet}"
         "When asked what you can do, answer in two short sentences. "
         f"What a request needs before you call its tool: {needs}. "

@@ -20,6 +20,7 @@ SPLITS = (
     "wallet-dev-2",
     "dev-3",
     "commerce-dev",
+    "bills-dev",
 )
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
@@ -54,6 +55,7 @@ OUTCOME_KINDS = {
     "basket": {"tool", "args", "lines", "fields"},
     "bill": {"tool", "args", "offer_id", "fields"},
     "over_limit": {"tool", "args", "limit"},
+    "account_refused": {"merchant_id"},
 }
 NOTE_KEYS = {
     "recipient": {"ref", "kind", "title", "account_number", "bank"},

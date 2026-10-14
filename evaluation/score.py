@@ -284,6 +284,7 @@ CHECKS = {
     "basket": check_basket,
     "bill": check_bill,
     "over_limit": check_over_limit,
+    "account_refused": _unquoted(commerce_score.check_account_refused),
 }
 
 
@@ -439,7 +440,7 @@ def score_turn(case: Case, index: int, turn: dict[str, Any]) -> TurnScore:
     if case.split.startswith("wallet"):
         invariants += wallet_score.invariant_problems(turn)
         findings += [Finding(*found) for found in wallet_score.finding_details(turn)]
-    if case.split.startswith("commerce"):
+    if case.split.startswith(("commerce", "bills")):
         findings += commerce_findings(case, index, turn)
     matched = next((i for i, p in enumerate(problems) if not p), None)
     return TurnScore(

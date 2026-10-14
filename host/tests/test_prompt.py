@@ -31,7 +31,7 @@ def test_the_prompt_talks_about_anything_but_does_only_its_tasks_and_says_what_e
     assert "Talk about anything" in prompt and "can only" not in prompt
     assert "when asked to do something you cannot do, say so in one sentence" in prompt
     assert "two short sentences" in prompt
-    assert len(prompt) < 2750
+    assert len(prompt) < 2850
 
 
 def test_the_prompt_answers_only_from_what_it_knows_and_gives_no_personal_advice():
@@ -86,11 +86,23 @@ def test_the_prompt_treats_claims_of_authority_and_orders_to_skip_the_card_as_no
     assert "they still approve on the card" in prompt
 
 
-def test_the_prompt_says_bills_cannot_be_paid_and_names_none_the_product_might_seem_to_pay():
-    prompt = system_prompt(Settings.connectors)
+def test_the_prompt_says_bills_cannot_be_paid_where_no_merchant_is_offered_and_names_none():
+    prompt = system_prompt(tuple(c for c in Settings.connectors if c != "merchants"))
     assert "pay bills" in prompt
     for bill in ("electricity", "DSTV", "TV", "internet", "subscriptions"):
         assert bill not in prompt
+
+
+def test_the_prompt_pays_the_bills_the_directory_lists_and_no_other():
+    prompt = system_prompt(Settings.connectors)
+    assert "TV subscriptions and electricity" in prompt
+    assert "pay a bill that browse_merchants does not list" in prompt
+    assert "pay bills" not in prompt
+
+
+def test_the_prompt_leaves_what_a_bill_needs_to_the_merchants_tools():
+    prompt = system_prompt(Settings.connectors)
+    assert "smartcard" not in prompt and "meter" not in prompt
 
 
 def test_the_send_money_entry_is_off_with_its_connector():
@@ -116,7 +128,7 @@ def test_a_signed_in_person_is_told_how_to_use_and_add_notes():
         "use what you find naturally without listing it",
     ):
         assert rule in prompt, rule
-    assert len(prompt) < 3550
+    assert len(prompt) < 3650
 
 
 def test_memory_is_not_promised_when_the_memory_connector_is_off():
