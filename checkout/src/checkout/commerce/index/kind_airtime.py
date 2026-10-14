@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Airtime through Index (`quick_buy`, category airtime): one offer, paid for any amount within the merchant's
-limits. Index has no preview of airtime, so the quote is made from the amount and the person's Zap balance, and
-the one call to `quick_buy` is the order, placed only after the person approves."""
+"""Airtime through Index (`quick_buy`, category airtime): one offer, paid for any amount within the
+merchant's limits. Index has no preview of airtime, so the quote is made from the amount and the person's
+Zap balance, and the one call to `quick_buy` is the order, placed only after the person approves."""
 
 from ...mask import group_phone
 from ...vtpass.phone import normalise_phone

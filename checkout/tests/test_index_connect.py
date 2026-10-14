@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""A person connecting their own Paystack Index account from a card: the sign-in with PKCE and a state that is
-taken once and only for the person's own attempt, the one client 234 registers for a deployment, a wrong state,
-a replayed code, a late sign-in, a refusal, and a visitor who cannot connect at all."""
+"""A person connecting their own Paystack Index account from a card: the sign-in with PKCE and a state that
+is taken once and only for the person's own attempt, the one client 234 registers for a deployment, a
+wrong state, a replayed code, a late sign-in, a refusal, and a visitor who cannot connect at all."""
 
 from urllib.parse import parse_qsl, urlsplit
 
@@ -60,6 +60,19 @@ class TestTheCard:
         await connect(stack)
         again = await start_connecting(stack)
         assert again["connection"]["state"] == "connected" and "link" not in again["connection"]
+
+    async def test_a_card_for_the_account_itself_names_no_merchant(self, stack):
+        made = ok(await account(stack, "connect_account"))
+        shown = made["structuredContent"]["connection"]
+        assert shown["merchant"] is None and shown["state"] == "authorize" and "link" in shown
+        returned = callback_of(await index_page(stack, shown["link"]))
+        done = ok(await complete(stack, ALICE, returned))
+        assert done["structuredContent"]["connection"] == {
+            "provider": "Paystack Index",
+            "merchant": None,
+            "state": "connected",
+            "interval": 3,
+        }
 
     async def test_names_nothing_but_index_merchants_to_connect_for(self, stack):
         refused = await account(stack, "connect_account", merchant_id="mama-put-yaba")

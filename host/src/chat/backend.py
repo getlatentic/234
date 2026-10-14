@@ -160,8 +160,8 @@ class WorkerBackend:
         return bool(outcome.success)
 
     def connect_account(self, owner: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        """The chat host's own call to the merchants connector for the signed-in account whose chat owner string
-        is `owner`: Index sending the person back after they signed in there (views/connect.py)."""
+        """The chat host's own call to the merchants connector for the signed-in account whose chat owner
+        string is `owner`: Index sending the person back after they signed in there (views/connect.py)."""
         from pyodide.ffi import run_sync
 
         hub = self._connectors()

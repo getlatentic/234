@@ -133,7 +133,8 @@ class IndexSimStore:
     ) -> dict[str, Any]:
         now, access = self._clock.now(), new_secret("at")
         await self._db.execute(
-            "INSERT INTO sim_index_token (token, kind, client_id, account_id, expires_at) VALUES (?, 'access', ?, ?, ?)",
+            "INSERT INTO sim_index_token (token, kind, client_id, account_id, expires_at) VALUES (?, "
+            "'access', ?, ?, ?)",
             access,
             client_id,
             account_id,
@@ -208,7 +209,8 @@ class IndexSimStore:
     ) -> str:
         order = new_secret("ord")
         await self._db.execute(
-            "INSERT INTO sim_index_order (id, account_id, tool, arguments, total_kobo, status, detail, created_at) "
+            "INSERT INTO sim_index_order (id, account_id, tool, arguments, total_kobo, status, detail, "
+            "created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             order,
             account_id,

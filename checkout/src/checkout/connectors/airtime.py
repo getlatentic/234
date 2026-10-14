@@ -109,7 +109,8 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
             "Create airtime quote",
             "Creates a server-side quote for airtime and shows the person a card with the network, the "
             "number and the amount to read back and confirm. Nothing is bought until the person confirms, "
-            "presses Approve and pays on Paystack's checkout.",
+            "presses Approve and pays on Paystack's checkout. Not for airtime they ask to pay through "
+            "Paystack Index or Zap: that is create_quote.",
             CreateAirtimeQuote,
             create_airtime,
         ),

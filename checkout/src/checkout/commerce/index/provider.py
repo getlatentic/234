@@ -110,7 +110,8 @@ class IndexProvider:
         if merchant.requires_link:
             raise DomainError(
                 "LINK_REQUIRED",
-                f"{merchant.name} needs the person to connect their account first. Call connect_account for it: "
+                f"{merchant.name} needs the person to connect their account first. Call connect_account for "
+                f"it: "
                 "its card is where they connect.",
             )
         entry = await self._entry(merchant)
@@ -132,7 +133,8 @@ class IndexProvider:
         return self._tagged(await self._priced(merchant, basket, check))
 
     def _tagged(self, totals: Totals) -> Totals:
-        """The quote remembers whether it was priced at the real Index, for what its card says about the money."""
+        """The quote remembers whether it was priced at the real Index, for what its card says about the
+        money."""
         assert totals.external is not None
         terms = {**totals.external.terms, "live": self._settings.live}
         return replace(totals, external=replace(totals.external, terms=terms))

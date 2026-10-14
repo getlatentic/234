@@ -22,7 +22,8 @@ from .wire import IndexMisread, IndexProblem, IndexRefused, IndexUnreachable, Se
 
 SENT = "indexSend"
 ASKED = (
-    "Paystack Index did not answer after 234 sent the order, so it may have gone through. 234 will not send it "
+    "Paystack Index did not answer after 234 sent the order, so it may have gone through. 234 will not send "
+    "it "
     "again; it asks Index and the person's Zap history until it knows."
 )
 NOT_SENT = "Nothing was sent to Paystack Index, so nothing was charged: {why}"
@@ -51,7 +52,8 @@ class IndexFulfilment:
 
     async def _not_ready(self, quote: Quote, owner: str) -> Outcome | None:
         """An outcome when the order cannot be sent now, because nothing has been sent: the person is not
-        connected, the price moved, or Index could not be asked (pending, until an hour after the approval)."""
+        connected, the price moved, or Index could not be asked (pending, until an hour after the
+        approval)."""
         purchase = Purchase.from_terms(quote.details["index"])
         try:
             await self._tokens.usable(owner)

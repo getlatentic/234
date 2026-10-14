@@ -61,7 +61,8 @@ def _holder(reply: ToolReply) -> str:
 def _not_found(merchant: Merchant, reply: ToolReply) -> DomainError:
     return DomainError(
         "ACCOUNT_NOT_FOUND",
-        f"Paystack Index could not validate that meter with {merchant.name}: {words(reply.text, 120)}. Nothing "
+        f"Paystack Index could not validate that meter with {merchant.name}: {words(reply.text, 120)}. "
+        f"Nothing "
         "was charged. Ask the person to check the meter number and whether it is prepaid or postpaid.",
     )
 

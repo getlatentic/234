@@ -4,6 +4,7 @@ person's own Zap, with nothing from 234's wallet; a repeated or racing approval 
 or the network does with the order ends in one of the three outcomes without a second send."""
 
 import asyncio
+import json
 
 import pytest
 
@@ -226,8 +227,9 @@ class TestOnlyOneSend:
         quote_id = view_of(pending)["id"]
         await stack.db.execute(
             "UPDATE quotes SET progress = json_patch(progress, ?) WHERE id = ?",
-            '{"indexSend": {"at": %d}}' % stack.clock.now(), quote_id,
-        )  # fmt: skip
+            json.dumps({"indexSend": {"at": stack.clock.now()}}),
+            quote_id,
+        )
         ok(await press_approve(stack, pending))
         assert await charges(stack) == []
         assert "get_recent_activity" in await tools_called(stack)
@@ -365,11 +367,13 @@ class TestOtherFundingIsKeptApart:
 
         ordinary = await as_account(stack, "create_quote", **meal())
         view = view_of(ordinary)
-        with acting_for(ALICE), remembering_for(ALICE):
-            with pytest.raises(DomainError):
-                await stack.merchants.authorise_approval(
-                    view["id"], ordinary["_meta"]["approvalToken"], view["amount"]["kobo"], terms=_external_terms()
-                )
+        with acting_for(ALICE), remembering_for(ALICE), pytest.raises(DomainError):
+            await stack.merchants.authorise_approval(
+                view["id"],
+                ordinary["_meta"]["approvalToken"],
+                view["amount"]["kobo"],
+                terms=_external_terms(),
+            )
         assert (await stored(stack, view["id"]))["state"] == "open"
 
     async def test_the_approval_token_is_bound_to_where_the_money_comes_from(self, stack):

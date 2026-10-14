@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""What the simulated Index's directory holds: its merchants, Chowdeck's restaurants with their dishes, and the
-electricity meters it knows. All of it is invented, and so are the merchant ids (the real ones are read from
-the real directory). Two texts are hostile on purpose, one a merchant's own description and one a dish's name,
-so that what 234 does with third-party words is exercised end to end."""
+"""What the simulated Index's directory holds: its merchants, Chowdeck's restaurants with their dishes, and
+the electricity meters it knows. All of it is invented, and so are the merchant ids (the real ones are
+read from the real directory). Two texts are hostile on purpose, one a merchant's own description and one
+a dish's name, so that what 234 does with third-party words is exercised end to end."""
 
 from typing import Any
 

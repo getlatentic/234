@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""A person's Index token, when it is wanted: the stored one while it has time left, a refreshed one a minute
-before it runs out and when Index answers 401. A refresh replaces the row only while it is the version read, so
-two calls that refresh together keep one result; a refresh Index refuses ends the connection and asks the
-person to connect again, while one that could not be tried (no answer) leaves it for the next call."""
+"""A person's Index token, when it is wanted: the stored one while it has time left, a refreshed one a
+minute before it runs out and when Index answers 401. A refresh replaces the row only while it is the
+version read, so two calls that refresh together keep one result; a refresh Index refuses ends the
+connection and asks the person to connect again, while one that could not be tried (no answer) leaves it
+for the next call."""
 
 import asyncio
 from collections.abc import Awaitable, Callable

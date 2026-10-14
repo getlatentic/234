@@ -5,9 +5,11 @@ descriptions would. Used by fake_model.py.
 "shops" lists the merchants; "shops: <category>" lists one category. "items: <merchant>" lists what a merchant
 sells. "shop: <merchant> | <offer>[:<count>[:<option>+<option>]], ... | <field>=<value>; ..." makes a quote
 for those offers. "transit top-up <number> ₦<amount>" checks the account first and, once the holder is known,
-makes the quote with the check. "track <quote id>" asks where an order stands. "connect index: <merchant>" opens the
-card on which the person connects their Paystack Index account for that merchant; "index airtime ₦<amount> to
-<number>" and "index food: <offer>[:<count>]" make a quote through that account."""
+makes the quote with the check. "track <quote id>" asks where an order stands.
+
+"connect index: <merchant>" opens the card on which the person connects their Paystack Index account for
+that merchant; "index airtime ₦<amount> to <number>" and "index food: <offer>[:<count>]" make a quote
+through it."""
 
 import re
 from typing import Any

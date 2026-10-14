@@ -23,6 +23,13 @@ merchant's names and descriptions come back as data under one line that says so,
 cannot be quoted. Like the other servers it signs in with OAuth and the `payments` scope; the skill in the plugin
 tells an agent to report with `track_order`.
 
+A person's own Paystack Index account ([commerce.md](commerce.md), the `index` provider) is offered only in 234's own chat, to a
+signed-in person: the merchants it adds (`index:chowdeck`, airtime and electricity by network and company) are connected on a
+card that 234's chat host serves, with Index's sign-in and the host's own redirect address. A client that reaches `merchants`
+through the gateway is not an account of that chat, so `browse_merchants` does not list them, and `connect_account` (which the
+server lists, since it lists one set of tools) answers that connecting is for signed-in accounts of 234's chat. The Index
+tools themselves (`quick_buy`, `order`, `confirmed`) are in no server's tool list.
+
 ## What a client goes through
 
 1. It calls `/mcp/<connector>` with no token. The answer is `401` with `WWW-Authenticate: Bearer resource_metadata="…", scope="payments"` (`memory` for the memory server).

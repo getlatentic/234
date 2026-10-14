@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""A connection being made, shown on a card (the card's id is the attempt's). Signing in at Index is armed with
-a `state` and a PKCE verifier: the state goes to Index and comes back once on the redirect, and what is kept is
-its SHA-256 with the verifier sealed. A state is taken once, for the owner the attempt belongs to, while the
-attempt is open and unexpired: a state presented twice, by another person, late, or not at all is not taken,
-and a state that does not match changes nothing."""
+"""A connection being made, shown on a card (the card's id is the attempt's). Signing in at Index is armed
+with a `state` and a PKCE verifier: the state goes to Index and comes back once on the redirect, and what
+is kept is its SHA-256 with the verifier sealed. A state is taken once, for the owner the attempt belongs
+to, while the attempt is open and unexpired: a state presented twice, by another person, late, or not at
+all is not taken, and a state that does not match changes nothing."""
 
 import hashlib
 import secrets

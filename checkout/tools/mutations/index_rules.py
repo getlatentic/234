@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""A person's own Paystack Index account (docs/commerce.md, the `index` provider; commerce/index/): tokens sealed
-for their owner and column and opened by no other; a sign-in state taken once, by its own person, in time; PKCE
-and only Index's own hosts; a token renewed before it runs out and on 401, once at a time, and a refused refresh
-asking the person to connect again; what Index lists kept to what 234 can buy, in 234's words, for accounts
-only; limits and Zap checked before a quote; a preview that cannot spend; one send per quote; an Index quote
-approved as that and no other way; a failed order that is not a refund. The host's side runs against the host's
-tests."""
+"""A person's own Paystack Index account (docs/commerce.md, the `index` provider; commerce/index/): tokens
+sealed for their owner and column and opened by no other; a sign-in state taken once, by its own person,
+in time; PKCE and only Index's own hosts; a token renewed before it runs out and on 401, once at a time,
+and a refused refresh asking the person to connect again; what Index lists kept to what 234 can buy, in
+234's words, for accounts only; limits and Zap checked before a quote; a preview that cannot spend; one
+send per quote; an Index quote approved as that and no other way; a failed order that is not a refund.
+The host's side runs against the host's tests."""
 
 from tools.mutations.model import SRC, Mutation
 from tools.mutations.model import host_mutation as host
@@ -71,7 +71,8 @@ MUTATIONS: list[Mutation] = [
         "a sign-in state is taken once",
         "attempts.py",
         '"UPDATE index_attempt SET state_hash = NULL, verifier_sealed = NULL, updated_at = ? "',
-        '"UPDATE index_attempt SET state_hash = state_hash, verifier_sealed = verifier_sealed, updated_at = ? "',
+        '"UPDATE index_attempt SET state_hash = state_hash, verifier_sealed = verifier_sealed, updated_at = '
+        '? "',
         CONNECT,
     ),
     index(
@@ -106,7 +107,8 @@ MUTATIONS: list[Mutation] = [
     index(
         "a refresh Index refuses ends the connection",
         "tokens.py",
-        "        except TokenRefused:\n            await self._store.forget(found.owner)\n            raise reconnect() from None",
+        "        except TokenRefused:\n            await self._store.forget(found.owner)\n            raise "
+        "reconnect() from None",
         "        except TokenRefused:\n            raise reconnect() from None",
         TOKENS,
     ),
@@ -208,7 +210,13 @@ MUTATIONS: list[Mutation] = [
         "if False:",
         QUOTES,
     ),
-    index("an order is quoted only when Zap covers it", "purchase.py", "if zap + credits < total:", "if False:", QUOTES),
+    index(
+        "an order is quoted only when Zap covers it",
+        "purchase.py",
+        "if zap + credits < total:",
+        "if False:",
+        QUOTES,
+    ),
     index(
         "a meter's holder must be the one the person confirmed",
         "kind_electricity.py",
@@ -247,7 +255,7 @@ MUTATIONS: list[Mutation] = [
     index(
         "an order is sent at most once",
         "fulfil.py",
-        "if not await self._ledger.set_progress_once(quote.id, SENT, {\"at\": self._clock.now()}):",
+        'if not await self._ledger.set_progress_once(quote.id, SENT, {"at": self._clock.now()}):',
         "if False:",
         FULFIL,
     ),
@@ -338,14 +346,16 @@ MUTATIONS: list[Mutation] = [
     host(
         "index: a guest cannot pay from the owner's Index account",
         "chat/views/cards.py",
-        'if server == MERCHANTS_SERVER and (arguments.get("funding") == "external" or "card_id" in arguments):',
+        'if server == MERCHANTS_SERVER and (arguments.get("funding") == "external" or "card_id" in '
+        "arguments):",
         'if server == MERCHANTS_SERVER and ("card_id" in arguments):',
         HOST_TESTS,
     ),
     host(
         "index: a guest cannot press the owner's connect card",
         "chat/views/cards.py",
-        'if server == MERCHANTS_SERVER and (arguments.get("funding") == "external" or "card_id" in arguments):',
+        'if server == MERCHANTS_SERVER and (arguments.get("funding") == "external" or "card_id" in '
+        "arguments):",
         'if server == MERCHANTS_SERVER and (arguments.get("funding") == "external"):',
         HOST_TESTS,
     ),

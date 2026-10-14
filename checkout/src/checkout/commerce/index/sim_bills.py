@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""`quick_buy` of the simulated Index, as its description says: airtime in one call (₦50 to ₦5,000), electricity
-in two (₦1,000 to ₦1,000,000; the first validates the meter and moves nothing, the second, with `confirmed`,
-charges and returns a token for a prepaid meter), data as a catalog of bundles."""
+"""`quick_buy` of the simulated Index, as its description says: airtime in one call (₦50 to ₦5,000),
+electricity in two (₦1,000 to ₦1,000,000; the first validates the meter and moves nothing, the second,
+with `confirmed`, charges and returns a token for a prepaid meter), data as a catalog of bundles."""
 
 from typing import Any
 

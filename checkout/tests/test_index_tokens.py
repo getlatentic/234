@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""A person's Index tokens: sealed at rest and readable by no other owner or key, refreshed a minute before they
-run out and when Index answers 401, never lost to two refreshes at once, a failed refresh asking the person to
-connect again, and disconnecting forgetting them (and asking Index to revoke them where it offers that)."""
+"""A person's Index tokens: sealed at rest and readable by no other owner or key, refreshed a minute before
+they run out and when Index answers 401, never lost to two refreshes at once, a failed refresh asking the
+person to connect again, and disconnecting forgetting them (and asking Index to revoke them where it
+offers that)."""
 
 import asyncio
 import json

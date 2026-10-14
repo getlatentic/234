@@ -34,7 +34,8 @@ class IndexStore:
 
     async def registration(self, server: str, redirect_uri: str) -> Registration | None:
         row = await self._db.row(
-            "SELECT client_id, secret_sealed, auth_method FROM index_client WHERE server = ? AND redirect_uri = ?",
+            "SELECT client_id, secret_sealed, auth_method FROM index_client WHERE server = ? AND "
+            "redirect_uri = ?",
             server,
             redirect_uri,
         )
@@ -92,7 +93,8 @@ class IndexStore:
         """A new connection, or a reconnection: the tokens are replaced and what was linked stays."""
         now = self._clock.now()
         await self._db.execute(
-            "INSERT INTO index_connection (owner, access_sealed, refresh_sealed, expires_at, scope, client_id, "
+            "INSERT INTO index_connection (owner, access_sealed, refresh_sealed, expires_at, scope, "
+            "client_id, "
             "version, linked, connected_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, '[]', ?, ?) "
             "ON CONFLICT (owner) DO UPDATE SET access_sealed = excluded.access_sealed, "
             "refresh_sealed = excluded.refresh_sealed, expires_at = excluded.expires_at, "
@@ -112,8 +114,8 @@ class IndexStore:
         return self._box.seal(tokens.access, _context(owner, "access")), refresh
 
     async def claim_refresh(self, connection: Connection) -> bool:
-        """Whether this call may refresh now: one at a time per connection, since a refresh token is good once.
-        A claim a crashed call left is open to the next after half a minute."""
+        """Whether this call may refresh now: one at a time per connection, since a refresh token is good
+        once. A claim a crashed call left is open to the next after half a minute."""
         now = self._clock.now()
         changed = await self._db.execute(
             "UPDATE index_connection SET refreshing_at = ? WHERE owner = ? AND version = ? "

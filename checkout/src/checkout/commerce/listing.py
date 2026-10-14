@@ -8,8 +8,8 @@ from .model import Choice, Merchant, Offer, OptionGroup
 from .text import NOTICE
 
 BUY_NEXT = (
-    "To buy, call create_quote with the merchant_id, offer_ids, counts and those fields; if the person only "
-    "asked what it sells or costs, answer that."
+    "To buy, call create_quote with the merchant_id, offer_ids, counts and those fields, in this reply, "
+    "never only saying you will; if the person only asked what it sells or costs, answer that."
 )
 NONE_MATCH = "No offer matches {query!r}; everything it sells follows."
 SHOWN_MERCHANTS = 20
@@ -24,7 +24,10 @@ _STATUS_WORDS = {
 
 def status_words(merchant: Merchant) -> str:
     if merchant.requires_link:
-        return "needs the person to connect their account first (call connect_account), so it cannot be quoted yet"
+        return (
+            "needs the person to connect their account first (call connect_account), "
+            "so it cannot be quoted yet"
+        )
     return _STATUS_WORDS[merchant.status]
 
 

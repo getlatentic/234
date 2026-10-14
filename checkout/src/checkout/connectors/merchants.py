@@ -187,9 +187,10 @@ def build_connector(ctx: Context, card_html: CardReader, connect_html: CardReade
             "browse_merchants",
             "Browse merchants",
             "Lists the shops and services 234 can buy from: id, name, category, status and one line on when "
-            "to choose it. Call it when the person asks what or where they can buy, or names a shop or "
-            "service, that is not airtime, data, a bank transfer or a restaurant menu. A business it does "
-            "not list cannot be paid.",
+            "to choose it. Call it when the person asks what or where they can buy, names a shop, a service "
+            "or Chowdeck, or asks to use their Paystack Index account; not for a bank transfer, or for "
+            "airtime or data they did not ask to pay through Index. A business it does not list cannot be "
+            "paid.",
             BrowseMerchants,
             browse,
         ),
@@ -245,7 +246,8 @@ def build_connector(ctx: Context, card_html: CardReader, connect_html: CardReade
             "Where a merchant checks accounts, call check_account first and have the person confirm the "
             "holder's name before you make the quote.",
             "A merchant that needs the person to connect their own account says so in browse_merchants: call "
-            "connect_account for it. They connect on its card; never ask for a code or a password in the chat.",
+            "connect_account for it. They connect on its card; never ask for a code or a password in the "
+            "chat.",
         ),
         views=views,
         app_tools=connect_tools,

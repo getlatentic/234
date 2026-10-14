@@ -148,13 +148,15 @@ MUTATIONS: list[Mutation] = [
     host_wallet(
         "a guest of a shared chat cannot pay from the owner's wallet",
         "chat/views/cards.py",
-        'return WALLET_OWNER_ONLY if server == WALLET_SERVER or arguments.get("funding") == "wallet" else None',
+        'return WALLET_OWNER_ONLY if server == WALLET_SERVER or arguments.get("funding") == "wallet" else '
+        "None",
         "return WALLET_OWNER_ONLY if server == WALLET_SERVER else None",
     ),
     host_wallet(
         "a guest of a shared chat cannot see or add to the owner's wallet",
         "chat/views/cards.py",
-        'return WALLET_OWNER_ONLY if server == WALLET_SERVER or arguments.get("funding") == "wallet" else None',
+        'return WALLET_OWNER_ONLY if server == WALLET_SERVER or arguments.get("funding") == "wallet" else '
+        "None",
         'return WALLET_OWNER_ONLY if arguments.get("funding") == "wallet" else None',
     ),
     host_wallet(

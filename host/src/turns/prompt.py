@@ -31,12 +31,14 @@ CAPABILITIES = {
     ),
     "food-order": Capability(
         "order food for delivery in Lagos",
-        "food needs only a dish: call search_menu with it straight away, "
+        "food needs only a dish: call search_menu with it straight away unless they name Chowdeck, "
         "never quote food yourself, the menu card takes the order",
     ),
     "merchants": Capability(
         "buy from a listed shop or service",
-        "a shop or service needs a merchant from the merchant list; never invent one",
+        "a shop or service needs a merchant from the merchant list; never invent one; Index, Zap or Chowdeck "
+        "payments, airtime and food too, use these tools; call connect_account in the same reply if they "
+        "must connect",
     ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",
@@ -132,8 +134,8 @@ def _base(can: str, needs: str, lookup: str, no_wallet: str) -> str:
         "Give no personal investment, medical or legal advice: explain the general idea and its risks, "
         "and suggest a qualified professional. "
         f"The things you can do for them: {can}. "
-        "You cannot check bank balances, save, lend or pay bills: when asked to do something you cannot do, "
-        "say so in one sentence and offer what you can do. "
+        "You cannot check bank balances, save, lend or pay bills, except to a listed merchant: "
+        "when asked to do something you cannot do, say so in one sentence and offer what you can do. "
         f"{no_wallet}"
         "When asked what you can do, answer in two short sentences. "
         f"What a request needs before you call its tool: {needs}. "

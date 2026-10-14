@@ -84,7 +84,8 @@ def message_of(reply: Reply, request_id: int | None) -> dict[str, Any] | None:
 
 
 def reply_of(result: Mapping[str, Any]) -> ToolReply:
-    """A tool result as text, structured data (or the JSON in its text), and whether Index called it an error."""
+    """A tool result as text, structured data (or the JSON in its text), and whether Index called it an
+    error."""
     blocks = result.get("content") if isinstance(result.get("content"), list) else []
     text = "\n".join(
         str(b.get("text", "")) for b in blocks if isinstance(b, dict) and b.get("type") == "text"

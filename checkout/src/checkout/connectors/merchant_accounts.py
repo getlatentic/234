@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Connecting a person's own account for a merchant (docs/commerce.md, "Connecting"): the model's one tool,
-`connect_account`, opens a card, and everything on the card is done by the person. The tools the card calls
-carry what only the person has (a phone number, a texted code) from the card to the server, and the host's
-sign-in redirect lands in `complete_connection`. None of them is offered to the model, and none returns a token.
-A guest of a shared chat cannot press the card's buttons (the host refuses them), and every tool here acts
-for the signed-in account of the call and for no other."""
+`connect_account`, opens a card, and everything on the card is done by the person. The tools the card
+calls carry what only the person has (a phone number, a texted code) from the card to the server, and the
+host's sign-in redirect lands in `complete_connection`. None of them is offered to the model, and none
+returns a token. A guest of a shared chat cannot press the card's buttons (the host refuses them), and
+every tool here acts for the signed-in account of the call and for no other."""
 
 from collections.abc import Awaitable, Callable
 from typing import Annotated
@@ -22,10 +22,11 @@ from .kit import CARD_HINTS, READ_HINTS, Strict, plain_result
 CARD_URI = "ui://merchants/connect.html"
 ACCOUNT_ONLY = "Connecting an account is for signed-in accounts. Sign in to use it."
 MODEL_TELLS = (
-    "The connect card is now shown to the person. They connect on it: signing in at Paystack Index, and for "
-    "Chowdeck a code texted to their phone, which they type into the card and you never see. You cannot "
-    "connect it for them and must not ask for a code, a phone number or a password in the chat. When they say "
-    "they are done, make the quote."
+    "The connect card is now shown to the person. Nothing is connected or disconnected yet: they do it on "
+    "the card, signing in at Paystack Index and, for Chowdeck, typing a code texted to their phone, which "
+    "you never see. Tell them only that the card is open and what to do on it; never say it is done. You "
+    "must not ask for a code, a phone number or a password in the chat. When they say they are done, make "
+    "the quote."
 )
 
 MerchantId = Annotated[
@@ -36,7 +37,14 @@ Phone = Annotated[str, Field(min_length=7, max_length=24)]
 
 
 class ConnectAccount(Strict):
-    merchant_id: MerchantId
+    merchant_id: Annotated[
+        str | None,
+        Field(
+            min_length=2,
+            max_length=40,
+            description="The merchant to connect for, from browse_merchants; leave out for the account.",
+        ),
+    ] = None
 
 
 class CardRef(Strict):
@@ -100,10 +108,10 @@ def accounts_tools(
 
     async def connect(args: ConnectAccount) -> ToolResult:
         owner = _owner(ctx)
-        merchant = await merchant_of(args.merchant_id)
-        if merchant.provider != "index":
+        merchant = await merchant_of(args.merchant_id) if args.merchant_id else None
+        if merchant is not None and merchant.provider != "index":
             raise DomainError("NOTHING_TO_CONNECT", f"{merchant.name} needs no account to be connected.")
-        view = await accounts.begin(owner, merchant.id)
+        view = await accounts.begin(owner, merchant.id if merchant else None)
         return _view_result(view, MODEL_TELLS)
 
     async def status(args: CardRef) -> ToolResult:
@@ -134,10 +142,12 @@ def accounts_tools(
     model = Tool(
         "connect_account",
         "Connect an account",
-        "Opens a card on which the person connects their own account for a merchant that needs it (their "
-        "Paystack Index account; Chowdeck is linked on the same card), or disconnects it. They do it on the "
-        "card; you cannot, and you never see a code. Call it when browse_merchants says a merchant needs the "
-        "person to connect, or when they ask to connect or disconnect Index.",
+        "Opens a card on which the person connects their own Paystack Index account, which pays for "
+        "Chowdeck food, airtime and electricity, links Chowdeck, or disconnects it. They do it on the card; "
+        "you cannot, "
+        "and you never see a code. Call it now, in the same reply, when they ask to use, connect or "
+        "disconnect Index or a merchant needs them to connect (browse_merchants says so), whatever else "
+        "is missing; never ask first. Leave merchant_id out for the account itself.",
         ConnectAccount,
         connect,
         CARD_URI,

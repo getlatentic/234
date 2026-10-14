@@ -55,14 +55,15 @@ class Preview:
 
 
 class NotLinked(DomainError):
-    """Index says the merchant is not linked to the person's account. Its own words tell an assistant to ask for
-    a phone number; 234's tell the model to open the connect card, where the person does it."""
+    """Index says the merchant is not linked to the person's account. Its own words tell an assistant to ask
+    for a phone number; 234's tell the model to open the connect card, where the person does it."""
 
     def __init__(self, merchant: str) -> None:
         super().__init__(
             "LINK_REQUIRED",
             f"{merchant} is not linked to the person's Paystack Index account. Call connect_account for it: "
-            "its card is where they link it, and nothing about it goes through the chat. Nothing was charged.",
+            "its card is where they link it, and nothing about it goes through the chat. Nothing was "
+            "charged.",
         )
 
 

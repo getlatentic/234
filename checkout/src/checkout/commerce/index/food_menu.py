@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Chowdeck's restaurants and dishes as Index's `find_items` returns them, read into 234's offers. A dish is the
-offer `v<vendor id>-i<item id>`, so a quote names its restaurant and Index its dish without a table of ours;
-a dish's required choices (size, spice) are option groups whose ids are `<group id>:<option id>`. Every name is
-third-party text. Prices here are indicative: the order's preview is what is quoted."""
+"""Chowdeck's restaurants and dishes as Index's `find_items` returns them, read into 234's offers. A dish is
+the offer `v<vendor id>-i<item id>`, so a quote names its restaurant and Index its dish without a table
+of ours; a dish's required choices (size, spice) are option groups whose ids are `<group id>:<option
+id>`. Every name is third-party text. Prices here are indicative: the order's preview is what is quoted."""
 
 import re
 from dataclasses import dataclass

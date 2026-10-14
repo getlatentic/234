@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Quotes for Index merchants: Index's own previews put its breakdown on 234's card, the amounts are bounded by
-Index's limits, 234's caps and the daily limit before Index is asked, a person whose Zap cannot pay is told so
-before a quote exists, and nothing is charged by making one."""
+"""Quotes for Index merchants: Index's own previews put its breakdown on 234's card, the amounts are bounded
+by Index's limits, 234's caps and the daily limit before Index is asked, a person whose Zap cannot pay is
+told so before a quote exists, and nothing is charged by making one."""
 
 import pytest
 

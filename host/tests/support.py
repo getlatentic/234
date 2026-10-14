@@ -226,7 +226,10 @@ class FakeBackend:
         self.brands_ended: list[tuple] = []
         self.brand_revokes = False
         self.account_calls: list[tuple] = []
-        self.account_answer: dict = {"content": [{"type": "text", "text": "Connected."}], "structuredContent": {}}
+        self.account_answer: dict = {
+            "content": [{"type": "text", "text": "Connected."}],
+            "structuredContent": {},
+        }
         self.relay_answer: tuple = (
             200,
             {"content-type": "application/json", "mcp-session-id": "sess-2"},

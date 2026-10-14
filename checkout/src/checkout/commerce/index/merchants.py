@@ -46,7 +46,8 @@ def blurb_of(entry: Entry, settings: IndexSettings) -> str:
             )
         case _:
             return (
-                f"Electricity for {entry.name} through the person's own Paystack Index account, paid from their "
+                f"Electricity for {entry.name} through the person's own Paystack Index account, paid from "
+                f"their "
                 f"Zap, {bounds}; the meter is checked first. {USE_INDEX}."
             )
 

@@ -46,6 +46,11 @@ def test_a_required_field_missing_or_blank_is_refused_and_the_model_told_to_pass
     assert code({**GOOD, "area": "  "}) == "FIELD_REQUIRED"
 
 
+def test_a_missing_choice_names_the_options_so_the_model_can_pass_what_was_said():
+    with pytest.raises(DomainError, match=r"Delivery area \(area, one of Yaba, Ikeja GRA\)"):
+        buyer_fields(MERCHANT, {"number": "10012345"})
+
+
 @pytest.mark.parametrize("area", ["Lagos Island", "Yaba, Ikeja GRA"])
 def test_a_choice_must_be_one_of_the_options(area):
     assert code({**GOOD, "area": area}) == "FIELD_INVALID"

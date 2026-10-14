@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Index's merchants as the model is shown them: only live and beta ones 234 can buy from, under our own ids and
-our own words (never Index's blurb), with third-party text cleaned; none for a visitor; the directory read once
-an hour and served stale when Index cannot be asked; and Chowdeck linked on the card with a phone number and a
-code that go nowhere near the model."""
+"""Index's merchants as the model is shown them: only live and beta ones 234 can buy from, under our own ids
+and our own words (never Index's blurb), with third-party text cleaned; none for a visitor; the directory
+read once an hour and served stale when Index cannot be asked; and Chowdeck linked on the card with a
+phone number and a code that go nowhere near the model."""
 
 from checkout.commerce.index.catalog import entries_of
 from checkout.commerce.index.sim_catalog import INJECTED_BLURB

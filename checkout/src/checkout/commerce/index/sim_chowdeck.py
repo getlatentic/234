@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Chowdeck through the simulated Index: linking by phone and code (`connect_merchant`), the nearby feed, a
-restaurant's menu or a search (`find_items`), the three phases of `order` (`needs_options`, `needs_confirmation`,
-then `confirmed` charges the person's Zap because the simulated Chowdeck wallet is empty) and `track_order`."""
+restaurant's menu or a search (`find_items`), the three phases of `order` (`needs_options`,
+`needs_confirmation`, then `confirmed` charges the person's Zap because the simulated Chowdeck wallet is
+empty) and `track_order`."""
 
 from typing import Any
 

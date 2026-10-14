@@ -8,6 +8,7 @@ can be had, the last list stands."""
 
 import json
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import asdict, dataclass
 
 from ...clock import Clock
@@ -73,10 +74,8 @@ class IndexCatalog:
         """The list; `reader` is a connected person whose token may read it if it has to be read again."""
         row = await self._row()
         if row is None or self._clock.now() - row["fetched_at"] >= TTL_MS:
-            try:
+            with suppress(IndexProblem, DomainError):
                 await self._refresh(reader)
-            except IndexProblem, DomainError:
-                pass
             row = await self._row()
         return [Entry(**stored) for stored in json.loads(row["body"])] if row else []
 

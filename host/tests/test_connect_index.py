@@ -36,7 +36,11 @@ class TestTheCallback:
         answered = ada.client.get(URL, {"code": "the-code", "state": "the-state"})
         assert answered.status_code == 200 and b"Connected" in answered.content
         assert backend.account_calls == [
-            (account_owner("uid-abc", ACCOUNT_KEY), "complete_connection", {"code": "the-code", "state": "the-state"})
+            (
+                account_owner("uid-abc", ACCOUNT_KEY),
+                "complete_connection",
+                {"code": "the-code", "state": "the-state"},
+            )
         ]
 
     def test_says_nothing_about_the_code_or_state_and_is_not_kept_or_referred(self, ada):
@@ -76,7 +80,13 @@ class TestTheCallback:
 
     @pytest.mark.parametrize(
         "query",
-        [{}, {"code": "c"}, {"state": "s"}, {"code": "c" * 2001, "state": "s"}, {"code": "c", "state": "s" * 2001}],
+        [
+            {},
+            {"code": "c"},
+            {"state": "s"},
+            {"code": "c" * 2001, "state": "s"},
+            {"code": "c", "state": "s" * 2001},
+        ],
     )
     def test_a_callback_without_what_it_needs_reaches_no_connector(self, ada, backend, query):
         assert ada.client.get(URL, query).status_code == 400
@@ -96,7 +106,9 @@ class TestGuestsOfASharedChat:
     def guest_of(self, ada):
         chat = ada.chat()
         guest = Device()
-        Access.objects.create(chat=Chat.objects.get(pk=chat), visitor=guest.client.get("/").wsgi_request.owner)
+        Access.objects.create(
+            chat=Chat.objects.get(pk=chat), visitor=guest.client.get("/").wsgi_request.owner
+        )
         return chat, guest
 
     @pytest.mark.parametrize(
@@ -109,11 +121,18 @@ class TestGuestsOfASharedChat:
             ("disconnect_account", {"card_id": CARD_ID}),
             (
                 "approve_quote",
-                {"quote_id": "qt-1", "approval_token": "t", "displayed_amount_kobo": 5, "funding": "external"},
+                {
+                    "quote_id": "qt-1",
+                    "approval_token": "t",
+                    "displayed_amount_kobo": 5,
+                    "funding": "external",
+                },
             ),
         ],
     )
-    def test_cannot_connect_disconnect_or_pay_from_the_owners_index_account(self, ada, backend, name, arguments):
+    def test_cannot_connect_disconnect_or_pay_from_the_owners_index_account(
+        self, ada, backend, name, arguments
+    ):
         chat, guest = self.guest_of(ada)
         refused = guest.post(f"/c/{chat}/call", {"server": "merchants", "name": name, "arguments": arguments})
         assert refused.status_code == 403 and "Only the owner of this chat" in refused.json()["error"]
@@ -122,7 +141,11 @@ class TestGuestsOfASharedChat:
     def test_the_owner_can_and_a_guest_still_approves_at_the_checkout_as_before(self, ada, backend):
         chat, guest = self.guest_of(ada)
         approve = {"quote_id": "qt-1", "approval_token": "t", "displayed_amount_kobo": 5}
-        owners = {"server": "merchants", "name": "approve_quote", "arguments": {**approve, "funding": "external"}}
+        owners = {
+            "server": "merchants",
+            "name": "approve_quote",
+            "arguments": {**approve, "funding": "external"},
+        }
         assert ada.post(f"/c/{chat}/call", owners).status_code == 200
         checkout = {"server": "merchants", "name": "approve_quote", "arguments": approve}
         assert guest.post(f"/c/{chat}/call", checkout).status_code == 200
@@ -135,7 +158,10 @@ CONNECT = "s__connect_account"
 def connection(state: str) -> dict:
     return {
         "content": [{"type": "text", "text": "The connect card is shown."}],
-        "structuredContent": {"card_id": CARD_ID, "connection": {"provider": "Paystack Index", "state": state}},
+        "structuredContent": {
+            "card_id": CARD_ID,
+            "connection": {"provider": "Paystack Index", "state": state},
+        },
     }
 
 
@@ -143,10 +169,17 @@ class ConnectHub(CardHub):
     """A connector whose model tool opens the connect card and whose card tool says how the sign-in stands."""
 
     def __init__(self):
-        super().__init__({CONNECT: connection("authorize")}, {"connection_status": connection("connected")}, {CONNECT: CONNECT_VIEW})
+        super().__init__(
+            {CONNECT: connection("authorize")},
+            {"connection_status": connection("connected")},
+            {CONNECT: CONNECT_VIEW},
+        )
 
     async def tools(self, server):
-        return [listed("connect_account", CONNECT_VIEW, "model"), listed("connection_status", CONNECT_VIEW, "app")]
+        return [
+            listed("connect_account", CONNECT_VIEW, "model"),
+            listed("connection_status", CONNECT_VIEW, "app"),
+        ]
 
 
 async def test_a_connect_card_is_recorded_and_its_changed_state_is_pushed_to_every_tab(chat, sql, clock):

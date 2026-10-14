@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The page where a person signs in at the simulated Index, served by the Worker at /sim/index/authorize (a
-browser opens it, so it cannot be the simulator's `Transport`). It asks what Index's page asks, whether 234 may
-use the account, checks the request as Index's authorization server does (a registered client and redirect
-address, PKCE S256), and sends the browser back to the redirect address with a code, or with `access_denied`.
-Both answers carry the `state` unchanged. Drop the route, with the other /sim/ pages, in a public deployment."""
+browser opens it, so it cannot be the simulator's `Transport`). It asks what Index's page asks, whether
+234 may use the account, checks the request as Index's authorization server does (a registered client and
+redirect address, PKCE S256), and sends the browser back to the redirect address with a code, or with
+`access_denied`. Both answers carry the `state` unchanged. Drop the route, with the other /sim/ pages, in
+a public deployment."""
 
 import base64
 import hashlib

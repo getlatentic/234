@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The part of JSON Schema Index's tool schemas use (type, enum, minimum, maximum, required, properties, items),
-enough for the simulated Index to refuse a call as the real server would: an argument of the wrong type, one
-outside its enum or its bounds, or a missing required one."""
+"""The part of JSON Schema Index's tool schemas use (type, enum, minimum, maximum, required, properties,
+items), enough for the simulated Index to refuse a call as the real server would: an argument of the
+wrong type, one outside its enum or its bounds, or a missing required one."""
 
 from typing import Any
 
@@ -39,16 +39,19 @@ def problem(value: Any, schema: dict[str, Any], where: str = "arguments") -> str
     if kind in ("number", "integer") and (found := _bounds(value, schema, where)):
         return found
     if kind == "object":
-        for name in schema.get("required", []):
-            if name not in value:
-                return f"{where}.{name} is required"
-        for name, given in value.items():
-            if name in schema.get("properties", {}) and (
-                found := problem(given, schema["properties"][name], f"{where}.{name}")
-            ):
-                return found
+        return _object_problem(value, schema, where)
     if kind == "array" and isinstance(schema.get("items"), dict):
-        for index, item in enumerate(value):
-            if found := problem(item, schema["items"], f"{where}[{index}]"):
-                return found
+        found = (problem(item, schema["items"], f"{where}[{i}]") for i, item in enumerate(value))
+        return next(filter(None, found), None)
     return None
+
+
+def _object_problem(value: dict[str, Any], schema: dict[str, Any], where: str) -> str | None:
+    for name in schema.get("required", []):
+        if name not in value:
+            return f"{where}.{name} is required"
+    properties = schema.get("properties", {})
+    found = (
+        problem(v, properties[name], f"{where}.{name}") for name, v in value.items() if name in properties
+    )
+    return next(filter(None, found), None)

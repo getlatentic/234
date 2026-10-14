@@ -439,10 +439,12 @@ MUTATIONS: list[Mutation] = [
         "AND json_extract(l.value, '$.offerId') = OLD.id",
         "AND json_extract(l.value, '$.offerId') = OLD.name",
     ),
-    schema(
-        "an account check cannot be changed",
+    Mutation(
+        "commerce schema: an account check cannot be changed",
+        "migrations/0022_index.sql",
         "BEFORE UPDATE ON account_check",
         "BEFORE UPDATE OF created_at ON account_check",
+        SCHEMA,
     ),
     schema("a merchant that answered keeps its answer", "WHEN OLD.outcome <> 'pending'", "WHEN 0"),
 ]

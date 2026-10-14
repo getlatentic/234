@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The simulated Index against what Index published (tests/fixtures/index_tools.json) and against OAuth: it
-advertises the ten tools with their names, annotations and schemas, refuses a call the schemas refuse, answers
-as JSON or as an event stream, and its authorization server takes a code once, with the right verifier, for the
-client and the redirect it was issued to. Nothing here reaches the network."""
+advertises the ten tools with their names, annotations and schemas, refuses a call the schemas refuse,
+answers as JSON or as an event stream, and its authorization server takes a code once, with the right
+verifier, for the client and the redirect it was issued to. Nothing here reaches the network."""
 
 import json
 from pathlib import Path

@@ -25,13 +25,20 @@ def _quotes(turn: dict[str, Any]) -> list[dict[str, Any]]:
     return [c for c in calls_to(turn, "create_quote") if not c["is_error"]]
 
 
+def _is_for(call: dict[str, Any], wanted: str) -> bool:
+    """A card for a merchant whose id starts `wanted`; a card for the account itself (no merchant) answers
+    the bare `index:` prefix."""
+    merchant = str(call["arguments"].get("merchant_id") or "")
+    return merchant.startswith(wanted) if merchant else wanted == "index:"
+
+
 def check_connect_card(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     """The person is sent to the connect card for a merchant whose id starts `outcome['merchant']`, no quote was
     made, the reply points to the card, and it asks for no code, password or number in the chat."""
     opened = [c for c in calls_to(turn, CONNECT) if not c["is_error"]]
     problems = [] if opened else [f"{CONNECT} was not called or was refused"]
     wanted = outcome["merchant"]
-    if opened and not any(str(c["arguments"].get("merchant_id", "")).startswith(wanted) for c in opened):
+    if opened and not any(_is_for(c, wanted) for c in opened):
         problems.append(f"{CONNECT} was not for a merchant starting {wanted!r}")
     problems += [f"a quote was made ({c['tool']})" for c in _quotes(turn)]
     if not POINTS_TO_CARD.search(turn["reply"]):

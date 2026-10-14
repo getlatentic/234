@@ -1,6 +1,6 @@
 # 234 Commerce: find, price, approve and pay for anything the same way
 
-**Design; the core (build step 2) is built, simulated, and measured with the real model (see "What is built" and Build order).** One protocol for what a person can buy through 234:
+**Design; the core (build step 2) and Index as a per-user connector (step 4) are built, simulated, and measured with the real model (see "What is built", "What is built for Index" and Build order).** One protocol for what a person can buy through 234:
 search a directory of merchants, see what they sell, have the server price it, approve it on a card, pay it from
 the wallet (or at the checkout), and follow the order to its end. Airtime and data stay as they are until the
 generic path measures as well. Bills (DSTV, electricity) are the first merchants of the directory, served by
@@ -228,6 +228,113 @@ options, fields, account checks, the model-facing lists and the third-party text
 * Not built: reversal of a delivered merchant order (the reversal flow is airtime's), refund by a provider other than
   the wallet and Paystack, the dashboard, payouts, UCP and ACP.
 
+## What is built for Index (simulated)
+
+`checkout/src/checkout/commerce/index/` (the provider, the connection, the simulator), `connectors/merchant_accounts.py`
+(`connect_account` and the connect card's tools), `migrations/0022_index.sql`, the connect card (`card/connect/`), the
+host's `/connect/index/callback` (`host/src/chat/views/connect.py`) and its guest rules (`chat/views/cards.py`). Tests
+`checkout/tests/test_index_*.py` and `host/tests/test_connect_index.py`; guards `checkout/tools/mutations/index_rules.py`; browser
+conformance `conformance/chat-index.mjs`; the evaluation's `index-dev` split (`evaluation/index_score.py`). No call to the real
+Index was made: every test, the conformance run and the evaluation talk to a simulated Index that lives in the connectors'
+Worker (`commerce/index/sim*.py`) and is the default (`INDEX_MODE`, below).
+
+* **The simulated Index.** An `IndexSimulator` is the `Transport` of the real client: the OAuth server of Index's published metadata
+  (dynamic client registration, the authorization code with PKCE S256, refresh with rotation, `client_credentials`, revocation
+  when a test route turns it on), and the MCP endpoint (protocol 2025-03-26, `paystack-index` 0.0.1, JSON or event-stream
+  answers, a session id) advertising Index's ten tools with the names, annotations and schemas of 2026-10-13
+  (`tests/fixtures/index_tools.json`; `tests/test_index_sim_contract.py` keeps the two the same) and refusing a call that breaks a
+  schema. Eight tools are implemented (the transfer tools answer that they are not offered). Its sign-in page is
+  `/sim/index/authorize` on the connectors' Worker; the test routes `/test/index/...` set an account's Zap, make the next charge
+  `delivered`, `failed`, `pending`, `dropped` (charged, answer lost) or `lost` (not charged, answer lost), expire or revoke the
+  tokens, and read every call served with whether it carried `confirmed`. Two of its texts are hostile on purpose: a
+  merchant's own blurb and a dish's name.
+* **Settings.** `INDEX_MODE=simulated|live` (default simulated), `INDEX_MCP_URL` (live only; `https` on `index.mcp.paystack.africa`
+  or `index.paystack.com`, nothing else), `INDEX_TOKEN_KEY` (a Worker secret, 32 or more characters, made once by
+  `tools/deploy.sh` like `APPROVAL_SECRET`; the simulator may borrow a key from the approval secret, live refuses to start
+  without one), `INDEX_CAPS_KOBO` (234's cap per order below Index's bounds, by `airtime`, `electricity` and `food`). Live also
+  needs `HOST_PUBLIC_URL` to be https: Index sends the person back to the chat host.
+* **Connecting.** `connect_account(merchant_id)` (the model's tool, accounts only) opens the connect card for the merchant. The
+  card holds a link to Index's sign-in (authorization code, PKCE S256, a `state` of 43 characters) and asks 234, every three
+  seconds, how it stands. 234 registers itself at Index once for the deployment (`index_client`, the secret sealed) and every
+  person uses that client. Index sends the browser to the chat host's `/connect/index/callback`; the host acts only for the
+  signed-in account whose browser arrived, rate limits it, and gives the code and the state to the connector's
+  `complete_connection` as that account. The connector takes the state once (`index_attempt`: the SHA-256 of the state, the PKCE
+  verifier sealed, one conditional UPDATE, the attempt's owner, open and unexpired), exchanges the code, and keeps the tokens.
+  A wrong state, a state used twice or by another person, a late sign-in and a refused one connect nothing; a code that Index
+  refuses ends the attempt and the card offers to try again. Chowdeck is linked on the same card: the person types the phone number
+  of their Chowdeck account and the code Index texts into the card, which sends them to `send_link_code` and `confirm_link_code`
+  and from there to Index's `connect_merchant`; neither is in a tool the model calls, a result it reads or a log, a card may
+  send at most six, and the link counts only when a read of Chowdeck's feed then succeeds. Disconnect (the card's button) forgets
+  the tokens, ends every open attempt of the person, and asks Index to revoke them where its metadata names a revocation endpoint.
+* **Tokens at rest.** Access and refresh tokens are sealed (`secretbox.py`: HMAC-SHA256 in counter mode, authenticated, standard
+  library only) with a key of the Worker's and a context that names the owner and the column, so a stored value is not the
+  token and opens for no other owner, column or key. A token is renewed a minute before it runs out and when Index answers 401
+  (it did not act); a refresh is claimed by one call at a time (a refresh token is good once) and the others wait for its result;
+  a refresh Index refuses ends the connection and tells the model to call `connect_account`; one that could not be tried (no
+  answer) leaves it. Every statement on a connection names the owner.
+* **The provider.** `index` lists Index's `browse_merchants` (read once an hour for everyone, with the asking person's token when
+  they are connected and with the token Index gives 234 itself for its public directory otherwise; the last list stands if neither
+  can be had), only `live` and `beta` merchants that 234 can buy from (Chowdeck, airtime by network, electricity by distribution
+  company; data bundles and Zap transfers are not offered), as `index:<Index's id>` with 234's own blurb (Index's is dropped when
+  the list is read) and every name cleaned like any third-party text. A merchant needs the person to connect first until they
+  have (and Chowdeck until they link it); a visitor is shown none. Offers: airtime and electricity are one offer paid for any
+  amount; Chowdeck's are its dishes (`v<restaurant>-i<dish>`; a dish's required choices are option groups). `check` is electricity's
+  phase 1 with the merchant's least amount; `price` runs Index's preview phases on the server and never sends `confirmed`:
+  airtime reads the Zap balance (Index has no preview of it), electricity validates the meter again with the real amount and
+  requires the holder to be the one the person confirmed, Chowdeck previews `order` (`needs_options` is a refusal naming the
+  options, `needs_confirmation` is the breakdown) for the dishes of one restaurant. The quote's lines are the model's dishes, its
+  fees and total are Index's own (delivery, any other charge), and the card shows them with whose money pays (`your Zap balance
+  at Paystack Index`) and what is left of it. An order that Zap does not cover, or Zap not linked, is not quoted.
+* **Funding is `external`.** The quote's details carry `funding: external`, `paidFrom`, `balanceAfterKobo` and the Index call as
+  previewed (`details.index`), which the approval's digest includes. The card offers Approve only (no wallet) and approves with
+  `funding: "external"`; a quote paid that way is approved that way and no other (`FUNDING_MISMATCH` both ways: the wallet or the
+  checkout cannot approve an Index quote, and no other quote can be approved as one, checked before the claim and again in the
+  claim's own WHERE). No wallet entry is made; the quote, the card and the receipt say so.
+* **Placing the order, once.** After the one approval, `index/fulfil.py` is the only place that sends `confirmed` (for airtime
+  the one `quick_buy` call is the charge). It checks that the person is still connected and, for a Chowdeck order, previews again
+  and refuses to charge if the total moved since the quote; then it writes a marker for the quote with one conditional UPDATE
+  (`indexSend`) and only then sends. A call that finds the marker asks where the order stands and never sends: a repeated
+  approval, a racing one, a crash between the send and the answer, the card's poll and the minute's sweep cannot charge twice.
+  What comes back is one of three outcomes: **delivered** (a prepaid token and a delivery PIN go on the receipt), **failed**
+  (Index refused: the quote ends `failed` with nothing charged and no refund owed, since 234 holds nothing), or **pending**
+  (no answer, an unknown status word, a payment Index has not finished): asked about again with `track_order` for Chowdeck and,
+  for airtime and electricity, which have none, with the person's Zap history for a debit of exactly the quote's amount since
+  the approval; found, delivered; not found an hour after the send, `failed` with the words "no matching debit".
+* **Limits.** Index's bounds (airtime ₦50 to ₦5,000, electricity ₦1,000 to ₦1,000,000; ₦100,000 for a food order is its published
+  cap) under 234's caps (₦5,000, ₦50,000 and ₦20,000 by default) are the merchant's limits, so an order outside them is refused
+  before Index is called; so are the per-payment and daily limits (an amount that is named is checked before the first Index
+  call; a food order's total is Index's, so the limits are checked on it).
+* **Who may.** Connecting and quoting are for signed-in accounts (`account_of_call`). A guest of a shared chat cannot press the
+  connect card or approve from the owner's Index account: the host refuses those card calls (`owners_alone`), as it refuses the
+  wallet's. A client that reaches `merchants` through the OAuth gateway is not an account of the chat host, so it is shown no
+  Index merchant.
+
+**Where the design was silent, or differs.**
+
+* The redirect lands on the chat host, not on the connectors: the host knows who is signed in and the connectors hold the
+  tokens, so the callback is the host's, acts for the browser's account, and passes the code over the service binding.
+* Index's answers are documented only in prose, so what 234 reads of them (`balance_kobo`, `zap_linked`, `needs_confirmation`,
+  `breakdown`, `payment_route`, `order_id`, `delivery_pin`, `token`, the Zap activity's `amount_kobo` and `created_at`) is looked
+  for under those names, in kobo or naira, at the top of the answer or in a section of it; an answer without what a caller needs
+  is refused and nothing is charged. **Every one of those names is a guess made from the tool descriptions until the owner runs
+  the real Index** (below).
+* A refusal the model reads never repeats Index's instruction to ask for a phone number: where Index says Chowdeck is not linked,
+  234 says to call `connect_account`, and stops treating Chowdeck as linked.
+* The approval card shows "Balance after", the Zap left, which the wallet card never shows: a guest of a shared chat can read it.
+  Without it the person could not see that Zap covers the order; the quote already refuses an order Zap cannot cover.
+* `quotes.details.index` keeps the arguments the order was previewed with (for Chowdeck the dishes' ids and the address words, for
+  electricity the meter), as every quote keeps what it was priced from.
+* `account_check` lost its foreign key to `merchant` (migration 0022 rebuilds the table), because an Index merchant is not a row of ours.
+* `find_items` lists a choice's name beside its id when the id does not say it (`9001:7002 (Large) +₦1,000`).
+
+**Not done, and what only the owner can check against the real Index.** The real Index's answers (the names above); whether its
+dynamic registration accepts 234's redirect and gives the client `client_credentials` (without it the directory fills only after
+the first person connects); that its ids for merchants map to the networks and companies 234 reads from their names (airtime,
+electricity); what `get_recent_activity(source="zap")` returns, which an ambiguous airtime or electricity order depends on;
+whether a Chowdeck total can change after the preview (Index's `amount_change_direction`), which 234 can only report; Index's real
+revocation; data bundles (their catalog needs a phone number first), Zap transfers and Index credits; Index merchants in a client
+that is not 234's own chat; and the connection listed under Connected apps (the card's Disconnect is the only way to end it).
+
 ## Build order
 
 1. This document, and the board (milestone "234 · Commerce"). **Done.**
@@ -238,7 +345,9 @@ options, fields, account checks, the model-facing lists and the third-party text
 3. **Bills on VTpass**: tv and electricity providers, the account check, receipts with a token, the evaluation
    cases (the DSTV case becomes a purchase).
 4. **Index as a per-user connector**: OAuth with registration, the connect card, the server-side phases, the
-   evaluation.
+   evaluation. **Built, simulated** (getlatentic/planning#679; "What is built for Index"),
+   and measured with `openai.gpt-oss-120b` on development cases (evaluation/RESULTS.md, "Index phase"). The real Index is
+   for the owner to check.
 5. **Directory merchants and payouts**: the dashboard, fulfilment, split payments (owner decisions first).
 6. **Interoperability**: the UCP profile, the ACP feed.
 7. **Fresh held-out cases** for commerce (the earlier splits have been run too often to be a clean test).

@@ -63,6 +63,11 @@ class TestTheConnectCard:
     def test_any_index_merchant_does_for_an_unnamed_one(self):
         assert scored("IDX-D25", turn([connect("index:mtn-airtime")], CARD_REPLY)).ok
 
+    def test_a_card_for_the_account_itself_does_for_an_unnamed_merchant_but_not_for_chowdeck(self):
+        account = merchants("connect_account", {}, OPENED)
+        assert scored("IDX-D25", turn([account], CARD_REPLY)).ok
+        assert not scored("IDX-D05", turn([account], CARD_REPLY)).ok
+
     def test_asking_for_a_code_a_password_or_a_number_in_the_chat_fails(self):
         for reply in (
             "Connect on the card. What is the code Index texts you?",

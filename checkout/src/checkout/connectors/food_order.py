@@ -132,6 +132,8 @@ def build_connector(ctx: Context, card_html: CardReader, menu_html: CardReader) 
             "search_menu",
             "Search the menu",
             f"Shows {RESTAURANT}'s menu (simulated merchant, not Chowdeck) to the person on a card, "
+            "only when no restaurant is named (Chowdeck and any restaurant they name are merchants: "
+            "browse_merchants), "
             'optionally filtered by words like "rice", "spicy" or "drink" and by a top price in naira. '
             "The person picks items on the card; you are told only how many match.",
             SearchMenu,

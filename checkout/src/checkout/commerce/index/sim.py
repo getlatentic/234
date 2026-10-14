@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""A Paystack Index that answers from local state: the OAuth server of its published metadata (dynamic client
-registration, the authorization code with PKCE S256, refresh with rotation, client credentials, optional
-revocation) and its MCP endpoint (Streamable HTTP, protocol 2025-03-26, server `paystack-index` 0.0.1) with the
-ten tools of its listing. It is a `Transport`, so 234's real client talks to it unchanged. The page where a
-person signs in is served by the Worker (sim_index_page.py), because a browser opens it. It contacts no one."""
+"""A Paystack Index that answers from local state: the OAuth server of its published metadata (dynamic
+client registration, the authorization code with PKCE S256, refresh with rotation, client credentials,
+optional revocation) and its MCP endpoint (Streamable HTTP, protocol 2025-03-26, server `paystack-index`
+0.0.1) with the ten tools of its listing. It is a `Transport`, so 234's real client talks to it
+unchanged. The page where a person signs in is served by the Worker (sim_index_page.py), because a
+browser opens it. It contacts no one."""
 
 import base64
 import json

@@ -120,7 +120,7 @@ class Settings:
     """`create_payment_quote` may pay any merchant the person names in words. Allowed only while Paystack,
     VTpass and Bachs are simulated or in a sandbox (`FREE_TEXT_MERCHANTS`, docs/commerce.md, rule 2)."""
     index: IndexSettings = field(default_factory=IndexSettings)
-    """Which Paystack Index a person's own account is connected to (`INDEX_MODE`, commerce/index/settings.py)."""
+    """Which Paystack Index a person's account is connected to (`INDEX_MODE`, commerce/index/settings.py)."""
 
     @classmethod
     def from_env(cls, read: Read) -> Settings:

@@ -146,7 +146,8 @@ class IndexAccounts:
         return await self._view(owner, card_id)
 
     async def disconnect(self, owner: str, card_id: str) -> dict:
-        """Forgets the person's tokens, asks Index to revoke them if it can, and ends every attempt of theirs."""
+        """Forgets the person's tokens, asks Index to revoke them if it can, and ends every attempt of
+        theirs."""
         await self._attempt(owner, card_id)
         connection = await self._store.connection(owner)
         revoked = False

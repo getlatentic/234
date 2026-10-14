@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Food from Chowdeck through Index (`find_items`, `order`). A search names restaurants and dishes; an order is
-for the dishes of one restaurant, and Index previews it in phases that charge nothing: `needs_options` (a dish
-has a required choice), then `needs_confirmation` with the breakdown (dishes, delivery, total, and what pays).
-234 quotes that breakdown, so the total is Index's own. Calling `order` again with `confirmed` places it, and
-only `fulfil.py` does that."""
+"""Food from Chowdeck through Index (`find_items`, `order`). A search names restaurants and dishes; an order
+is for the dishes of one restaurant, and Index previews it in phases that charge nothing: `needs_options`
+(a dish has a required choice), then `needs_confirmation` with the breakdown (dishes, delivery, total,
+and what pays). 234 quotes that breakdown, so the total is Index's own. Calling `order` again with
+`confirmed` places it, and only `fulfil.py` does that."""
 
 from collections.abc import Mapping
 from typing import Any
@@ -52,7 +52,8 @@ def _restaurant(merchant: Merchant, basket: Basket) -> int:
     if len(vendors) != 1 or any(ids_of(line.offer_id) is None for line in basket.lines):
         raise DomainError(
             "INVALID_INPUT",
-            f"{merchant.name} takes the dishes of one restaurant in an order. Pass offer_ids from find_items, "
+            f"{merchant.name} takes the dishes of one restaurant in an order. Pass offer_ids from "
+            f"find_items, "
             "all from the same restaurant.",
         )
     return vendors.pop()
@@ -86,7 +87,8 @@ def _needs_options(data: dict[str, Any]) -> DomainError:
                 if isinstance(o, dict)
             )
             wanted.append(
-                f"{words(str(dish.get('name', 'a dish')), 40)}, {words(str(group.get('name', '')), 30)}: {options}"
+                f"{words(str(dish.get('name', 'a dish')), 40)}, {words(str(group.get('name', '')), 30)}: "
+                f"{options}"
             )
     return DomainError(
         "OPTIONS_REQUIRED",

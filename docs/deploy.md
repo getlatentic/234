@@ -109,6 +109,13 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
   failed delivery is tried again, while the card updates by polling meanwhile.
   What stays public on the connectors is `/health` and the simulated checkout page `/sim/checkout/<reference>`,
   which a person opens from a card and which only moves simulated state. `/test/*` is off.
+- **Paystack Index is the simulated one** (`INDEX_MODE=simulated` in the public template): a signed-in person's Index account is
+  a simulated Index on the connectors' Worker (`/sim/index`, [commerce.md](commerce.md)), whose sign-in page is public like the
+  checkout's and moves only simulated state, and nothing reaches the real Index. Its redirect lands on the host's
+  `/connect/index/callback`. To try the real one, the owner sets `INDEX_MODE=live` as a variable of the connectors (with
+  `INDEX_MCP_URL` only to name another of Index's own addresses), has the host on an https `HOST_PUBLIC_URL`, and keeps the
+  `INDEX_TOKEN_KEY` the deploy made; the Worker refuses to start with `live` and no key, with an Index address that is not Index's,
+  or with a plain-http chat host. People's tokens are sealed in D1 with that key, so rotating it makes them connect again.
 - **Model spend is capped:** 300 calls a day for everyone, 30 for each visitor (D1 counters, one conditional
   `UPDATE` each), 12 messages a minute per visitor per Cloudflare location, 500 characters a message. A call can be
   long, so the day's **tokens** are capped too: 2,500,000 for everyone and 250,000 for each visitor or account
@@ -178,6 +185,7 @@ within seconds and needs no redeploy. To try it: open the host address, start a 
 | `CHECKOUT_MCP_TOKEN` and `MCP_ACCESS_TOKEN` | host and connectors | the bearer token between them (one value) | `tools/deploy.sh rotate token` |
 | `SANDBOX_SIGNING_KEY` (host) and `SIGNING_KEY` (sandbox), one value | host and sandbox | the host signs the policy of each card's view; the sandbox serves a view only under a signed policy | `tools/deploy.sh rotate SANDBOX_SIGNING_KEY` (sets both; no upload needed, cards open correctly from the next page load) |
 | `APPROVAL_SECRET` | connectors | signs approval tokens | `tools/deploy.sh rotate APPROVAL_SECRET` (quotes waiting for approval stop working) |
+| `INDEX_TOKEN_KEY` | connectors | seals the Paystack Index tokens people connected, in D1 (`checkout/src/checkout/commerce/index/secretbox.py`); made once, with `APPROVAL_SECRET`, by a deploy that finds none | `tools/deploy.sh rotate INDEX_TOKEN_KEY` (every stored token stops opening: people connect their Index accounts again) |
 | `OPS_TOKEN` | connectors, only when operators correct wallets | the operators' bearer for `POST /ops/wallet/adjust` ([wallet.md](wallet.md)); unset, every `/ops/` call is answered 404 | the owner sets it, and sets it again to rotate it: `tools/deploy.sh secret connectors OPS_TOKEN < value` (a deploy never makes it, since operators must know it) |
 | `ACCOUNT_KEY` | host, only when sign-in is on | the key of a signed-in person's owner (an HMAC of their Firebase uid) | never: a new key would leave every account's chats under owners nobody can derive. Rotating `DJANGO_SECRET_KEY` signs everyone out but keeps their chats |
 

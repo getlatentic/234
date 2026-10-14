@@ -20,7 +20,8 @@ LAGOS_OFFSET_S = 3600
 DEBITS = ("debit", "out", "outflow", "spend")
 ACTIVITY = ("transactions", "activity", "entries", "items")
 NO_CHARGE = (
-    "Paystack Index never confirmed this order and no matching debit is in the person's Zap history, so as far "
+    "Paystack Index never confirmed this order and no matching debit is in the person's Zap history, so as "
+    "far "
     "as 234 can see nothing was charged. If their Zap shows a charge for it, they should tell Index."
 )
 WAITING = (

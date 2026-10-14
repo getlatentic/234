@@ -124,9 +124,9 @@ class MerchantsFlow(CardFlow):
         return await self.verify(quote_id)
 
     async def _assert_funding_is_the_quotes(self, quote_id: str, funding: str) -> None:
-        """A quote paid from the person's own account at the provider is approved as that and no other way, and
-        no other quote is: otherwise the wallet or the checkout could be charged for an order the provider also
-        charges, or the provider asked to place an order nobody paid for."""
+        """A quote paid from the person's own account at the provider is approved as that and no other way,
+        and no other quote is: otherwise the wallet or the checkout could be charged for an order the
+        provider also charges, or the provider asked to place an order nobody paid for."""
         quote = await self.ctx.ledger.require(quote_id, self.connector)
         if (funding == "external") != is_external(quote):
             audit_why = "external" if is_external(quote) else funding
