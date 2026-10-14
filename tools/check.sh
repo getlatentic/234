@@ -87,7 +87,7 @@ export CHECKOUT_URL=http://localhost:8900 HOST_URL=http://localhost:8901 MODEL_U
 inside checkout 300 uv run pytest -m worker -q
 limit 300 node "$root/conformance/connectors-ts-client.mjs"
 limit 300 node "$root/conformance/memory-ts-client.mjs"
-for connector in paystack-pay send-money airtime food-order memory; do
+for connector in paystack-pay send-money airtime food-order merchants memory; do
   replay=()
   [ -f "$root/ready/fixtures/$connector.json" ] && replay=(--fixture "$root/ready/fixtures/$connector.json")
   limit 120 node "$root/ready/cli.mjs" "$CHECKOUT_URL/$connector/mcp" ${replay[@]+"${replay[@]}"}

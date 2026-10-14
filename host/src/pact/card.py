@@ -17,6 +17,7 @@ SKILLS = {
     "airtime": ("airtime", "Airtime and data", "Buy airtime or a data plan for a Nigerian phone number."),
     "send-money": ("transfers", "Send money", "Send naira to a Nigerian bank account."),
     "food-order": ("food", "Order food", "Order from a restaurant's menu, delivered in Lagos."),
+    "merchants": ("merchants", "Buy from merchants", "Buy from a shop or service of 234's directory."),
     "paystack-pay": ("payments", "Pay a merchant", "Pay a merchant for something the person bought."),
 }
 

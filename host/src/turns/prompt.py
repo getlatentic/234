@@ -34,6 +34,10 @@ CAPABILITIES = {
         "food needs only a dish: call search_menu with it straight away, "
         "never quote food yourself, the menu card takes the order",
     ),
+    "merchants": Capability(
+        "buy from a listed shop or service",
+        "a shop or service needs a merchant that browse_merchants lists; never invent one",
+    ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",
         "a request for one of those companies goes to it with message_brand, in the person's words; report "

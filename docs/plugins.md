@@ -9,7 +9,7 @@ Any MCP client can use 234's connectors: Claude, ChatGPT, Cursor, VS Code, or yo
 | File | What it holds |
 |---|---|
 | `plugin.json` | The manifest: name `234`, version, licence |
-| `mcp.json` | Five Streamable HTTP servers at `https://234.getlatentic.com/mcp/<connector>`: `airtime`, `send-money`, `food-order`, `paystack-pay`, `memory` |
+| `mcp.json` | Six Streamable HTTP servers at `https://234.getlatentic.com/mcp/<connector>`: `airtime`, `send-money`, `food-order`, `merchants`, `paystack-pay`, `memory` |
 | `skills/pay-with-234/SKILL.md` | How an agent quotes, hands the person the card and reports the outcome |
 
 The package holds no secret. Each server asks the client to sign in the first time it is used.

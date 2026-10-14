@@ -31,7 +31,7 @@ def test_the_prompt_talks_about_anything_but_does_only_its_tasks_and_says_what_e
     assert "Talk about anything" in prompt and "can only" not in prompt
     assert "when asked to do something you cannot do, say so in one sentence" in prompt
     assert "two short sentences" in prompt
-    assert len(prompt) < 2700
+    assert len(prompt) < 2750
 
 
 def test_the_prompt_answers_only_from_what_it_knows_and_gives_no_personal_advice():
@@ -116,7 +116,7 @@ def test_a_signed_in_person_is_told_how_to_use_and_add_notes():
         "use what you find naturally without listing it",
     ):
         assert rule in prompt, rule
-    assert len(prompt) < 3400
+    assert len(prompt) < 3550
 
 
 def test_memory_is_not_promised_when_the_memory_connector_is_off():

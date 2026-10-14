@@ -7,7 +7,8 @@ tool results it is given, so the host, the connectors and the cards can be exerc
 call it makes has an id of its own, as a real model's do.
 "airtime <amount> to <number> on <network>" asks for an airtime quote; "my wallet" shows the wallet card
 (scripted_wallet.py).
-"status of <quote id>" asks for that quote's status.
+"status of <quote id>" asks for that quote's status. What it does with the merchants connector (listing shops,
+making a basket's quote, a checked water bill) is in scripted_merchants.py.
 "reuse key: <request>" (with an airtime or pay request) sends the same idempotency key every time, as a model
 that is not told better does; "twice: <request>" makes the same call twice in one reply.
 "echo: <text>" answers with exactly <text> (`\\n` for a newline): a reply of any shape, Markdown included.
@@ -35,6 +36,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import scripted_brands
 import scripted_intents
 import scripted_memory
+import scripted_merchants
 import scripted_recall
 import scripted_research
 import scripted_summary
@@ -85,6 +87,8 @@ def answer(messages: list[dict], tools: list[dict] | None = None) -> dict:
         return researched
     if wallet := scripted_wallet.answer(messages, tools or []):
         return wallet
+    if shops := scripted_merchants.answer(messages, tools or []):
+        return shops
     return scripted_intents.answer(messages, tools or []) or _answer(messages, tools or [])
 
 

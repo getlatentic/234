@@ -1,0 +1,1 @@
+{ "calls": [{ "tool": "create_quote", "args": { "merchant_id": "mama-put-yaba", "lines": [{ "offer_id": "zobo", "quantity": 2 }], "fields": { "area": "Yaba" }, "idempotency_key": "ready-replay-0005" } }] }

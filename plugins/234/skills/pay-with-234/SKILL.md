@@ -1,6 +1,6 @@
 ---
 name: pay-with-234
-description: Buy airtime or data, send money to a Nigerian bank account, order food or pay a merchant with the 234 MCP servers. Use when a person in Nigeria asks to top up a phone, transfer naira, order food or pay for something.
+description: Buy airtime or data, send money to a Nigerian bank account, order food, buy from a listed shop or service, or pay a merchant with the 234 MCP servers. Use when a person in Nigeria asks to top up a phone, transfer naira, order food, buy from a shop or pay for something.
 license: AGPL-3.0-or-later
 ---
 
@@ -12,10 +12,11 @@ Money moves only after the person approves it on the card. You cannot approve a 
 
 1. Get what the request needs: the network and phone number, the bank and account number, the menu items, or the merchant and amount. Ask for anything that is missing. Never guess a bank, a number or an amount.
 2. Make one quote with the matching tool: `create_airtime_quote`, `create_data_quote` (plan codes come from `list_data_plans`), `create_transfer_quote`, `create_food_quote` (items come from `search_menu`) or `create_payment_quote`.
+   - For a shop or service, the `234-merchants` server: `browse_merchants` lists the merchants, `find_items` their offers and prices, and `check_account` the holder of an account (a customer number) for the person to confirm. Then `create_quote` takes the merchant, offer ids and counts and no price; only an offer paid for any amount takes `amount_kobo`. A merchant that is not listed cannot be paid.
    - Give `amount_kobo` (100 kobo is 1 naira) and, in `amount_as_user_said`, the amount exactly as the person said it.
    - Use a new `idempotency_key` for each new request. Use the same key again only to retry the same request.
 3. The quote shows a card. Tell the person to check it and press Approve or Decline. Do not repeat the card's details in your reply.
-4. After the person uses the card, call `get_quote_status`. Report only what it says. Never say a payment happened until the status is `succeeded`.
+4. After the person uses the card, call `get_quote_status` (`track_order` on `234-merchants`). Report only what it says. Never say a payment happened until the status is `succeeded`.
 
 ## When a quote is refused
 
