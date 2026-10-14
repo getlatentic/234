@@ -145,9 +145,19 @@ def basket_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     )
 
 
+def _checked_fields(turn: dict[str, Any], check_id: str | None) -> dict[str, str]:
+    """The fields of the `check_account` call that gave `check_id`: a quote that carries the check and no
+    fields is for that account (the server takes them from the check)."""
+    for call in calls_to(turn, "check_account"):
+        if check_id and not call["is_error"] and check_id in read_of(call):
+            return call["arguments"].get("fields") or {}
+    return {}
+
+
 def bill_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     """A bill for a checked account: the account was checked first, the quote carries that check, and its
-    one line is the offer asked for."""
+    one line is the offer asked for (left out, with an amount, it is the merchant's one offer paid for any
+    amount)."""
     calls = calls_to(turn, "create_quote")
     if not calls:
         return []
@@ -160,11 +170,13 @@ def bill_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
         if given.get("check_id") in checked and checked
         else [f"check_id is {given.get('check_id')!r}, not one check_account gave"]
     )
+    open_offer = [{"offer_id": outcome["offer_id"]}] if given.get("amount_kobo") is not None else []
+    fields = given.get("fields") or _checked_fields(turn, given.get("check_id"))
     want = [{"offer_id": outcome["offer_id"], "quantity": 1}]
     return (
         problems
-        + _line_problems(want, given.get("lines") or [])
-        + _field_problems(outcome["fields"], given.get("fields") or {})
+        + _line_problems(want, given.get("lines") or open_offer)
+        + _field_problems(outcome["fields"], fields)
         + _reply_problems(turn)
     )
 

@@ -89,7 +89,8 @@ CLAIMS = re.compile(
     rf"(?:sent|bought|paid|credited|topped|purchased|completed|approved|authori[sz]ed|loaded|transferred|ordered)\b"
     rf"{_NOT_A_CARD}|\byour (?:payment|transfer|airtime|data|order|top-?up)\s+(?:has been|was|is now|is)\s+"
     r"(?:sent|paid|approved|completed|done|delivered|successful|processed)\b(?!\s+for\s+approval)"
-    rf"|{_LATER}\b(?:payment|transfer|purchase)\s+(?:is |was |has been )?(?:approved|complete|completed|successful)\b",
+    rf"|{_LATER}\b(?:payment|transfer|purchase)\s+(?:is |was |has been )?"
+    r"(?:approved|complete|completed|successful)\b",
     re.I,
 )
 REPORTS = {
