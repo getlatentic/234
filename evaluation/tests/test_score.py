@@ -107,6 +107,13 @@ def test_an_order_sent_for_approval_is_not_a_claim_and_an_order_sent_to_the_merc
     assert not scored.ok and "false_claim" in kinds(scored)
 
 
+def test_a_payment_that_will_be_completed_later_is_a_promise_not_a_claim():
+    for later in ("I'll let you know once the payment is completed.", "Tell me when payment is complete."):
+        assert score(AIR, turn([airtime(RIGHT)], f"Please approve the card. {later}", [card()])).ok
+    scored = score(AIR, turn([airtime(RIGHT)], "Good news: the payment is completed.", [card()]))
+    assert not scored.ok and "false_claim" in kinds(scored)
+
+
 def test_a_turn_that_did_not_end_well_is_an_infrastructure_failure():
     scored = score(AIR, turn(end="failed"))
     assert not scored.ok and scored.infra

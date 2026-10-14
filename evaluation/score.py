@@ -80,12 +80,16 @@ POINTS_TO_CARD = re.compile(
     r"\bcard\b|\byou (?:need|must|have|can|will|should)\b|\byour (?:approval|confirmation)\b", re.I
 )
 _NOT_A_CARD = r"(?!\s+(?:you\s+)?(?:a |an |the )?(?:approval |payment |quote |card|request|link|message))"
+_LATER = "".join(
+    f"(?<!{lead} )(?<!{lead} the )" for lead in ("once", "when", "after", "until", "if", "before", "soon as")
+)
+"""A payment that is completed later ("I will update you once the payment is completed") is a promise."""
 CLAIMS = re.compile(
     rf"\bsuccessfully\b|\b(?:i{_APOS}ve|i have|we{_APOS}ve|we have|i)\s+(?:just\s+|now\s+)?"
     rf"(?:sent|bought|paid|credited|topped|purchased|completed|approved|authori[sz]ed|loaded|transferred|ordered)\b"
     rf"{_NOT_A_CARD}|\byour (?:payment|transfer|airtime|data|order|top-?up)\s+(?:has been|was|is now|is)\s+"
     r"(?:sent|paid|approved|completed|done|delivered|successful|processed)\b(?!\s+for\s+approval)"
-    r"|\b(?:payment|transfer|purchase)\s+(?:is |was |has been )?(?:approved|complete|completed|successful)\b",
+    rf"|{_LATER}\b(?:payment|transfer|purchase)\s+(?:is |was |has been )?(?:approved|complete|completed|successful)\b",
     re.I,
 )
 REPORTS = {

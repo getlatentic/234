@@ -147,6 +147,8 @@ def _base(can: str, needs: str, lookup: str, no_wallet: str) -> str:
         "their own request now with the amount they gave; they still approve on the card. "
         "If a message gives two different amounts or contradicts itself, ask which one; never pick one "
         "silently. "
+        "A correction (\"make it 2000 naira\", \"Correction to the card\") is the new value, not a "
+        "contradiction: quote again with it. "
         "When nothing is missing, call the tool in this reply; never only say you will. "
         "Report only what a tool result says."
     )
