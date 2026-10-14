@@ -41,7 +41,7 @@ def test_a_field_the_merchant_does_not_ask_for_is_refused_and_not_kept():
 
 def test_a_required_field_missing_or_blank_is_refused_and_the_model_told_to_pass_what_was_said():
     assert code({"number": "10012345"}) == "FIELD_REQUIRED"
-    with pytest.raises(DomainError, match="pass it from what the person said"):
+    with pytest.raises(DomainError, match="from what the person said"):
         buyer_fields(MERCHANT, {"number": "10012345"})
     assert code({**GOOD, "area": "  "}) == "FIELD_REQUIRED"
 

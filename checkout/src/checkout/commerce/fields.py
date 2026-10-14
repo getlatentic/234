@@ -66,8 +66,9 @@ def buyer_fields(merchant: Merchant, given: Mapping[str, str]) -> tuple[tuple[st
                 options = f", one of {', '.join(spec.options)}" if spec.options else ""
                 raise DomainError(
                     "FIELD_REQUIRED",
-                    f"{merchant.name} needs {spec.label} ({spec.name}{options}): pass it from what the "
-                    "person said, or ask for it if they gave none.",
+                    f"{merchant.name} needs {spec.label} ({spec.name}{options}): pass it in fields from "
+                    "what the person said, even in passing (a meter they called prepaid is prepaid); ask "
+                    "for it only if they gave none.",
                 )
             continue
         read.append((spec.name, spec.label, _read(spec, str(value))))

@@ -31,14 +31,15 @@ CAPABILITIES = {
     ),
     "food-order": Capability(
         "order food for delivery in Lagos",
-        "food needs only a dish: call search_menu with it straight away unless they name Chowdeck, "
-        "never quote food yourself, the menu card takes the order",
+        "food needs only a dish: call search_menu with it straight away unless they name Chowdeck or a "
+        "restaurant (a merchant), never quote food yourself, the menu card takes the order",
     ),
     "merchants": Capability(
-        "buy from a listed shop or service",
-        "a shop or service needs a merchant from the merchant list; never invent one; Index, Zap or Chowdeck "
-        "payments, airtime and food too, use these tools; call connect_account in the same reply if they "
-        "must connect",
+        "buy from a listed shop or service, or with the person's own Paystack Index account",
+        "a shop or service needs a merchant from the merchant list; never invent one; what they ask to pay "
+        "through Paystack Index, Zap or Chowdeck, airtime and food too, goes through the merchants tools, "
+        "not the airtime or food ones; call connect_account in the same reply if it needs them to connect "
+        "(they do it on the card, never in the chat)",
     ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",
