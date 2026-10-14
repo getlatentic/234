@@ -154,11 +154,17 @@ MUTATIONS: list[Mutation] = [
         TEXT,
     ),
     Mutation(
-        "commerce words: the list the model reads says the names are data",
+        "commerce words: the list of merchants the model reads says the names are data",
         f"{COMMERCE}/listing.py",
-        '        [NOTICE, "id | name | category | status | when to choose it", '
-        "*map(merchant_line, shown), *tail]",
-        '        ["id | name | category | status | when to choose it", *map(merchant_line, shown), *tail]',
+        '    return "\\n".join([NOTICE, *none, *table,',
+        '    return "\\n".join([*none, *table,',
+        TEXT,
+    ),
+    Mutation(
+        "commerce words: the list of offers the model reads says the names are data",
+        f"{COMMERCE}/listing.py",
+        "    lines = [NOTICE, head,",
+        "    lines = [head,",
         TEXT,
     ),
     Mutation(

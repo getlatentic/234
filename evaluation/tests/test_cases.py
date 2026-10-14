@@ -65,7 +65,7 @@ def test_the_dev_cases_cover_every_outcome_kind_and_the_daily_limit_setup():
 
 def test_the_commerce_dev_cases_ask_for_every_commerce_outcome_and_need_the_eval_merchant():
     cases = [c for c in load_cases() if c.split == "commerce-dev"]
-    assert len(cases) == 18 and not any(c.account or c.wallet_kobo or c.approved_kobo for c in cases)
+    assert len(cases) == 19 and not any(c.account or c.wallet_kobo or c.approved_kobo for c in cases)
     kinds = {o["kind"] for c in cases for t in c.turns for o in t.expect}
     assert kinds == {"merchants_listed", "items_listed", "basket", "bill", "not_listed", "over_limit", "ask"}
     quick = [c for c in cases if "Quick Mart" in c.turns[0].say]

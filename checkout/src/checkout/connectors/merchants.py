@@ -36,7 +36,9 @@ Fields = Annotated[
 
 
 class BrowseMerchants(Strict):
-    category: Annotated[Category | None, Field(description="Only this category.")] = None
+    category: Annotated[
+        Category | None, Field(description="Only this category; leave it out when a shop is named.")
+    ] = None
 
 
 class FindItems(Strict):
@@ -105,13 +107,11 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
     kit = CardConnector(NAME, "Merchants", ctx, flow, card_html, status_name=STATUS_TOOL)
 
     async def browse(args: BrowseMerchants) -> ToolResult:
-        found = await providers.merchants(args.category)
-        if not found:
-            return _text(
-                f"No merchants are listed{f' in {args.category}' if args.category else ''}.", merchants=[]
-            )
+        everyone = await providers.merchants()
+        found = [m for m in everyone if args.category in (None, m.category)]
+        elsewhere = [m for m in everyone if m not in found]
         listed = [{"id": m.id, "name": m.name, "category": m.category, "status": m.status} for m in found]
-        return _text(merchant_listing(found), merchants=listed)
+        return _text(merchant_listing(found, elsewhere, args.category), merchants=listed)
 
     async def find(args: FindItems) -> ToolResult:
         merchant = await providers.merchant(args.merchant_id)
@@ -159,9 +159,9 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
             "browse_merchants",
             "Browse merchants",
             "Lists the shops and services 234 can buy from: id, name, category, status and one line on when "
-            "to choose it. Call it when the person wants to buy from a business or pay a bill that is not "
-            "airtime, data, a bank transfer or a restaurant menu. A business it does not list cannot be "
-            "paid.",
+            "to choose it. Call it when the person asks what or where they can buy, or names a shop or "
+            "service, that is not airtime, data, a bank transfer or a restaurant menu. A business it does "
+            "not list cannot be paid.",
             BrowseMerchants,
             browse,
         ),
@@ -169,7 +169,8 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
             "find_items",
             "Find items",
             "Lists what one merchant sells with the server's prices, and the details its quote needs (a "
-            "delivery area, a card number). Filter by words or one offer_id. You cannot set a price.",
+            "delivery area, a card number). Call it to answer what a merchant sells or what something "
+            "costs there, and before a quote. Filter by words or one offer_id. You cannot set a price.",
             FindItems,
             find,
         ),

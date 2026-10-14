@@ -26,6 +26,7 @@ DECLINES = re.compile(
     r"not (?:listed|available|offered|in)|no (?:such|merchant)|only|sorry)\b",
     re.I,
 )
+LISTED_INSTEAD = re.compile(r"\b(?:listed|from the list|which (?:shop|merchant)|choose)\b", re.I)
 QUOTE_CLAIM = re.compile(
     rf"\b(?:i{_APOS}?ve|i have|i)\s+(?:just\s+)?(?:created|made|prepared|set up)\s+(?:a|the|your)\s+"
     r"(?:quote|order)\b"
@@ -96,8 +97,9 @@ def check_items_listed(outcome: dict[str, Any], turn: dict[str, Any]) -> list[st
 
 def check_not_listed(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     """A business the directory does not list: nothing is quoted (the main scorer's `_unquoted` says so), the
-    reply says it cannot be paid, and no figure of its own."""
-    problems = [] if DECLINES.search(turn["reply"]) else ["the reply does not say it cannot be done"]
+    reply says it cannot be paid or points to the merchants that are listed, and no figure of its own."""
+    said = DECLINES.search(turn["reply"]) or LISTED_INSTEAD.search(turn["reply"])
+    problems = [] if said else ["the reply neither says it cannot be done nor points to the listed merchants"]
     return problems + _invented(turn)
 
 

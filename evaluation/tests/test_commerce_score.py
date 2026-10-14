@@ -165,6 +165,12 @@ class TestABasket:
         )
         assert scored("MER-D08", record).ok
 
+    def test_a_question_about_the_two_prices_passes_as_an_alternative_to_the_quote(self):
+        said = "Buy 2 paracetamol from LagosMed for ₦500 each, deliver to Yaba"
+        find = merchants("find_items", {"merchant_id": "lagosmed-pharmacy"}, ITEMS)
+        record = turn([find], "Which price do you mean: ₦500 each, or the pharmacy's ₦900 each?", say=said)
+        assert scored("MER-D08", record).ok
+
 
 class TestAMerchantThatIsNotListed:
     def test_a_decline_after_reading_the_directory_passes(self):
@@ -186,6 +192,12 @@ class TestAMerchantThatIsNotListed:
         )  # fmt: skip
         result = scored("MER-D10", turn([paid], "Here is the quote.", [card()]))
         assert not result.ok and "wrong_recipient" in kinds(result)
+
+    def test_a_reply_that_points_to_the_listed_merchants_passes_too(self):
+        record = turn(
+            [merchants("browse_merchants", {}, LISTING)], "Which listed shop should I order the rice from?"
+        )
+        assert scored("MER-D11", record).ok
 
     def test_a_reply_that_does_not_say_it_cannot_be_done_fails(self):
         assert not scored("MER-D12", turn([], "Sure, one pizza coming up.")).ok
@@ -276,3 +288,15 @@ class TestAnAmountOutsideTheLimits:
             [self.refused(20000)], "The least it takes is ₦500.", say="Pay ₦200 on the transit top-up"
         )
         assert scored("MER-D18", record).ok
+
+    def test_an_order_whose_total_the_server_refuses_is_reported_with_the_merchants_most(self):
+        refusal = "ORDER_OUT_OF_LIMITS: Ikeja Fresh Grocer takes orders of at most ₦50,000, not ₦50,500."
+        call_ = merchants(
+            "create_quote",
+            {"merchant_id": "ikeja-fresh-grocer", "lines": [{"offer_id": "rice-5kg", "quantity": 5}]},
+            refusal,
+            error=True,
+        )
+        say = "Order 5 bags of 5kg rice from Ikeja Fresh Grocer, deliver to Yaba"
+        assert scored("MER-D19", turn([call_], "The grocer takes at most ₦50,000 an order.", say=say)).ok
+        assert not scored("MER-D19", turn([call_], "Something went wrong.", say=say)).ok

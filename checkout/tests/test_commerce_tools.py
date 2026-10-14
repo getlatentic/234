@@ -86,12 +86,26 @@ class TestBrowsing:
         for merchant_id in (MAMA, PHARMACY, GROCER, WATER):
             assert merchant_id in text
 
-    async def test_a_category_narrows_the_listing_and_an_unknown_one_is_not_a_category(self, stack):
+    async def test_a_category_lists_its_merchants_and_names_the_others_after_them(self, stack):
         text = await read(stack, "browse_merchants", category="health")
-        assert PHARMACY in text and MAMA not in text
+        rows = [line.split(" | ")[0] for line in text.splitlines() if " | " in line]
+        assert rows[1:2] == [PHARMACY] and MAMA not in rows[:2]
+        assert (
+            f"Also listed, in other categories: {GROCER} | Ikeja Fresh Grocer (simulated) | grocery" in text
+        )
+        assert (
+            f"{MAMA} | Mama Put Yaba (simulated) | food" in text
+            and PHARMACY not in text.split("Also listed")[1]
+        )
+
+    async def test_a_category_with_no_merchant_says_so_and_still_names_every_merchant(self, stack):
+        text = await read(stack, "browse_merchants", category="tv")
+        assert "No merchants are listed in tv." in text and "id | name | category | status" not in text
+        assert all(merchant_id in text for merchant_id in (PHARMACY, MAMA, GROCER, WATER))
+
+    async def test_an_unknown_category_is_not_a_category(self, stack):
         bad = await stack.call("merchants", "browse_merchants", category="weapons")
         assert bad["isError"] is True
-        assert "No merchants are listed in tv" in await read(stack, "browse_merchants", category="tv")
 
     async def test_a_merchant_that_cannot_be_quoted_says_so_in_its_line(self, stack):
         await add_merchant(stack, "soon", status="coming_soon", name="Soon Shop")
@@ -122,6 +136,7 @@ class TestFindingItems:
         assert "beef-suya" in text and "jollof" not in text
         one = await read(stack, "find_items", merchant_id=MAMA, offer_id="zobo")
         assert "zobo | Zobo, 500ml | ₦800" in one and "chapman" not in one
+        assert one.splitlines()[-1].startswith("If the person wants to buy, call create_quote now")
         assert "No offers of Mama Put Yaba (simulated) match" in await read(
             stack, "find_items", merchant_id=MAMA, query="pizza"
         )

@@ -36,7 +36,7 @@ CAPABILITIES = {
     ),
     "merchants": Capability(
         "buy from a listed shop or service",
-        "a shop or service needs a merchant that browse_merchants lists; never invent one",
+        "a shop or service needs a merchant from the merchant list; never invent one",
     ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",

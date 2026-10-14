@@ -7,6 +7,10 @@ from ..money import format_naira
 from .model import Merchant, Offer, OptionGroup
 from .text import NOTICE
 
+BUY_NEXT = (
+    "If the person wants to buy, call create_quote now with the merchant_id, offer_ids, counts and those "
+    "fields."
+)
 SHOWN_MERCHANTS = 20
 SHOWN_OFFERS = 15
 
@@ -29,13 +33,19 @@ def merchant_line(merchant: Merchant) -> str:
     )
 
 
-def merchant_listing(merchants: list[Merchant]) -> str:
+def merchant_listing(
+    merchants: list[Merchant], elsewhere: list[Merchant] | None = None, category: str | None = None
+) -> str:
+    """The merchants of the category asked for, and the names of the others, so a wrong guess of the
+    category does not hide a merchant."""
     shown = merchants[:SHOWN_MERCHANTS]
     more = len(merchants) - len(shown)
     tail = [f"{more} more: narrow with a category."] if more > 0 else []
-    return "\n".join(
-        [NOTICE, "id | name | category | status | when to choose it", *map(merchant_line, shown), *tail]
-    )
+    others = [f"{m.id} | {m.name} | {m.category}" for m in elsewhere or []]
+    other = [f"Also listed, in other categories: {'; '.join(others)}."] if others else []
+    none = [f"No merchants are listed in {category}."] if category and not merchants else []
+    table = ["id | name | category | status | when to choose it"] if merchants else []
+    return "\n".join([NOTICE, *none, *table, *map(merchant_line, shown), *tail, *other])
 
 
 def _price(offer: Offer, merchant: Merchant) -> str:
@@ -90,4 +100,5 @@ def offer_listing(merchant: Merchant, offers: list[Offer]) -> str:
         f"{format_naira(merchant.max_kobo)}.{fee} {_asks(merchant)}"
     )
     tail = [f"{more} more: narrow with a query."] if more > 0 else []
-    return "\n".join([NOTICE, head, "id | name | price", *(offer_line(o, merchant) for o in shown), *tail])
+    lines = [NOTICE, head, "id | name | price", *(offer_line(o, merchant) for o in shown), *tail]
+    return "\n".join([*lines, BUY_NEXT])
