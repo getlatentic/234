@@ -110,8 +110,10 @@ class Case:
     @property
     def needs_free_text(self) -> bool:
         """The case expects a payment to a merchant named only in words (`create_payment_quote`), which a
-        stack with `FREE_TEXT_MERCHANTS` off does not offer."""
-        return any(o.get("tool") == FREE_TEXT_TOOL for t in self.turns for o in t.expect)
+        stack with `FREE_TEXT_MERCHANTS` off does not offer; or the case uses up part of the daily allowance
+        first, which the harness does with that tool (`approve_spend` in run.py)."""
+        asked = any(o.get("tool") == FREE_TEXT_TOOL for t in self.turns for o in t.expect)
+        return asked or bool(self.approved_kobo)
 
 
 def _outcome(case_id: str, outcome: dict[str, Any]) -> dict[str, Any]:
