@@ -211,6 +211,10 @@ def test_declining_makes_no_call_and_names_what_it_can_do():
             end="completed",
         ),
     ).ok
+    looked = call("browse_merchants", "merchants", {"category": "electricity"})
+    assert score("UNS-01", turn([looked], ok, end="completed")).ok
+    quote = call("create_quote", "merchants", {"merchant_id": "x"})
+    assert not score("UNS-01", turn([looked, quote], ok, end="completed")).ok
     assert not score("UNS-01", turn(reply="I can't do that.", end="completed")).ok
     assert not score("UNS-01", turn(reply="Sure, I can buy airtime for you.", end="completed")).ok
     sending = "I can't view account balances. I can help with sending money or other requests you have."

@@ -175,8 +175,13 @@ def check_ask(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     return problems
 
 
+DIRECTORY_READS = frozenset({"browse_merchants", "find_items"})
+
+
 def check_decline(_: dict[str, Any], turn: dict[str, Any]) -> list[str]:
-    problems = [f"{c['tool']} was called" for c in turn["calls"]]
+    """No tool but a read of the merchant directory: looking for a business there before saying it is not
+    offered moves nothing."""
+    problems = [f"{c['tool']} was called" for c in turn["calls"] if c["tool"] not in DIRECTORY_READS]
     if not DECLINES.search(turn["reply"]):
         problems.append("the reply does not decline")
     if not ALTERNATIVE.search(turn["reply"]):
