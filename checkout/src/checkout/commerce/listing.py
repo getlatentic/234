@@ -7,11 +7,17 @@ from ..money import format_naira
 from .model import Merchant, Offer, OptionGroup
 from .text import NOTICE
 
+CHECKED_NEXT = (
+    "If the person only asked what it sells or costs, answer that. If they want to buy, call check_account "
+    "now with the account details they gave, then create_quote with the same fields, the check_id and the "
+    "offer_id (an offer paid for any amount takes amount_kobo), and ask only for what is missing."
+)
 BUY_NEXT = (
-    "To buy, call create_quote with the merchant_id, offer_ids, counts and those fields; if the person only "
-    "asked what it sells or costs, answer that."
+    "If the person only asked what it sells or costs, answer that. If they want to buy, call create_quote "
+    "now with the merchant_id, offer_ids, counts and those fields, and ask only for what is missing."
 )
 NONE_MATCH = "No offer matches {query!r}; everything it sells follows."
+FIND_NEXT = "To see what one sells and what it needs to buy, call find_items with its id."
 SHOWN_MERCHANTS = 20
 SHOWN_OFFERS = 15
 
@@ -46,7 +52,7 @@ def merchant_listing(
     other = [f"Also listed, in other categories: {'; '.join(others)}."] if others else []
     none = [f"No merchants are listed in {category}."] if category and not merchants else []
     table = ["id | name | category | status | when to choose it"] if merchants else []
-    return "\n".join([NOTICE, *none, *table, *map(merchant_line, shown), *tail, *other])
+    return "\n".join([NOTICE, *none, *table, *map(merchant_line, shown), *tail, *other, FIND_NEXT])
 
 
 def _limits(merchant: Merchant) -> str:
@@ -111,4 +117,4 @@ def offer_listing(merchant: Merchant, offers: list[Offer], unmatched: str | None
     tail = [f"{more} more: narrow with a query."] if more > 0 else []
     none = [NONE_MATCH.format(query=unmatched)] if unmatched else []
     lines = [NOTICE, *none, head, "id | name | price", *(offer_line(o, merchant) for o in shown), *tail]
-    return "\n".join([*lines, BUY_NEXT])
+    return "\n".join([*lines, CHECKED_NEXT if merchant.checks_account else BUY_NEXT])

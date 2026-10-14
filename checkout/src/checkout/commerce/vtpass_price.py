@@ -39,7 +39,9 @@ def _lines(merchant: Merchant, offers: Mapping[str, Offer], basket: Basket, chec
     if chosen is not None and chosen.price_kind == "renewal":
         if basket.amount_kobo is not None:
             raise DomainError(
-                "AMOUNT_NOT_ACCEPTED", "A renewal costs the renewal amount VTpass gave; pass no amount."
+                "AMOUNT_NOT_ACCEPTED",
+                "A renewal costs the renewal amount VTpass gave. Call create_quote again for the offer renew "
+                "with no amount_kobo.",
             )
         return (_renewal(chosen, check),)
     lines = price_lines(merchant, offers, basket)

@@ -47,6 +47,21 @@ def _read(spec: FieldSpec, value: str) -> str:
             return _text(spec, cleaned)
 
 
+def carried_fields(merchant: Merchant, given: Mapping[str, str]) -> dict[str, str]:
+    """The fields a person gave beside the account's own (a phone), read as a quote reads them, so that a
+    quote made with the check need not ask again. A value that is not valid is left out for the quote to ask
+    for."""
+    named = {spec.name for spec in merchant.check_fields}
+    others = tuple(spec for spec in merchant.fields if spec.name not in named and spec.name in given)
+    if not others:
+        return {}
+    try:
+        wanted = {spec.name: given[spec.name] for spec in others}
+        return {name: value for name, _, value in buyer_fields(merchant, wanted, others)}
+    except DomainError:
+        return {}
+
+
 def buyer_fields(
     merchant: Merchant, given: Mapping[str, str], specs: tuple[FieldSpec, ...] | None = None
 ) -> tuple[tuple[str, str, str], ...]:

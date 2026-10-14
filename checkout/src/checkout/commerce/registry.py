@@ -26,12 +26,16 @@ class Providers:
             if found is not None:
                 return found
         close = get_close_matches(merchant_id, [m.id for m in await self.merchants()], n=1, cutoff=0.8)
-        did_you_mean = f" Did you mean {close[0]}?" if close else ""
+        if close:
+            raise DomainError(
+                "MERCHANT_NOT_FOUND",
+                f'There is no merchant "{merchant_id}" in the directory. Did you mean {close[0]}? If so, '
+                f"call again with the merchant_id {close[0]}.",
+            )
         raise DomainError(
             "MERCHANT_NOT_FOUND",
-            f'There is no merchant "{merchant_id}" in the directory.{did_you_mean} A quote needs a '
-            "merchant_id from browse_merchants; if the business is not listed, tell the person 234 cannot "
-            "pay it yet.",
+            f'There is no merchant "{merchant_id}" in the directory. A quote needs a merchant_id from '
+            "browse_merchants; if the business is not listed, tell the person 234 cannot pay it yet.",
         )
 
     def of(self, merchant: Merchant) -> Provider:

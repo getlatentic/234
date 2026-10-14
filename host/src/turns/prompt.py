@@ -35,8 +35,10 @@ CAPABILITIES = {
         "never quote food yourself, the menu card takes the order",
     ),
     "merchants": Capability(
-        "buy from a listed shop or service, TV subscriptions and electricity included",
-        "a shop or service needs a merchant from the merchant list; never invent one",
+        "buy from a listed shop or service, and pay TV and electricity bills",
+        "a shop, TV or electricity purchase starts with browse_merchants and find_items, never "
+        "create_payment_quote: follow what they say it needs; a TV renewal has no amount of yours; a bill "
+        "they do not list cannot be paid",
     ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",
@@ -82,8 +84,8 @@ NO_BILLS = (
     "say so in one sentence and offer what you can do. "
 )
 BILLS_LISTED = (
-    "You cannot check bank balances, save, lend or pay a bill that browse_merchants does not list: when "
-    "asked to do something you cannot do, say so in one sentence and offer what you can do. "
+    "You cannot check bank balances, save or lend: when asked to do something you cannot do, say so in "
+    "one sentence and offer what you can do. "
 )
 NO_WALLET = "A wallet is for signed-in accounts: asked about their wallet, say they sign in to have one. "
 

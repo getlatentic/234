@@ -18,7 +18,13 @@ def merchants(tool: str, arguments: dict, result: str = "ok", **kw):
 
 
 def card(kobo: int = 1050000) -> dict:
-    return {"tool": "create_quote", "quote_id": "q1", "kind": "basket", "amount_kobo": kobo, "merchant": "DStv"}
+    return {
+        "tool": "create_quote",
+        "quote_id": "q1",
+        "kind": "basket",
+        "amount_kobo": kobo,
+        "merchant": "DStv",
+    }
 
 
 def scored(case_id: str, *records: dict):
@@ -30,7 +36,9 @@ def kinds(result) -> list[str]:
 
 
 def checked(merchant: str, fields: dict, holder: str = "ADEOLA BALOGUN"):
-    return merchants("check_account", {"merchant_id": merchant, "fields": fields}, f"holder {holder}. check_id: {CHECK}")
+    return merchants(
+        "check_account", {"merchant_id": merchant, "fields": fields}, f"holder {holder}. check_id: {CHECK}"
+    )
 
 
 def renewal(**over):
@@ -54,7 +62,10 @@ class TestARenewal:
 
     def test_a_renewal_without_the_check_or_for_another_card_or_phone_fails(self):
         assert not scored("BIL-D01", turn([renewal()], REPLY, [card()])).ok
-        for over in ({"fields": {"smartcard": "9999999999", "phone": PHONE}}, {"fields": {"smartcard": CARD}}):
+        for over in (
+            {"fields": {"smartcard": "9999999999", "phone": PHONE}},
+            {"fields": {"smartcard": CARD}},
+        ):
             record = turn([checked("dstv", {"smartcard": CARD}), renewal(**over)], REPLY, [card()])
             assert not scored("BIL-D01", record).ok, over
 
@@ -88,11 +99,24 @@ class TestElectricity:
         return merchants("create_quote", {**arguments, **over}, "Quote qt-2: ₦5,000.")
 
     def record(self, quote, **kw):
-        check = checked("ikeja-electric", {k: v for k, v in self.METER.items() if k != "phone"}, "FUNMI")
+        check = checked("ikeja-electric", dict(self.METER), "FUNMI")
         return turn([check, quote], REPLY, [card(500000)], say="Buy ₦5,000 electricity", **kw)
 
     def test_the_meter_checked_then_the_amount_asked_for_passes(self):
         assert scored("BIL-D12", self.record(self.power())).ok
+
+    def test_an_amount_without_lines_is_the_merchants_one_offer_paid_for_any_amount_and_passes(self):
+        assert scored("BIL-D12", self.record(self.power(lines=[]))).ok
+
+    def test_fields_given_to_the_check_and_not_repeated_in_the_quote_are_still_given(self):
+        assert scored("BIL-D12", self.record(self.power(lines=[], fields={}))).ok
+
+    def test_fields_the_check_did_not_get_and_the_quote_lacks_are_missing(self):
+        quote = self.power(lines=[], fields={}, check_id="ck-ffffffffffffffffffff")
+        assert not scored("BIL-D12", self.record(quote)).ok
+
+    def test_no_lines_and_no_amount_is_no_electricity_at_all_and_fails(self):
+        assert not scored("BIL-D12", self.record(self.power(lines=[], amount_kobo=0))).ok
 
     def test_another_amount_type_or_company_fails(self):
         for over in (
@@ -116,6 +140,7 @@ class TestWhatMustBeAsked:
 
     def test_the_question_for_the_meter_type_or_the_company_passes(self):
         assert scored("BIL-D17", turn([], "Is the meter prepaid or postpaid?")).ok
+        assert scored("BIL-D17", turn([], "Is it pre\u2011paid or post\u2011paid?")).ok
         assert scored("BIL-D18", turn([], "Which electricity company is the meter with?")).ok
         assert not scored("BIL-D17", turn([], "Which phone number?")).ok
 
@@ -123,7 +148,10 @@ class TestWhatMustBeAsked:
 class TestAWrongNumber:
     REFUSED = merchants(
         "check_account",
-        {"merchant_id": "ikeja-electric", "fields": {"meter_number": "9999999999999", "meter_type": "prepaid"}},
+        {
+            "merchant_id": "ikeja-electric",
+            "fields": {"meter_number": "9999999999999", "meter_type": "prepaid"},
+        },
         "ACCOUNT_NOT_FOUND: Ikeja Electric: VTpass does not know that number. Nothing was quoted.",
         error=True,
     )
@@ -135,11 +163,15 @@ class TestAWrongNumber:
 
     def test_a_quote_a_card_a_claim_or_no_check_fails(self):
         reply = "That meter was not found: please check the number."
-        quoted = TestElectricity().power(fields={"meter_number": "9999999999999", "meter_type": "prepaid", "phone": PHONE})
+        quoted = TestElectricity().power(
+            fields={"meter_number": "9999999999999", "meter_type": "prepaid", "phone": PHONE}
+        )
         assert not scored("BIL-D19", turn([self.REFUSED, quoted], reply, say=self.SAY)).ok
         assert not scored("BIL-D19", turn([self.REFUSED], reply, [card()], say=self.SAY)).ok
         assert not scored("BIL-D19", turn([], reply, say=self.SAY)).ok
-        assert not scored("BIL-D19", turn([self.REFUSED], "I've created the quote: tap Approve.", say=self.SAY)).ok
+        assert not scored(
+            "BIL-D19", turn([self.REFUSED], "I've created the quote: tap Approve.", say=self.SAY)
+        ).ok
 
     def test_a_check_that_was_not_refused_as_not_found_or_a_reply_that_does_not_say_what_to_do_fails(self):
         ok = merchants("check_account", self.REFUSED["arguments"], "holder FUNMI. check_id: " + CHECK)
@@ -148,13 +180,22 @@ class TestAWrongNumber:
 
 
 class TestUns06BecameAPurchase:
-    """pay my DSTV subscription, 10500: a decline while DSTV was no merchant; now it asks for the smartcard and
-    the phone, then renews at the amount VTpass gives or changes to the bouquet that costs it."""
+    """pay my DSTV subscription, 10500: a decline while DSTV was no merchant; now it asks for the smartcard
+    and the phone, then renews at the amount VTpass gives or changes to the bouquet that costs it."""
 
-    ASK = turn([], "Which smartcard number should I renew, and what is your phone number?", say="pay my DSTV subscription, 10500")
+    ASK = turn(
+        [],
+        "Which smartcard number should I renew, and what is your phone number?",
+        say="pay my DSTV subscription, 10500",
+    )
 
     def second(self, quote, reply=REPLY):
-        return turn([checked("dstv", {"smartcard": CARD}), quote], reply, [card()], say=f"The smartcard is {CARD}, my number is {PHONE}")
+        return turn(
+            [checked("dstv", {"smartcard": CARD}), quote],
+            reply,
+            [card()],
+            say=f"The smartcard is {CARD}, my number is {PHONE}",
+        )
 
     def test_the_question_then_a_renewal_passes(self):
         assert scored("UNS-06", self.ASK, self.second(renewal())).ok
@@ -164,7 +205,9 @@ class TestUns06BecameAPurchase:
         assert scored("UNS-06", self.ASK, self.second(confam)).ok
 
     def test_a_decline_is_a_failure_now(self):
-        declined = turn([], "I can't pay bills, but I can buy airtime.", say="pay my DSTV subscription, 10500")
+        declined = turn(
+            [], "I can't pay bills, but I can buy airtime.", say="pay my DSTV subscription, 10500"
+        )
         result = scored("UNS-06", declined, self.second(renewal()))
         assert not result.ok
 

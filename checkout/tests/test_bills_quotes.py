@@ -362,6 +362,91 @@ class TestThePhone:
         assert text_of(made).startswith("FIELD_REQUIRED")
 
 
+class TestWhatTheModelIsToldNext:
+    async def test_find_items_of_a_merchant_that_checks_says_to_check_first_and_then_quote(self, stack):
+        last = (await read(stack, "find_items", merchant_id="dstv")).splitlines()[-1]
+        assert last.startswith("If the person only asked what it sells or costs, answer that.")
+        assert "call check_account now" in last and "then create_quote" in last
+
+    async def test_find_items_of_a_merchant_that_does_not_check_says_to_quote_now(self, stack):
+        last = (await read(stack, "find_items", merchant_id="showmax")).splitlines()[-1]
+        assert "If they want to buy, call create_quote now" in last
+
+    async def test_the_check_of_a_card_with_a_renewal_says_how_to_renew_and_how_to_change(self, stack):
+        text = text_of(await check(stack, "dstv", SMARTCARD))
+        assert "quote the offer renew with no amount_kobo" in text and "if the person named another" in text
+
+    async def test_the_check_of_a_meter_says_nothing_of_renewing(self, stack):
+        assert "renew" not in text_of(await check(stack, "ikeja-electric", PREPAID, "prepaid"))
+
+    async def test_a_renewal_with_an_amount_is_refused_with_what_to_call_instead(self, stack):
+        ck = await check_id(stack, "dstv", SMARTCARD)
+        made = await as_account(
+            stack, "create_quote", **renewal(ck, amount_kobo=RENEWAL_KOBO, amount_as_user_said="10500")
+        )
+        assert "Call create_quote again for the offer renew with no amount_kobo" in text_of(made)
+
+
+class TestACheckedAccountIsNotTypedTwice:
+    async def test_a_quote_with_only_the_check_and_the_phone_is_the_checked_account(self, stack):
+        ck = await check_id(stack, "dstv", SMARTCARD)
+        made = await as_account(stack, "create_quote", **renewal(ck, fields={"phone": PHONE}))
+        shown = {f["label"]: f["value"] for f in quote_of(made)["details"]["fields"]}
+        assert shown["Smartcard number"] == SMARTCARD and shown["Phone number"] == PHONE
+
+    async def test_the_phone_given_with_the_check_is_the_quotes_too(self, stack):
+        result = await as_account(
+            stack, "check_account", merchant_id="dstv", fields={"smartcard": SMARTCARD, "phone": PHONE}
+        )
+        made = await as_account(
+            stack,
+            "create_quote",
+            **renewal(result["structuredContent"]["check_id"], fields={}),
+        )
+        shown = {f["label"]: f["value"] for f in quote_of(made)["details"]["fields"]}
+        assert shown["Smartcard number"] == SMARTCARD and shown["Phone number"] == PHONE
+
+    async def test_a_phone_given_again_with_the_quote_wins_over_the_one_given_with_the_check(self, stack):
+        result = await as_account(
+            stack, "check_account", merchant_id="dstv", fields={"smartcard": SMARTCARD, "phone": PHONE}
+        )
+        other = {"smartcard": SMARTCARD, "phone": "08099998888"}
+        made = await as_account(
+            stack, "create_quote", **renewal(result["structuredContent"]["check_id"], fields=other)
+        )
+        shown = {f["label"]: f["value"] for f in quote_of(made)["details"]["fields"]}
+        assert shown["Phone number"] == "08099998888"
+
+    async def test_a_phone_that_is_not_one_is_not_carried_and_the_quote_still_asks_for_it(self, stack):
+        result = await as_account(
+            stack, "check_account", merchant_id="dstv", fields={"smartcard": SMARTCARD, "phone": "x" * 30}
+        )
+        assert "isError" not in result
+        made = await as_account(
+            stack, "create_quote", **renewal(result["structuredContent"]["check_id"], fields={})
+        )
+        assert text_of(made).startswith("FIELD_REQUIRED")
+
+    async def test_the_phone_is_still_asked_for(self, stack):
+        ck = await check_id(stack, "dstv", SMARTCARD)
+        made = await as_account(stack, "create_quote", **renewal(ck, fields={}))
+        assert text_of(made).startswith("FIELD_REQUIRED") and "Phone number" in text_of(made)
+
+    async def test_another_account_than_the_checked_one_is_still_refused(self, stack):
+        ck = await check_id(stack, "dstv", SMARTCARD)
+        fields = {"smartcard": "1234567890", "phone": PHONE}
+        assert text_of(await as_account(stack, "create_quote", **renewal(ck, fields=fields))).startswith(
+            "CHECK_MISMATCH"
+        )
+
+    async def test_another_owners_check_lends_nothing(self, stack):
+        from tests.support import BOB
+
+        ck = await check_id(stack, "dstv", SMARTCARD)
+        made = await stack.call_as(BOB, "merchants", "create_quote", **renewal(ck, fields={"phone": PHONE}))
+        assert text_of(made).startswith("FIELD_REQUIRED")
+
+
 class TestTheServiceFee:
     async def test_is_none_unless_the_owner_sets_one(self, stack):
         assert quote_of(await renewal_quote(stack))["details"]["fees"] == []

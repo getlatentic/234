@@ -18,6 +18,10 @@ from .text import third_party
 FACT_LIMIT = 80
 ACCOUNT_FIELD = {"tv": "smartcard", "electricity": "meter_number"}
 METER_TYPE = "meter_type"
+RENEW_NEXT = (
+    "To renew the bouquet it has, quote the offer renew with no amount_kobo; if the person named another "
+    "bouquet, quote that bouquet's offer_id instead."
+)
 
 
 def _date(value: str) -> str:
@@ -49,6 +53,8 @@ def lookup_of(account: BillAccount) -> AccountLookup:
         "bouquet": third_party(account.bouquet, FACT_LIMIT) if account.bouquet else None,
     }
     detail = {"facts": _facts(account), **{k: v for k, v in priced.items() if v is not None}}
+    if account.renewal_kobo:
+        detail["next"] = RENEW_NEXT
     return AccountLookup(account.holder, account.arrears_kobo or None, detail)
 
 

@@ -136,8 +136,10 @@ class TestFindingItems:
         assert "beef-suya" in text and "jollof" not in text
         one = await read(stack, "find_items", merchant_id=MAMA, offer_id="zobo")
         assert "zobo | Zobo, 500ml | ₦800" in one and "chapman" not in one
-        assert one.splitlines()[-1].startswith("To buy, call create_quote with the merchant_id")
-        assert "if the person only asked what it sells or costs, answer that." in one
+        assert one.splitlines()[-1].startswith(
+            "If the person only asked what it sells or costs, answer that."
+        )
+        assert "call create_quote now with the merchant_id" in one
 
     async def test_words_that_match_nothing_give_the_whole_list_so_a_spelling_does_not_hide_an_item(
         self, stack
@@ -223,6 +225,8 @@ class TestAMerchantIdTheModelGotWrong:
         assert text.startswith("MERCHANT_NOT_FOUND") and "Did you mean ikeja-fresh-grocer?" in text
         made = await stack.call("merchants", "create_quote", **meal(merchant_id="mama-put-yabaa"))
         assert "Did you mean mama-put-yaba?" in text_of(made) and await stack.count("quotes") == 0
+        assert "call again with the merchant_id mama-put-yaba" in text_of(made)
+        assert "cannot pay it yet" not in text_of(made)
 
     async def test_a_name_that_is_not_near_any_merchant_gets_no_suggestion(self, stack):
         assert "Did you mean" not in await read(stack, "find_items", merchant_id="shoprite")

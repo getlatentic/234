@@ -46,12 +46,18 @@ class AccountChecks:
         self._db, self._clock, self._owner = db, clock, owner
 
     async def record(
-        self, merchant: Merchant, fields: Mapping[str, str], found: AccountLookup
+        self,
+        merchant: Merchant,
+        fields: Mapping[str, str],
+        found: AccountLookup,
+        carried: Mapping[str, str] | None = None,
     ) -> AccountCheck:
-        """The check for this owner, merchant, fields and holder: the live one if any, else a new one."""
+        """The check for this owner, merchant, fields and holder: the live one if any, else a new one.
+        `carried` is what the person gave beside the account (a phone), kept for the quote that follows."""
         owner, now = self._owner(), self._clock.now()
         holder, wanted = third_party(found.holder_name, HOLDER_LIMIT), canonical(fields)
-        detail = canonical(found.detail)
+        stored = {**found.detail, **({"carried": dict(carried)} if carried else {})}
+        detail = canonical(stored)
         live = await self._db.row(
             "SELECT * FROM account_check WHERE owner = ? AND merchant_id = ? AND fields = ? "
             "AND holder_name = ? AND detail = ? "
@@ -88,8 +94,20 @@ class AccountChecks:
             dict(fields),
             now,
             now + CHECK_TTL_MS,
-            dict(found.detail),
+            stored,
         )
+
+    async def fields_of(self, check_id: str | None) -> dict[str, str]:
+        """What a check of this owner was made for, and the fields given with it, so a quote need not repeat
+        them; none for any other id."""
+        if check_id is None:
+            return {}
+        row = await self._db.row(
+            "SELECT fields, detail FROM account_check WHERE id = ? AND owner = ?", check_id, self._owner()
+        )
+        if row is None:
+            return {}
+        return {**json.loads(row["detail"]).get("carried", {}), **json.loads(row["fields"])}
 
     async def require(
         self, check_id: str | None, merchant: Merchant, fields: Mapping[str, str]

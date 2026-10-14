@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from evaluation.score import score_case, score_turn
+from evaluation.score import claimed, score_case, score_turn
 
 from .helpers import airtime, call, card, case, turn
 
@@ -285,6 +285,17 @@ def test_a_correction_replaces_what_the_earlier_turn_said_of_that_field():
     )
     second = score_turn(c, 1, turn([access], cards=[card(300000)]))
     assert [f.kind for f in second.findings] == ["wrong_recipient"]
+
+
+def test_what_a_reply_says_will_be_true_once_something_happens_is_no_claim():
+    for promise in (
+        "I will tell you once the payment is completed.",
+        "Approve the card; when the transfer is successful I will say so.",
+        "After the payment is approved I check the order. Your quote is ready.",
+    ):
+        assert claimed(promise) is None, promise
+    for claim in ("Your payment is completed.", "I have sent the money.", "The transfer was successful."):
+        assert claimed(claim) is not None, claim
 
 
 def test_a_call_with_arguments_that_were_not_json_is_malformed_and_not_hallucinated():
