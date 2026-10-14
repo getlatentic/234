@@ -14,6 +14,15 @@ Any MCP client can use 234's connectors: Claude, ChatGPT, Cursor, VS Code, or yo
 
 The package holds no secret. Each server asks the client to sign in the first time it is used.
 
+### The `merchants` server
+
+`merchants` is the one server for what a person buys from a business 234 lists ([commerce.md](commerce.md)). Its tools
+read (`browse_merchants`, `find_items`, `check_account`, `track_order`) or make a quote (`create_quote`); none spends,
+and the person approves on the card as everywhere. The model names an offer and a count, never a price. The
+merchant's names and descriptions come back as data under one line that says so, and a merchant that is not listed
+cannot be quoted. Like the other servers it signs in with OAuth and the `payments` scope; the skill in the plugin
+tells an agent to report with `track_order`.
+
 ## What a client goes through
 
 1. It calls `/mcp/<connector>` with no token. The answer is `401` with `WWW-Authenticate: Bearer resource_metadata="…", scope="payments"` (`memory` for the memory server).

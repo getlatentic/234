@@ -67,8 +67,18 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
 
 ## What a visitor can and cannot do
 
-- **No real money and no provider call.** All four connectors run their simulators (`PAYSTACK_MODE`,
-  `PAYSTACK_PAY_MODE`, `SEND_MONEY_MODE`, `AIRTIME_MODE`, `FOOD_ORDER_MODE`, `VTPASS_MODE` are `simulated`).
+- **No real money and no provider call.** All five connectors run their simulators (`PAYSTACK_MODE`,
+  `PAYSTACK_PAY_MODE`, `SEND_MONEY_MODE`, `AIRTIME_MODE`, `FOOD_ORDER_MODE`, `MERCHANTS_MODE`, `VTPASS_MODE` are
+  `simulated`). The merchants of the directory (`merchants`, [commerce.md](commerce.md)) are four invented ones that
+  the migrations put in D1, each named "(simulated)"; a deployment that moves real money has none of them, and
+  real merchants are rows made by 234.
+- **A payment to a merchant named only in words is allowed only while nothing is live.** `FREE_TEXT_MERCHANTS`
+  (default on, `"1"` in the public template) gates the free-text `create_payment_quote`, which pays whatever name the
+  model passes and so could pay nobody. Off, the tool is not offered and the flow refuses a call; the host's
+  `CONNECTORS` should then leave out `paystack-pay`, so its prompt does not promise a payment it cannot make. On
+  beside a provider that is neither simulated nor in a sandbox, the Worker refuses to start (`config.py`,
+  `free_text_merchants_from`; `test_config.py`): live modes are refused where they are read today, so this holds for
+  any mode that is added. A quote to a merchant is made only for an id the directory lists.
   A Paystack test key or VTpass credentials set by mistake change nothing, and a live key (`sk_live_`) or
   `VTPASS_MODE=live` stops the connectors at startup. These rules are tests (`checkout/tests/test_public_config.py`,
   `test_config.py`), which `tools/deploy.sh` runs before every deploy. Never put a Paystack or VTpass key on these Workers.
