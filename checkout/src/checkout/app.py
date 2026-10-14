@@ -15,8 +15,11 @@ from typing import Any
 from .audit import Audit, print_sink
 from .background import Background, build_background
 from .clock import Clock, SystemClock
+from .commerce.checks import AccountChecks
+from .commerce.directory import DirectoryProvider
+from .commerce.registry import Providers
 from .config import CONNECTORS, Settings
-from .connectors import airtime, food_order, pay, send_money
+from .connectors import airtime, food_order, merchants, pay, send_money
 from .connectors import knowledge as knowledge_connector
 from .connectors import memory as memory_connector
 from .connectors import wallet as wallet_connector
@@ -67,6 +70,9 @@ WALLET_CARD_FILE = "wallet.html"
 SIMULATED_KEY = "sk_test_simulated"
 SIMULATED_VTPASS = VtpassCredentials("simulated", "simulated", "simulated")
 FOOD_MERCHANT = "Simulated merchant: not Chowdeck"
+SIMULATED_SHOPS = "Simulated merchants: not real shops"
+MERCHANT_LABELS = {"food-order": FOOD_MERCHANT, "merchants": SIMULATED_SHOPS}
+WALLET_CONNECTORS = ("airtime", "merchants")
 PAYOUTS_REASON = "this Paystack account cannot make payouts"
 
 
@@ -154,6 +160,8 @@ def build_contexts(
     store = MemoryStore(db, clock, settings.memory)
     wallet = WalletSpending(journal, db, clock)
     refunds = RefundRequests(audit)
+    providers = Providers(DirectoryProvider(db, clock))
+    checks = AccountChecks(db, clock, ledger.owner)
     contexts: dict[str, Context] = {}
     for connector in CONNECTORS:
         paystack, paystack_mode = _paystack_for(settings, db, connector, transport)
@@ -165,12 +173,7 @@ def build_contexts(
             if connector == "send-money" and paystack_mode == "simulated" and settings.paystack.secret_key
             else None
         )
-        modes = Modes(
-            paystack_mode,
-            vtpass_mode,
-            FOOD_MERCHANT if connector == "food-order" else None,
-            reason,
-        )
+        modes = Modes(paystack_mode, vtpass_mode, MERCHANT_LABELS.get(connector), reason)
         contexts[connector] = Context(
             ledger=ledger,
             paystack=paystack,
@@ -184,8 +187,11 @@ def build_contexts(
             inline_checkout=paystack_mode == "test" and settings.inline_paystack,
             card_csp_extra=settings.card_csp_extra,
             memory=store,
-            wallet=wallet if connector == "airtime" else None,
+            wallet=wallet if connector in WALLET_CONNECTORS else None,
             refunds=refunds,
+            providers=providers if connector == "merchants" else None,
+            checks=checks if connector == "merchants" else None,
+            free_text_merchants=settings.free_text_merchants,
         )
         audit.log(
             "startup",
@@ -235,6 +241,7 @@ def build_connectors(
         send_money.build_connector(contexts["send-money"], card),
         airtime.build_connector(contexts["airtime"], card),
         food_order.build_connector(contexts["food-order"], card, card_reader(MENU_FILE)),
+        merchants.build_connector(contexts["merchants"], card),
         memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
         knowledge_connector.build_connector(knowledge, memory.audit),
         web_connector.build_connector(reader, memory.audit, search, clock),

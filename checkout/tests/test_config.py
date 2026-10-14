@@ -3,7 +3,8 @@
 
 import pytest
 
-from checkout.config import Settings
+from checkout.bachs.settings import BachsSettings
+from checkout.config import PaystackSettings, Settings, VtpassSettings, free_text_merchants_from
 from checkout.errors import ConfigError
 from tests.keys import fake_key, fake_public_key
 
@@ -162,6 +163,45 @@ class TestLimitsAndTiming:
     def test_the_approval_secret_is_required(self):
         with pytest.raises(ConfigError, match="APPROVAL_SECRET"):
             Settings.from_env({}.get)
+
+
+class TestFreeTextMerchants:
+    """A payment to a merchant named only in words is allowed while no provider is live (docs/commerce.md)."""
+
+    def test_is_on_by_default_while_everything_is_simulated(self):
+        assert load().free_text_merchants is True
+
+    def test_is_on_by_default_beside_the_sandboxes(self):
+        sandboxes = {"PAYSTACK_TEST_SECRET_KEY": TEST_KEY, "VTPASS_MODE": "sandbox"}
+        credentials = {"VTPASS_API_KEY": "a", "VTPASS_PUBLIC_KEY": "PK_b", "VTPASS_SECRET_KEY": "SK_c"}
+        assert load(**sandboxes, **credentials).free_text_merchants is True
+
+    @pytest.mark.parametrize(
+        ("value", "expected"), [("0", False), ("false", False), ("1", True), ("on", True)]
+    )
+    def test_can_be_turned_off_or_on(self, value, expected):
+        assert load(FREE_TEXT_MERCHANTS=value).free_text_merchants is expected
+
+    def test_a_value_that_is_not_a_flag_is_refused(self):
+        with pytest.raises(ConfigError, match="true or false"):
+            load(FREE_TEXT_MERCHANTS="maybe")
+
+    @pytest.mark.parametrize(
+        "modes",
+        [
+            (PaystackSettings(mode="live"), VtpassSettings(), BachsSettings()),
+            (PaystackSettings(), VtpassSettings(mode="live"), BachsSettings()),
+            (PaystackSettings(), VtpassSettings(), BachsSettings(mode="live")),
+        ],
+    )
+    def test_is_refused_on_beside_any_provider_that_is_neither_simulated_nor_in_a_sandbox(self, modes):
+        with pytest.raises(ConfigError, match="FREE_TEXT_MERCHANTS is on"):
+            free_text_merchants_from(True, *modes)
+
+    def test_is_off_when_unset_and_a_provider_is_live_and_may_be_turned_off_there(self):
+        modes = (PaystackSettings(mode="live"), VtpassSettings(), BachsSettings())
+        assert free_text_merchants_from(None, *modes) is False
+        assert free_text_merchants_from(False, *modes) is False
 
 
 def test_a_settings_object_never_shows_a_secret_when_printed():

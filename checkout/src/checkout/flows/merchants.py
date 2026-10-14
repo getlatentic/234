@@ -1,0 +1,151 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Buying from a merchant of the directory (docs/commerce.md). The quote is made for a merchant id the
+directory lists, priced by that merchant's provider from its offers alone, and carries the holder's name
+where the provider checked an account. The person's approval is bound to a digest of all of it
+(commerce/binding.py); paid, from the wallet or at Paystack's checkout, the order goes to the provider
+(merchant_leg.py)."""
+
+from collections.abc import Mapping
+from typing import Any
+
+from ..commerce.binding import approval_subject
+from ..commerce.fields import buyer_fields
+from ..commerce.model import Basket, BasketLine, Merchant, Totals
+from ..commerce.pricing import merged
+from ..commerce.quote_details import describe, details_of
+from ..errors import DomainError
+from ..ledger import NewQuote, Quote, request_hash
+from ..money import Kobo
+from .base import CardFlow
+from .checkout_leg import begin_checkout, check_payment
+from .context import Context, QuoteIssued
+from .inputs import assert_idempotency_key, confirm_stated_amount
+from .merchant_leg import CONNECTOR, deliver
+from .wallet_leg import refund_to_wallet, wallet_of
+
+
+class MerchantsFlow(CardFlow):
+    connector = CONNECTOR
+
+    def __init__(self, ctx: Context) -> None:
+        super().__init__(ctx)
+        if ctx.providers is None or ctx.checks is None:
+            raise ValueError("The merchants connector needs the directory's providers and account checks.")
+        self.providers, self.checks = ctx.providers, ctx.checks
+
+    def approval_token_of(self, quote: Quote) -> str:
+        return self.ctx.ledger.approval_token(approval_subject(quote))
+
+    async def token_is_valid(self, quote_id: str, token: str) -> bool:
+        quote = await self.ctx.ledger.get(quote_id)
+        return quote is not None and self.ctx.ledger.check_approval_token(approval_subject(quote), token)
+
+    async def create_quote(
+        self,
+        *,
+        merchant_id: str,
+        lines: tuple[BasketLine, ...],
+        amount_kobo: Kobo | None,
+        amount_as_user_said: str | None,
+        fields: Mapping[str, str],
+        check_id: str | None,
+        idempotency_key: str,
+    ) -> QuoteIssued:
+        async def work():
+            assert_idempotency_key(idempotency_key)
+            merchant = await self.providers.merchant(merchant_id)
+            buyer = buyer_fields(merchant, fields)
+            basket = Basket(merged(lines), amount_kobo, {name: value for name, _, value in buyer})
+            check_id_used = check_id if merchant.checks_account else None
+            digest = _digest(merchant, basket, check_id_used)
+            replayed = await self.ctx.ledger.replay(self.connector, idempotency_key, digest)
+            if replayed:
+                return replayed, True
+            _assert_quotable(merchant)
+            _assert_amount_stated(amount_kobo, amount_as_user_said)
+            totals = await self._priced(merchant, basket, check_id_used)
+            return await self.ctx.ledger.create(_new_quote(merchant, totals, idempotency_key, digest))
+
+        return await self.make_quote(work)
+
+    async def _priced(self, merchant: Merchant, basket: Basket, check_id: str | None) -> Totals:
+        check = (
+            await self.checks.require(check_id, merchant, basket.fields) if merchant.checks_account else None
+        )
+        return await self.providers.of(merchant).price(merchant, basket, check)
+
+    async def approve(
+        self,
+        quote_id: str,
+        token: str,
+        displayed_amount_kobo: Kobo,
+        readback_confirmed: bool | None = None,
+        funding: str = "checkout",
+    ) -> dict[str, Any]:
+        if funding == "wallet":
+            await self.authorise_approval(quote_id, token, displayed_amount_kobo, wallet_of(self.ctx))
+            return await self.verify(quote_id)
+        quote, _ = await self.authorise_approval(quote_id, token, displayed_amount_kobo)
+        return await self.present(await begin_checkout(self.ctx, quote))
+
+    async def approve_from_wallet(
+        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
+    ) -> dict[str, Any]:
+        return await self.approve(quote_id, token, displayed_amount_kobo, readback_confirmed, "wallet")
+
+    async def verify(self, quote_id: str, checkout_closed: bool = False) -> dict[str, Any]:
+        quote = await self.ctx.ledger.require(quote_id, self.connector)
+        checked = await check_payment(self.ctx, quote, checkout_closed)
+        quote = checked.quote
+        if checked.paid and quote.state == "approved":
+            quote = await deliver(self.ctx, self.providers, quote)
+        return await self.present(await refund_to_wallet(self.ctx, quote))
+
+
+def _assert_quotable(merchant: Merchant) -> None:
+    if merchant.requires_link:
+        raise DomainError(
+            "LINK_REQUIRED",
+            f"{merchant.name} needs the person to connect their account first, which 234 cannot do yet.",
+        )
+    if not merchant.quotable:
+        raise DomainError(
+            "MERCHANT_NOT_AVAILABLE",
+            f"{merchant.name} is {merchant.status.replace('_', ' ')}: nothing can be bought from it yet.",
+        )
+
+
+def _assert_amount_stated(amount_kobo: Kobo | None, as_user_said: str | None) -> None:
+    if amount_kobo is None:
+        return
+    if not as_user_said:
+        raise DomainError(
+            "AMOUNT_UNCLEAR",
+            "Pass amount_as_user_said: the amount exactly as the person said it. It is checked against "
+            "amount_kobo.",
+        )
+    confirm_stated_amount(amount_kobo, as_user_said)
+
+
+def _digest(merchant: Merchant, basket: Basket, check_id: str | None) -> str:
+    return request_hash(
+        merchant=merchant.id,
+        lines=sorted((line.offer_id, line.quantity, list(line.options)) for line in basket.lines),
+        amount_kobo=basket.amount_kobo,
+        fields=sorted(basket.fields.items()),
+        check_id=check_id,
+    )
+
+
+def _new_quote(merchant: Merchant, totals: Totals, idempotency_key: str, digest: str) -> NewQuote:
+    return NewQuote(
+        connector=CONNECTOR,
+        kind="basket",
+        amount_kobo=totals.total_kobo,
+        description=describe(totals),
+        merchant=merchant.name,
+        merchant_ref=None,
+        details=details_of(merchant, totals),
+        idempotency_key=idempotency_key,
+        request_hash=digest,
+    )

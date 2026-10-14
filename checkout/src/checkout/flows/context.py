@@ -7,6 +7,8 @@ from typing import Any
 
 from ..audit import Audit
 from ..clock import Clock
+from ..commerce.checks import AccountChecks
+from ..commerce.registry import Providers
 from ..ledger import Ledger
 from ..memory.store import MemoryStore
 from ..modes import Modes
@@ -36,6 +38,12 @@ class Context:
     """Pays an approved quote from the owner's wallet instead of a checkout (docs/wallet.md)."""
     refunds: RefundRequests | None = None
     """Asks for the Paystack refund of a quote paid at the checkout that ends owing one (refunds/)."""
+    providers: Providers | None = None
+    """The merchants a `merchants` quote is made for and fulfilled by (commerce/)."""
+    checks: AccountChecks | None = None
+    """The account checks a quote for a merchant that checks accounts carries (commerce/checks.py)."""
+    free_text_merchants: bool = True
+    """`create_payment_quote` may name any merchant in words (`FREE_TEXT_MERCHANTS`, config.py)."""
 
 
 @dataclass(frozen=True)

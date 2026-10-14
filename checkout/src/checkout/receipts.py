@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .clock import format_lagos
+from .commerce.quote_details import receipt_lines
 from .ledger import Quote
 from .mask import group_phone, mask_account
 from .money import format_naira
@@ -84,7 +85,27 @@ def _food(quote: Quote, mode: str) -> tuple[str, list[Line]]:
     ]
 
 
-_BUILDERS = {"payment": _payment, "transfer": _transfer, "airtime": _airtime, "data": _data, "food": _food}
+def _basket(quote: Quote, mode: str) -> tuple[str, list[Line]]:
+    d = quote.details
+    return "Order delivered", [
+        *receipt_lines(quote),
+        *[(field["label"], field["value"]) for field in d["fields"]],
+        ("Account holder", d["holder"]),
+        ("Paid", _paid_at(quote)),
+        ("Payment reference", quote.progress.get("paystackReference")),
+        ("Merchant request", (quote.progress.get("fulfilment") or {}).get("requestId")),
+        ("Mode", mode),
+    ]
+
+
+_BUILDERS = {
+    "payment": _payment,
+    "transfer": _transfer,
+    "airtime": _airtime,
+    "data": _data,
+    "food": _food,
+    "basket": _basket,
+}
 
 
 def receipt_for(quote: Quote, mode_label: str) -> dict[str, Any] | None:

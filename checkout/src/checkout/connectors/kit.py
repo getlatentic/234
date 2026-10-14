@@ -40,6 +40,7 @@ SAFETY = (
     "same request.",
     "After the person has used the card, call get_quote_status and report only what it says.",
 )
+STATUS_TOOL = "get_quote_status"
 
 CARD_ALWAYS = (
     "The call is what shows the approval card, and the person always approves on it: a message that asks "
@@ -116,8 +117,11 @@ def plain_result(text: str, data: dict[str, Any]) -> ToolResult:
     return {"content": [{"type": "text", "text": text}], "structuredContent": data}
 
 
-def instructions_for(purpose: str, mode_label: str, extra: tuple[str, ...] = ()) -> str:
-    return "\n".join([f"{purpose} ({mode_label}).", *extra, *SAFETY])
+def instructions_for(
+    purpose: str, mode_label: str, extra: tuple[str, ...] = (), status_name: str = STATUS_TOOL
+) -> str:
+    safety = (line.replace(STATUS_TOOL, status_name) for line in SAFETY)
+    return "\n".join([f"{purpose} ({mode_label}).", *extra, *safety])
 
 
 @dataclass(frozen=True)
@@ -130,6 +134,9 @@ class CardConnector:
     flow: CardFlow
     card_html: CardReader
     alt_cards: dict[str, CardReader] = field(default_factory=dict)
+    status_name: str = STATUS_TOOL
+    """The tool the model reports an outcome with, when the connector has one of its own instead of
+    `get_quote_status` (`build`'s `status`)."""
 
     @property
     def card_uri(self) -> str:
@@ -142,7 +149,7 @@ class CardConnector:
         ask = f' Read this back to the person before they approve: "{read_back}".' if read_back else ""
         return (
             f"{issued.told}{summarise(issued.quote)}{ask} The approval card is now shown to the person. You "
-            f"cannot approve it. Wait for them, then call get_quote_status on the {self.name} connector to "
+            f"cannot approve it. Wait for them, then call {self.status_name} on the {self.name} connector to "
             "report what happened."
         )
 
@@ -330,13 +337,16 @@ class CardConnector:
         submit_otp: SubmitOtpRun | None = None,
         views: tuple[UiResource, ...] = (),
         app_tools: tuple[Tool, ...] = (),
+        status: Tool | None = None,
     ) -> Connector:
+        """`status` is the connector's own status tool, named `status_name`; without one it has
+        `get_quote_status`."""
         mode = describe_mode(self.ctx.modes)
         return Connector(
             name=self.name,
             title=self.title,
-            instructions=instructions_for(purpose, mode.label, extra),
-            tools=(*model_tools, self._status_tool(), *self._card_tools(submit_otp), *app_tools),
+            instructions=instructions_for(purpose, mode.label, extra, self.status_name),
+            tools=(*model_tools, status or self._status_tool(), *self._card_tools(submit_otp), *app_tools),
             resources=self._resources(views),
             audit=self.ctx.audit,
         )

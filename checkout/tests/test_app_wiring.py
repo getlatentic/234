@@ -76,6 +76,7 @@ async def test_one_connector_can_simulate_while_the_rest_use_the_real_test_accou
         "send-money": "simulated",
         "airtime": "test",
         "food-order": "test",
+        "merchants": "test",
     }
     from checkout.flows.transfer import TransferFlow
 
@@ -126,7 +127,7 @@ async def test_vtpass_debug_lines_go_to_the_audit_log_redacted():
 async def test_only_the_airtime_connector_has_a_vtpass_client():
     app, _ = app_with(ScriptedTransport(lambda _: None))
     assert {c: ctx.vtpass is not None for c, ctx in app.contexts.items()} == {
-        "paystack-pay": False, "send-money": False, "airtime": True, "food-order": False,
+        "paystack-pay": False, "send-money": False, "airtime": True, "food-order": False, "merchants": False,
     }  # fmt: skip
 
 
@@ -139,6 +140,6 @@ def test_a_live_key_stops_the_server_from_starting_in_any_mode():
 def test_the_startup_line_names_each_connectors_modes_and_limits_and_no_key():
     _, lines = app_with(ScriptedTransport(lambda _: None), PAYSTACK_TEST_SECRET_KEY=TEST_KEY, **VTPASS)
     startup = [line for line in lines if '"startup"' in line]
-    assert len(startup) == 4
+    assert len(startup) == 5
     assert '"connector": "airtime"' in "\n".join(startup) and '"vtpass_mode": "sandbox"' in "\n".join(startup)
     assert "abcdefgh12345678" not in "\n".join(lines) and "SK_secret" not in "\n".join(lines)

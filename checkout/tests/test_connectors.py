@@ -11,9 +11,11 @@ from tests.connector_support import (
     EXTRA_APP_TOOLS,
     EXTRA_VIEWS,
     MODEL_TOOLS,
+    STATUS_TOOLS,
     approve_args,
     listed,
     quote_of,
+    status_tool,
     text_of,
     visibility,
 )
@@ -25,10 +27,11 @@ class TestWhatAHostSees:
     async def test_offers_the_model_its_tools_and_hides_the_cards_tools(self, stack, connector):
         tools = await listed(stack, connector)
         extra = EXTRA_APP_TOOLS.get(connector, [])
-        assert sorted(tools) == sorted([*MODEL_TOOLS[connector], "get_quote_status", *CARD_TOOLS, *extra])
+        status = [] if connector in STATUS_TOOLS else [status_tool(connector)]
+        assert sorted(tools) == sorted([*MODEL_TOOLS[connector], *status, *CARD_TOOLS, *extra])
         for name in CARD_TOOLS + extra:
             assert visibility(tools[name]) == ["app"]
-        assert "_meta" not in tools["get_quote_status"]
+        assert "_meta" not in tools[status_tool(connector)]
         quote_tool = next(
             n for n in MODEL_TOOLS[connector] if n.startswith("create_") and n.endswith("_quote")
         )

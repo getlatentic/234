@@ -66,4 +66,5 @@ def build_connector(ctx: Context, card_html: CardReader, alt_cards: dict[str, Ca
         CreatePaymentQuote,
         create,
     )
-    return kit.build("Pay a merchant through Paystack's hosted checkout", (quote,))
+    purpose = "Pay a merchant through Paystack's hosted checkout"
+    return kit.build(purpose, (quote,) if ctx.free_text_merchants else ())

@@ -12,12 +12,15 @@ from .owner import acting_for, is_owner_key
 from .provider_hooks.http import vtpass_hook
 from .responses import HttpResponse, json_response
 from .sim_bachs_dispute import raise_dispute
+from .sim_merchant_order import move_merchant_order
 from .sim_paystack_refund import move_refund
 from .transport import TransportError, WorkerFetch
 from .vtpass.sim import reversal_update
 from .vtpass.sim_store import VtpassSimStore
 
 RESET_TABLES = (
+    "account_check",
+    "sim_merchant_order",
     "quote_events",
     "quote_refund",
     "quotes",
@@ -111,16 +114,25 @@ async def _route(app: App, method: str, path: str, query: str) -> HttpResponse:
             return json_response({"approved": await naive_approve(app.ledger, quote_id)})
         case "POST", ["batch-rollback"]:
             return json_response(await _batch_rollback_probe(app))
-        case "POST", ["vtpass-reverse", request_id]:
-            return await _reverse_vtpass_order(app, request_id)
-        case "POST", ["paystack-refund", reference]:
-            return await move_refund(app, reference, parse_qs(query).get("status", ["processed"])[0])
         case "GET", ["summary"]:
             return await _summary(app)
         case "GET", ["fetch-probe"]:
             return await _fetch_probe(parse_qs(query).get("url", [""])[0])
+        case _:
+            return await _provider_route(app, method, parts[1:], query)
+
+
+async def _provider_route(app: App, method: str, parts: list[str], query: str) -> HttpResponse:
+    """The routes that move a simulated provider on: each answers as the provider would."""
+    asked = {name: values[0] for name, values in parse_qs(query).items()}
+    match method, parts:
+        case "POST", ["vtpass-reverse", request_id]:
+            return await _reverse_vtpass_order(app, request_id)
+        case "POST", ["paystack-refund", reference]:
+            return await move_refund(app, reference, asked.get("status", "processed"))
+        case "POST", ["merchant-order", quote_id]:
+            return await move_merchant_order(app, quote_id, asked.get("outcome", "delivered"))
         case "POST", ["bachs-dispute", checkout_id]:
-            asked = {name: values[0] for name, values in parse_qs(query).items()}
             event, status = asked.get("event", "dispute.created"), asked.get("status", "needs_response")
             return await raise_dispute(app, checkout_id, event, status, asked.get("amount"))
         case _:

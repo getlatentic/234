@@ -12,6 +12,7 @@ from checkout.audit import Audit
 from checkout.config import Settings
 from checkout.flows.airtime import AirtimeFlow
 from checkout.flows.food import FoodFlow
+from checkout.flows.merchants import MerchantsFlow
 from checkout.flows.payment import PaymentFlow
 from checkout.flows.transfer import TransferFlow
 from checkout.http import handle
@@ -60,6 +61,7 @@ class Stack:
             "send-money": TransferFlow,
             "airtime": AirtimeFlow,
             "food-order": FoodFlow,
+            "merchants": MerchantsFlow,
         }[name](ctx)
 
     @property
@@ -77,6 +79,10 @@ class Stack:
     @property
     def food(self) -> FoodFlow:
         return self.flow("food-order")
+
+    @property
+    def merchants(self) -> MerchantsFlow:
+        return self.flow("merchants")
 
     def override(self, connector: str, **changes: Any) -> None:
         """Swaps parts of one connector's context, for a test that makes a provider misbehave."""
