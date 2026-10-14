@@ -12,7 +12,7 @@ from tests.commerce_support import MAMA, WATER, checked, quote, refusal, water_b
 from tests.connector_support import text_of
 from tests.support import ALICE, BOB
 
-FIELDS = {"meter_number": "10012345"}
+FIELDS = {"card_number": "10012345"}
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ class TestWhatAQuoteMayCarry:
     async def test_a_check_for_other_details_or_another_merchant_is_a_mismatch(self, stack, checks, water):
         with acting_for(ALICE):
             made = await checks.record(water, FIELDS, AccountLookup("ADA OBI", None))
-            other = {"meter_number": "10067890"}
+            other = {"card_number": "10067890"}
             assert await refusal(checks.require(made.id, water, other)) == "CHECK_MISMATCH"
             mama = await DirectoryProvider(stack.db, stack.clock).merchant(MAMA)
             assert await refusal(checks.require(made.id, mama, FIELDS)) == "CHECK_MISMATCH"
@@ -100,7 +100,7 @@ class TestTheTool:
 
     async def test_it_reads_the_number_the_way_the_merchant_does(self, stack):
         result = await stack.call(
-            "merchants", "check_account", merchant_id=WATER, fields={"meter_number": "1001-2345"}
+            "merchants", "check_account", merchant_id=WATER, fields={"card_number": "1001-2345"}
         )
         assert "isError" not in result and result["structuredContent"]["holder_name"].startswith("ADEBAYO")
 
@@ -108,7 +108,7 @@ class TestTheTool:
         self, stack
     ):
         async def refused(merchant_id, number):
-            fields = {"meter_number": number} if merchant_id == WATER else {"area": "Yaba"}
+            fields = {"card_number": number} if merchant_id == WATER else {"area": "Yaba"}
             result = await stack.call("merchants", "check_account", merchant_id=merchant_id, fields=fields)
             return text_of(result).split(":")[0]
 

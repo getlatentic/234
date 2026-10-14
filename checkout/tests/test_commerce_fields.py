@@ -9,7 +9,7 @@ from checkout.errors import DomainError
 
 SPECS = (
     FieldSpec("area", "Delivery area", "choice", True, ("Yaba", "Ikeja GRA")),
-    FieldSpec("number", "Meter number", "digits", True, least=8, most=10),
+    FieldSpec("number", "Card number", "digits", True, least=8, most=10),
     FieldSpec("note", "Note", "text", False, most=20),
 )
 MERCHANT = Merchant("m", "directory", "Shop", "shop", "live", False, "b", 1, 2, "Fee", 0, False, SPECS)
@@ -25,7 +25,7 @@ def code(given) -> str:
 def test_fields_are_read_in_the_merchants_order_cleaned_and_spelled_as_the_merchant_does():
     assert buyer_fields(MERCHANT, GOOD) == (
         ("area", "Delivery area", "Yaba"),
-        ("number", "Meter number", "10012345"),
+        ("number", "Card number", "10012345"),
         ("note", "Note", "by the gate"),
     )
 

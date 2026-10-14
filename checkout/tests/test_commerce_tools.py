@@ -131,10 +131,10 @@ class TestFindingItems:
         assert "options size (choose 1): 100ml +₦0, 250ml +₦1,100" in sanitiser
         water = await read(stack, "find_items", merchant_id=WATER)
         assert (
-            "water-credit | Prepaid water credit top-up | any amount from ₦500 to ₦50,000 | "
+            "card-topup | Transit card top-up | any amount from ₦500 to ₦50,000 | "
             "name the amount as amount_kobo" in water
         )
-        assert "tanker-booking | Water tanker booking deposit | any amount from ₦1,000 to ₦20,000" in water
+        assert "group-booking | Group booking deposit | any amount from ₦1,000 to ₦20,000" in water
         assert "It checks the account first: call check_account" in water
 
     async def test_a_long_list_is_cut_and_says_how_to_narrow_it(self, stack):

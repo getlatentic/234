@@ -8,7 +8,7 @@ call it makes has an id of its own, as a real model's do.
 "airtime <amount> to <number> on <network>" asks for an airtime quote; "my wallet" shows the wallet card
 (scripted_wallet.py).
 "status of <quote id>" asks for that quote's status. What it does with the merchants connector (listing shops,
-making a basket's quote, a checked water credit) is in scripted_merchants.py.
+making a basket's quote, a checked transit top-up) is in scripted_merchants.py.
 "reuse key: <request>" (with an airtime or pay request) sends the same idempotency key every time, as a model
 that is not told better does; "twice: <request>" makes the same call twice in one reply.
 "echo: <text>" answers with exactly <text> (`\\n` for a newline): a reply of any shape, Markdown included.

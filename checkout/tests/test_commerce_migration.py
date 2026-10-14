@@ -157,7 +157,7 @@ CHECK_SQL = (
     "INSERT INTO account_check (id, owner, merchant_id, fields, holder_name, due_kobo, created_at,"
     " expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 )
-CHECK_ROW = ("ck-" + "0" * 20, "a1" * 16, WATER, '{"meter_number":"1"}', "ADA", None, 1, 2)
+CHECK_ROW = ("ck-" + "0" * 20, "a1" * 16, WATER, '{"card_number":"1"}', "ADA", None, 1, 2)
 
 
 class TestTheOtherTables:

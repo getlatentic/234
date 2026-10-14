@@ -43,7 +43,7 @@ class TestWhatItLists:
     async def test_a_merchant_says_what_the_buyer_must_give(self, directory):
         water = await directory.merchant(WATER)
         assert water.checks_account and [(f.name, f.kind) for f in water.fields] == [
-            ("meter_number", "digits")
+            ("card_number", "digits")
         ]
         mama = await directory.merchant(MAMA)
         assert [f.name for f in mama.fields] == ["area", "note"] and not mama.fields[1].required
@@ -83,7 +83,7 @@ class TestOffers:
         assert (group.id, group.least, group.most) == ("size", 1, 1)
         assert [(c.id, c.delta_kobo) for c in group.choices] == [("100ml", 0), ("250ml", 110_000)]
         kinds = {o.id: o.price_kind for o in await directory.offers(await directory.merchant(WATER))}
-        assert kinds == {"water-credit": "open", "tanker-booking": "range", "meter-reconnection": "fixed"}
+        assert kinds == {"card-topup": "open", "group-booking": "range", "card-replacement": "fixed"}
 
 
 class TestMamaPutIsTheMenu:
@@ -114,12 +114,12 @@ class TestMamaPutIsTheMenu:
 class TestAccountChecksOfTheSimulatedMerchants:
     async def test_an_account_the_merchant_knows_gives_its_holder_and_what_is_due(self, directory):
         water = await directory.merchant(WATER)
-        found = await directory.check(water, {"meter_number": "10012345"})
+        found = await directory.check(water, {"card_number": "10012345"})
         assert (found.holder_name, found.due_kobo) == ("ADEBAYO OLUWASEUN FOLA", 1_250_000)
 
     async def test_an_unknown_account_is_refused(self, directory):
         water = await directory.merchant(WATER)
-        assert await refusal(directory.check(water, {"meter_number": "99999999"})) == "ACCOUNT_NOT_FOUND"
+        assert await refusal(directory.check(water, {"card_number": "99999999"})) == "ACCOUNT_NOT_FOUND"
 
     async def test_a_merchant_that_does_not_check_is_not_asked_to(self, directory):
         mama = await directory.merchant(MAMA)

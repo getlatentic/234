@@ -95,7 +95,7 @@ class TestEveryLineIsCheckedAgainstTheOffers:
 class TestTheAmountOfAnOpenOrRangeOffer:
     async def test_an_open_offer_takes_the_persons_amount_within_the_merchants_limits(self, directory):
         totals = await price(
-            directory, WATER, ("water-credit", 1), amount=500_000, check=await check_of(directory)
+            directory, WATER, ("card-topup", 1), amount=500_000, check=await check_of(directory)
         )
         assert totals.total_kobo == 500_000 and totals.lines[0].unit_kobo == 500_000
 
@@ -103,31 +103,31 @@ class TestTheAmountOfAnOpenOrRangeOffer:
         check = await check_of(directory)
         for amount in (49_999, 5_000_001, 1):
             assert (
-                await refusal(price(directory, WATER, ("water-credit", 1), amount=amount, check=check))
+                await refusal(price(directory, WATER, ("card-topup", 1), amount=amount, check=check))
                 == "AMOUNT_OUT_OF_LIMITS"
             )
 
     async def test_a_range_offer_has_its_own_limits_inside_the_merchants(self, directory):
         check = await check_of(directory)
-        ok = await price(directory, WATER, ("tanker-booking", 1), amount=100_000, check=check)
+        ok = await price(directory, WATER, ("group-booking", 1), amount=100_000, check=check)
         assert ok.total_kobo == 100_000
         for amount in (99_999, 2_000_001):
             assert (
-                await refusal(price(directory, WATER, ("tanker-booking", 1), amount=amount, check=check))
+                await refusal(price(directory, WATER, ("group-booking", 1), amount=amount, check=check))
                 == "AMOUNT_OUT_OF_LIMITS"
             )
 
     async def test_an_open_offer_without_an_amount_is_refused(self, directory):
         check = await check_of(directory)
-        assert await refusal(price(directory, WATER, ("water-credit", 1), check=check)) == "AMOUNT_REQUIRED"
+        assert await refusal(price(directory, WATER, ("card-topup", 1), check=check)) == "AMOUNT_REQUIRED"
 
     async def test_an_open_offer_stands_alone_and_is_paid_once(self, directory):
         check = await check_of(directory)
         both = price(
-            directory, WATER, ("water-credit", 1), ("meter-reconnection", 1), amount=100_000, check=check
+            directory, WATER, ("card-topup", 1), ("card-replacement", 1), amount=100_000, check=check
         )
         assert await refusal(both) == "INVALID_INPUT"
-        twice = price(directory, WATER, ("water-credit", 2), amount=100_000, check=check)
+        twice = price(directory, WATER, ("card-topup", 2), amount=100_000, check=check)
         assert await refusal(twice) == "INVALID_INPUT"
 
 
@@ -148,7 +148,7 @@ class TestTheMerchantsLimitsOnAnOrder:
 class TestAnAccountCheck:
     async def test_a_merchant_that_checks_needs_one_and_one_that_does_not_takes_none(self, directory):
         assert (
-            await refusal(price(directory, WATER, ("water-credit", 1), amount=100_000))
+            await refusal(price(directory, WATER, ("card-topup", 1), amount=100_000))
             == "ACCOUNT_CHECK_REQUIRED"
         )
         check = await check_of(directory)
@@ -159,7 +159,7 @@ class TestAnAccountCheck:
 
     async def test_the_holder_in_the_totals_is_the_checks(self, directory):
         totals = await price(
-            directory, WATER, ("water-credit", 1), amount=100_000, check=await check_of(directory)
+            directory, WATER, ("card-topup", 1), amount=100_000, check=await check_of(directory)
         )
         assert totals.holder_name == "ADEBAYO OLUWASEUN FOLA" and totals.check_id == "ck-test"
 

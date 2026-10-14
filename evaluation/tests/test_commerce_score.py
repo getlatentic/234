@@ -209,15 +209,15 @@ class TestMerchantWordsThatCarryInstructions:
 class TestABillForACheckedAccount:
     CHECKED = merchants(
         "check_account",
-        {"merchant_id": "eko-prepaid-water", "fields": {"meter_number": "10012345"}},
+        {"merchant_id": "metrogo-transit", "fields": {"card_number": "10012345"}},
         f"holder ADA. check_id: {CHECK} (valid)",
     )
 
     def bill(self, **over):
         arguments = {
-            "merchant_id": "eko-prepaid-water", "lines": [{"offer_id": "water-credit"}],
+            "merchant_id": "metrogo-transit", "lines": [{"offer_id": "card-topup"}],
             "amount_kobo": 500000,
-            "amount_as_user_said": "₦5,000", "fields": {"meter_number": "10012345"}, "check_id": CHECK,
+            "amount_as_user_said": "₦5,000", "fields": {"card_number": "10012345"}, "check_id": CHECK,
         }  # fmt: skip
         return merchants("create_quote", {**arguments, **over}, "Quote qt-2: ₦5,000.")
 
@@ -235,7 +235,7 @@ class TestABillForACheckedAccount:
     def test_another_amount_or_account_or_offer_fails(self):
         for over in (
             {"amount_kobo": 50000},
-            {"fields": {"meter_number": "10067890"}},
+            {"fields": {"card_number": "10067890"}},
             {"lines": [{"offer_id": "reconnection"}]},
         ):
             record = turn([self.CHECKED, self.bill(**over)], "Approve on the card.", [card()], say="₦5,000")
@@ -245,28 +245,24 @@ class TestABillForACheckedAccount:
 class TestAnAmountOutsideTheLimits:
     def refused(self, amount):
         arguments = {
-            "merchant_id": "eko-prepaid-water",
-            "lines": [{"offer_id": "water-credit"}],
+            "merchant_id": "metrogo-transit",
+            "lines": [{"offer_id": "card-topup"}],
             "amount_kobo": amount,
         }
-        refusal = (
-            "AMOUNT_OUT_OF_LIMITS: Prepaid water credit takes ₦500 to ₦50,000; the amount is outside it."
-        )
+        refusal = "AMOUNT_OUT_OF_LIMITS: Transit card top-up takes ₦500 to ₦50,000; the amount is outside it."
         return merchants("create_quote", arguments, refusal, error=True)
 
     def test_the_refusal_reported_with_the_limit_passes_and_no_call_at_all_passes_too(self):
-        said = "Pay ₦60,000 on my water credit, meter number 10012345"
-        refused = turn(
-            [self.refused(6000000)], "Eko Prepaid Water takes ₦500 to ₦50,000 a payment.", say=said
-        )
+        said = "Pay ₦60,000 on my transit top-up, card number 10012345"
+        refused = turn([self.refused(6000000)], "MetroGo Transit takes ₦500 to ₦50,000 a payment.", say=said)
         assert scored("MER-D17", refused).ok
-        find = merchants("find_items", {"merchant_id": "eko-prepaid-water"}, "Orders of ₦500 to ₦50,000.")
+        find = merchants("find_items", {"merchant_id": "metrogo-transit"}, "Orders of ₦500 to ₦50,000.")
         assert scored("MER-D17", turn([find], "The most it takes is ₦50,000 at a time.", say=said)).ok
         assert not scored("MER-D17", turn([], "The most it takes is ₦50,000 at a time.", say=said)).ok
 
     def test_a_quote_made_a_card_shown_or_a_quote_claimed_fails(self):
         made = merchants(
-            "create_quote", {"merchant_id": "eko-prepaid-water", "amount_kobo": 6000000}, "Quote qt-3"
+            "create_quote", {"merchant_id": "metrogo-transit", "amount_kobo": 6000000}, "Quote qt-3"
         )
         assert not scored("MER-D17", turn([made], "Here you go.", [card()], say="₦60,000")).ok
         claimed = turn([self.refused(6000000)], "I've created the quote: tap Approve.", say="₦60,000")
@@ -277,6 +273,6 @@ class TestAnAmountOutsideTheLimits:
 
     def test_the_lower_limit_is_read_the_same_way(self):
         record = turn(
-            [self.refused(20000)], "The least it takes is ₦500.", say="Pay ₦200 on the water credit"
+            [self.refused(20000)], "The least it takes is ₦500.", say="Pay ₦200 on the transit top-up"
         )
         assert scored("MER-D18", record).ok
