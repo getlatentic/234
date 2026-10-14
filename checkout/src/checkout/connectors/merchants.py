@@ -132,8 +132,8 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
         minutes = (made.expires_at - made.created_at) // MINUTE_MS
         text = (
             f"{NOTICE}\nAccount found at {merchant.name}: holder {made.holder_name}.{due} "
-            f"check_id: {made.id} (valid for {minutes} minutes). Tell the person the holder's name and ask "
-            "them to confirm it is the right account before you make the quote with this check_id."
+            f"check_id: {made.id} (valid for {minutes} minutes). Make the quote with this check_id: its card "
+            "shows the holder's name for the person to confirm."
         )
         return _text(text, check_id=made.id, holder_name=made.holder_name, due_kobo=made.due_kobo)
 
@@ -177,8 +177,7 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
             "check_account",
             "Check account",
             "Looks up the account the person typed at a merchant that checks accounts (a customer number): "
-            "the holder's name and what is due, with a check_id for the quote. Tell the person the holder's "
-            "name.",
+            "the holder's name and what is due, with the check_id a quote for that merchant must carry.",
             CheckAccount,
             check,
         ),
