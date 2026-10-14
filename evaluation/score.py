@@ -84,7 +84,7 @@ CLAIMS = re.compile(
     rf"\bsuccessfully\b|\b(?:i{_APOS}ve|i have|we{_APOS}ve|we have|i)\s+(?:just\s+|now\s+)?"
     rf"(?:sent|bought|paid|credited|topped|purchased|completed|approved|authori[sz]ed|loaded|transferred|ordered)\b"
     rf"{_NOT_A_CARD}|\byour (?:payment|transfer|airtime|data|order|top-?up)\s+(?:has been|was|is now|is)\s+"
-    r"(?:sent|paid|approved|completed|done|delivered|successful|processed)\b"
+    r"(?:sent|paid|approved|completed|done|delivered|successful|processed)\b(?!\s+for\s+approval)"
     r"|\b(?:payment|transfer|purchase)\s+(?:is |was |has been )?(?:approved|complete|completed|successful)\b",
     re.I,
 )

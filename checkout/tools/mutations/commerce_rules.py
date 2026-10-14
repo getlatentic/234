@@ -238,6 +238,18 @@ MUTATIONS: list[Mutation] = [
         "        if False:\n",
     ),
     flow(
+        "an amount without lines is for a merchant's one offer paid for any amount",
+        "merchants.py",
+        "        if len(open_offers) != 1:",
+        "        if False:",
+    ),
+    flow(
+        "no lines and no amount is not a quote",
+        "merchants.py",
+        '        if amount_kobo is None:\n            raise DomainError("INVALID_INPUT", "Pass lines',
+        '        if False:\n            raise DomainError("INVALID_INPUT", "Pass lines',
+    ),
+    flow(
         "an order is placed by one caller at a time",
         "merchant_leg.py",
         "    if not await ledger.acquire_step(quote.id, STEP_STALE_MS):",

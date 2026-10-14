@@ -72,7 +72,12 @@ class CreateQuote(Strict):
     merchant_id: MerchantId
     lines: Annotated[
         list[QuoteLine],
-        Field(min_length=1, max_length=MAX_LINES, description="The offers and how many of each."),
+        Field(
+            default_factory=list,
+            max_length=MAX_LINES,
+            description="The offers and how many of each; left out with amount_kobo for a merchant with one "
+            "offer paid for any amount.",
+        ),
     ]
     amount_kobo: Annotated[
         int | None,

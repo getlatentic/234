@@ -68,7 +68,7 @@ class TestTheToolSurface:
             "quantity",
         ]
         assert create["properties"]["lines"]["items"]["additionalProperties"] is False
-        assert sorted(create["required"]) == ["idempotency_key", "lines", "merchant_id"]
+        assert sorted(create["required"]) == ["idempotency_key", "merchant_id"]
 
     async def test_the_model_is_told_to_report_with_track_order(self, stack):
         made = await quote(stack)

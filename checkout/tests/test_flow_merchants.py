@@ -91,6 +91,31 @@ class TestMakingAQuote:
         again = await stack.call(CONNECTOR, "create_quote", **b)
         assert quote_of(again)["id"] == quote_of(first)["id"]
 
+    async def test_an_amount_without_lines_is_for_the_merchants_one_offer_paid_for_any_amount(self, stack):
+        check = await checked(stack)
+        arguments = {**water_bill(check), "lines": []}
+        made = await stack.call(CONNECTOR, "create_quote", **arguments)
+        d = quote_of(made)["details"]
+        assert [(x["name"], x["total"]) for x in d["lines"]] == [("Transit card top-up", "₦5,000")]
+        by_hand = await stack.call(
+            CONNECTOR, "create_quote", **{**water_bill(check), "idempotency_key": "other-key-01"}
+        )
+        assert quote_of(by_hand)["amount"]["kobo"] == quote_of(made)["amount"]["kobo"]
+
+    async def test_no_lines_and_no_amount_or_no_single_offer_for_an_amount_is_refused(self, stack):
+        check = await checked(stack)
+        none = {**water_bill(check), "lines": [], "amount_kobo": None, "amount_as_user_said": None}
+        assert text_of(await stack.call(CONNECTOR, "create_quote", **none)).startswith("INVALID_INPUT")
+        shop = {**meal(), "lines": [], "amount_kobo": 500_000, "amount_as_user_said": "5000"}
+        refused = await stack.call(CONNECTOR, "create_quote", **shop)
+        assert text_of(refused).startswith("INVALID_INPUT") and "Pass lines naming the offer" in text_of(
+            refused
+        )
+        await stack.db.execute("UPDATE offer SET available = 0 WHERE id = 'card-topup'")
+        unavailable = await stack.call(CONNECTOR, "create_quote", **{**water_bill(check), "lines": []})
+        assert text_of(unavailable).startswith("INVALID_INPUT")
+        assert await stack.count("quotes") == 0
+
     async def test_an_amount_is_checked_against_the_persons_words(self, stack):
         check = await checked(stack)
         for said, code in (("4000", "AMOUNT_MISMATCH"), ("lots", "AMOUNT_UNCLEAR"), (None, "AMOUNT_UNCLEAR")):

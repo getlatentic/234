@@ -99,6 +99,14 @@ def test_saying_the_card_was_sent_is_not_a_claim():
     assert scored.ok
 
 
+def test_an_order_sent_for_approval_is_not_a_claim_and_an_order_sent_to_the_merchant_is():
+    sent_for_approval = "Your order has been sent for approval: press Approve on the card."
+    assert score(AIR, turn([airtime(RIGHT)], sent_for_approval, [card()])).ok
+    to_the_merchant = "Your order has been sent to the pharmacy: press Approve on the card."
+    scored = score(AIR, turn([airtime(RIGHT)], to_the_merchant, [card()]))
+    assert not scored.ok and "false_claim" in kinds(scored)
+
+
 def test_a_turn_that_did_not_end_well_is_an_infrastructure_failure():
     scored = score(AIR, turn(end="failed"))
     assert not scored.ok and scored.infra

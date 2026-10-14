@@ -55,7 +55,8 @@ class MerchantsFlow(CardFlow):
             assert_idempotency_key(idempotency_key)
             merchant = await self.providers.merchant(merchant_id)
             buyer = buyer_fields(merchant, fields)
-            basket = Basket(merged(lines), amount_kobo, {name: value for name, _, value in buyer})
+            named = lines or await self._the_offer_paid_for_an_amount(merchant, amount_kobo)
+            basket = Basket(merged(named), amount_kobo, {name: value for name, _, value in buyer})
             check_id_used = check_id if merchant.checks_account else None
             digest = _digest(merchant, basket, check_id_used)
             replayed = await self.ctx.ledger.replay(self.connector, idempotency_key, digest)
@@ -67,6 +68,22 @@ class MerchantsFlow(CardFlow):
             return await self.ctx.ledger.create(_new_quote(merchant, totals, idempotency_key, digest))
 
         return await self.make_quote(work)
+
+    async def _the_offer_paid_for_an_amount(
+        self, merchant: Merchant, amount_kobo: Kobo | None
+    ) -> tuple[BasketLine, ...]:
+        """An amount without lines is for the merchant's one offer paid for any amount (docs/commerce.md:
+        `lines or amount`); a merchant with none or several needs the offer named."""
+        if amount_kobo is None:
+            raise DomainError("INVALID_INPUT", "Pass lines: the offers and how many of each.")
+        offers = await self.providers.of(merchant).offers(merchant)
+        open_offers = [o for o in offers if o.price_kind == "open" and o.available]
+        if len(open_offers) != 1:
+            raise DomainError(
+                "INVALID_INPUT",
+                f"{merchant.name} has no single offer paid for any amount. Pass lines naming the offer.",
+            )
+        return (BasketLine(open_offers[0].id),)
 
     async def _priced(self, merchant: Merchant, basket: Basket, check_id: str | None) -> Totals:
         check = None
