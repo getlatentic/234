@@ -136,10 +136,24 @@ class TestFindingItems:
         assert "beef-suya" in text and "jollof" not in text
         one = await read(stack, "find_items", merchant_id=MAMA, offer_id="zobo")
         assert "zobo | Zobo, 500ml | ₦800" in one and "chapman" not in one
-        assert one.splitlines()[-1].startswith("If the person wants to buy, call create_quote now")
-        assert "No offers of Mama Put Yaba (simulated) match" in await read(
-            stack, "find_items", merchant_id=MAMA, query="pizza"
+        assert one.splitlines()[-1].startswith("To buy, call create_quote with the merchant_id")
+        assert "if the person only asked what it sells or costs, answer that." in one
+
+    async def test_words_that_match_nothing_give_the_whole_list_so_a_spelling_does_not_hide_an_item(
+        self, stack
+    ):
+        text = await read(stack, "find_items", merchant_id=PHARMACY, query="hand sanitizer")
+        lines = text.splitlines()
+        assert (
+            lines[0] == NOTICE
+            and lines[1] == "No offer matches 'hand sanitizer'; everything it sells follows."
         )
+        assert "hand-sanitiser | Hand sanitiser" in text and "paracetamol-500" in text
+        assert "No offer matches" not in await read(
+            stack, "find_items", merchant_id=PHARMACY, query="sanitiser"
+        )
+        gone = await read(stack, "find_items", merchant_id=PHARMACY, offer_id="no-such-offer")
+        assert "No offers of LagosMed Pharmacy (simulated) match" in gone
 
     async def test_options_and_amounts_are_explained_where_an_offer_has_them(self, stack):
         sanitiser = await read(stack, "find_items", merchant_id=PHARMACY, query="sanitiser")
@@ -223,7 +237,8 @@ class TestAQuoteNeedsAMerchantOfTheDirectory:
     async def test_a_listed_merchant_becomes_one_the_server_priced(self, stack):
         made = await quote(stack)
         assert text_of(made).startswith(
-            "Nothing is ordered or paid until the person approves it on the card."
+            "Nothing is ordered or paid until the person approves it on the card: say the quote is ready for them, "
+            "never that the order was sent."
         )
         view = quote_of(made)
         assert view["amount"]["kobo"] == MEAL_KOBO and view["details"]["kind"] == "basket"

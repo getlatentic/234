@@ -24,7 +24,10 @@ from .kit import CardConnector, CardReader, IdempotencyKey, QuoteId, Strict, car
 NAME = "merchants"
 STATUS_TOOL = "track_order"
 MINUTE_MS = 60_000
-NOTHING_YET = "Nothing is ordered or paid until the person approves it on the card."
+NOTHING_YET = (
+    "Nothing is ordered or paid until the person approves it on the card: say the quote is ready for "
+    "them, never that the order was sent."
+)
 
 Category = Literal[*CATEGORIES]
 MerchantId = Annotated[
@@ -121,13 +124,17 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
 
     async def find(args: FindItems) -> ToolResult:
         merchant = await providers.merchant(args.merchant_id)
-        offers = await providers.of(merchant).offers(merchant, args.query)
+        provider = providers.of(merchant)
+        offers = await provider.offers(merchant, args.query)
         if args.offer_id:
             offers = [offer for offer in offers if offer.id == args.offer_id]
+        unmatched = None
+        if not offers and args.query and not args.offer_id:
+            offers, unmatched = await provider.offers(merchant), args.query
         if not offers:
             return _text(f"{NOTICE}\nNo offers of {merchant.name} match. Try other words or none.", offers=[])
         listed = [{"id": o.id, "name": o.name, "available": o.available} for o in offers]
-        return _text(offer_listing(merchant, offers), offers=listed)
+        return _text(offer_listing(merchant, offers, unmatched), offers=listed)
 
     async def check(args: CheckAccount) -> ToolResult:
         merchant = await providers.merchant(args.merchant_id)

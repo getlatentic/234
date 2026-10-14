@@ -8,9 +8,10 @@ from .model import Merchant, Offer, OptionGroup
 from .text import NOTICE
 
 BUY_NEXT = (
-    "If the person wants to buy, call create_quote now with the merchant_id, offer_ids, counts and those "
-    "fields."
+    "To buy, call create_quote with the merchant_id, offer_ids, counts and those fields; if the person only "
+    "asked what it sells or costs, answer that."
 )
+NONE_MATCH = "No offer matches {query!r}; everything it sells follows."
 SHOWN_MERCHANTS = 20
 SHOWN_OFFERS = 15
 
@@ -91,7 +92,7 @@ def _asks(merchant: Merchant) -> str:
     return f"Fields for create_quote: {'; '.join(fields) or 'none'}.{checks}"
 
 
-def offer_listing(merchant: Merchant, offers: list[Offer]) -> str:
+def offer_listing(merchant: Merchant, offers: list[Offer], unmatched: str | None = None) -> str:
     shown = offers[:SHOWN_OFFERS]
     more = len(offers) - len(shown)
     fee = f" {merchant.fee_label}: {format_naira(merchant.fee_kobo)}." if merchant.fee_kobo else ""
@@ -100,5 +101,6 @@ def offer_listing(merchant: Merchant, offers: list[Offer]) -> str:
         f"{format_naira(merchant.max_kobo)}.{fee} {_asks(merchant)}"
     )
     tail = [f"{more} more: narrow with a query."] if more > 0 else []
-    lines = [NOTICE, head, "id | name | price", *(offer_line(o, merchant) for o in shown), *tail]
+    none = [NONE_MATCH.format(query=unmatched)] if unmatched else []
+    lines = [NOTICE, *none, head, "id | name | price", *(offer_line(o, merchant) for o in shown), *tail]
     return "\n".join([*lines, BUY_NEXT])
