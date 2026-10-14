@@ -25,6 +25,8 @@
 #   Turnstile script and siteverify, so it needs the network; conformance/bot-check.mjs)
 #   REACH=1 makes 234 an agent for people at the Skyline Brand of PACT's reference Provider, which
 #   conformance/pact-reach.mjs starts on base+12 to base+14 (docs/pact.md);
+#   FREE_TEXT_MERCHANTS=0|1 sets the connectors' variable of that name (default on locally; 0 is the production setting:
+#   the free-text create_payment_quote is not offered, docs/commerce.md);
 #   HOST_CONNECTORS (comma-separated) is the connectors the host offers instead of all of them (turns/settings.py),
 #   as for an evaluation's control run without one;
 #   REAL_MODEL=1 uses the model in LLM_BASE_URL, LLM_MODEL and (through host/.dev.vars.real) LLM_API_KEY
@@ -61,7 +63,7 @@ card=()
 start checkout "$root/checkout" "$checkout_port" "$state/checkout.log" --name "$connectors_worker" \
   --var ENABLE_TEST_ROUTES:1 --var "PUBLIC_BASE_URL:http://localhost:$checkout_port" \
   --var "HOST_PUBLIC_URL:http://localhost:$host_port" \
-  --var ALT_CARDS:react=react-card.html,probe=probe-card.html,official=card-official.html "${card[@]}" "${rig[@]}" "${search[@]}"
+  --var ALT_CARDS:react=react-card.html,probe=probe-card.html,official=card-official.html "${card[@]}" "${rig[@]}" "${search[@]}" ${FREE_TEXT_MERCHANTS:+--var "FREE_TEXT_MERCHANTS:$FREE_TEXT_MERCHANTS"}
 start_sandbox
 case "${AUTH:-}" in 1 | keys) start_auth ;; esac
 node "$root/tools/host-config.mjs" "$base" "$connectors_worker"

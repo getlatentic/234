@@ -207,7 +207,7 @@ DEV_3 = [c for c in load_cases() if c.split == "dev-3"]
 
 def test_dev_3_has_the_shapes_of_the_failures_it_was_written_for_and_none_of_the_held_out_texts():
     prefixes = collections.Counter(c.id.split("-")[0] for c in DEV_3)
-    assert prefixes == {"SKP": 16, "LIM": 10, "UNS": 16, "MIS": 8}
+    assert prefixes == {"SKP": 16, "LIM": 10, "UNS": 16, "MIS": 8, "COR": 8}
     held_out = {t.say for c in load_cases() if c.split == "held-out" for t in c.turns}
     assert not {t.say for c in DEV_3 for t in c.turns} & held_out
 
