@@ -24,7 +24,7 @@ def new_check_id() -> str:
     return f"ck-{secrets.token_hex(10)}"
 
 
-def canonical(fields: Mapping[str, str]) -> str:
+def canonical(fields: Mapping[str, Any]) -> str:
     return json.dumps(dict(sorted(fields.items())), separators=(",", ":"), ensure_ascii=False)
 
 
@@ -37,6 +37,7 @@ def _check_of(row: dict[str, Any]) -> AccountCheck:
         json.loads(row["fields"]),
         row["created_at"],
         row["expires_at"],
+        json.loads(row["detail"]),
     )
 
 
@@ -50,14 +51,16 @@ class AccountChecks:
         """The check for this owner, merchant, fields and holder: the live one if any, else a new one."""
         owner, now = self._owner(), self._clock.now()
         holder, wanted = third_party(found.holder_name, HOLDER_LIMIT), canonical(fields)
+        detail = canonical(found.detail)
         live = await self._db.row(
             "SELECT * FROM account_check WHERE owner = ? AND merchant_id = ? AND fields = ? "
-            "AND holder_name = ? "
+            "AND holder_name = ? AND detail = ? "
             "AND (due_kobo IS ? ) AND expires_at > ? ORDER BY created_at DESC LIMIT 1",
             owner,
             merchant.id,
             wanted,
             holder,
+            detail,
             found.due_kobo,
             now,
         )
@@ -65,19 +68,27 @@ class AccountChecks:
             return _check_of(live)
         check_id = new_check_id()
         await self._db.execute(
-            "INSERT INTO account_check (id, owner, merchant_id, fields, holder_name, due_kobo, created_at, "
-            "expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO account_check (id, owner, merchant_id, fields, holder_name, detail, due_kobo, "
+            "created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             check_id,
             owner,
             merchant.id,
             wanted,
             holder,
+            detail,
             found.due_kobo,
             now,
             now + CHECK_TTL_MS,
         )
         return AccountCheck(
-            check_id, merchant.id, holder, found.due_kobo, dict(fields), now, now + CHECK_TTL_MS
+            check_id,
+            merchant.id,
+            holder,
+            found.due_kobo,
+            dict(fields),
+            now,
+            now + CHECK_TTL_MS,
+            dict(found.detail),
         )
 
     async def require(

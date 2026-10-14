@@ -138,13 +138,16 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
 
     async def check(args: CheckAccount) -> ToolResult:
         merchant = await providers.merchant(args.merchant_id)
-        fields = {name: value for name, _, value in buyer_fields(merchant, args.fields)}
+        named = {spec.name for spec in merchant.check_fields}
+        given = {name: value for name, value in args.fields.items() if name in named}
+        fields = {name: value for name, _, value in buyer_fields(merchant, given, merchant.check_fields)}
         found = await providers.of(merchant).check(merchant, fields)
         made = await checks.record(merchant, fields, found)
         due = f" Amount due: {format_naira(made.due_kobo)}." if made.due_kobo is not None else ""
+        facts = "".join(f" {label}: {value}." for label, value in made.detail.get("facts", []))
         minutes = (made.expires_at - made.created_at) // MINUTE_MS
         text = (
-            f"{NOTICE}\nAccount found at {merchant.name}: holder {made.holder_name}.{due} "
+            f"{NOTICE}\nAccount found at {merchant.name}: holder {made.holder_name}.{due}{facts} "
             f"check_id: {made.id} (valid for {minutes} minutes). Make the quote with this check_id: its card "
             "shows the holder's name for the person to confirm."
         )

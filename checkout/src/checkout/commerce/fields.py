@@ -47,19 +47,23 @@ def _read(spec: FieldSpec, value: str) -> str:
             return _text(spec, cleaned)
 
 
-def buyer_fields(merchant: Merchant, given: Mapping[str, str]) -> tuple[tuple[str, str, str], ...]:
-    """The fields as (name, label, value) in the merchant's order, each valid, none unknown."""
+def buyer_fields(
+    merchant: Merchant, given: Mapping[str, str], specs: tuple[FieldSpec, ...] | None = None
+) -> tuple[tuple[str, str, str], ...]:
+    """The fields as (name, label, value) in the merchant's order, each valid, none unknown. `specs` are the
+    fields asked for when that is fewer than all of them (an account check)."""
+    specs = merchant.fields if specs is None else specs
     if len(given) > MAX_FIELDS:
         raise DomainError("FIELD_INVALID", f"At most {MAX_FIELDS} fields.")
-    known = {spec.name: spec for spec in merchant.fields}
+    known = {spec.name: spec for spec in specs}
     unknown = sorted(set(given) - set(known))
     if unknown:
-        asked = ", ".join(spec.name for spec in merchant.fields) or "nothing"
+        asked = ", ".join(spec.name for spec in specs) or "nothing"
         raise DomainError(
             "FIELD_INVALID", f'{merchant.name} does not take "{unknown[0]}". It asks for: {asked}.'
         )
     read: list[tuple[str, str, str]] = []
-    for spec in merchant.fields:
+    for spec in specs:
         value = given.get(spec.name)
         if value is None or not str(value).strip():
             if spec.required:

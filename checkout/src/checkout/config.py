@@ -118,6 +118,9 @@ class Settings:
     free_text_merchants: bool = True
     """`create_payment_quote` may pay any merchant the person names in words. Allowed only while Paystack,
     VTpass and Bachs are simulated or in a sandbox (`FREE_TEXT_MERCHANTS`, docs/commerce.md, rule 2)."""
+    bills_service_fee_kobo: int = 0
+    """234's fee on a television or electricity bill, a line of its own on the card when above zero
+    (`BILLS_SERVICE_FEE_KOBO`). It is the owner's decision (docs/commerce.md, "Open before real money")."""
 
     @classmethod
     def from_env(cls, read: Read) -> Settings:
@@ -170,6 +173,7 @@ class Settings:
                 vtpass,
                 bachs,
             ),
+            bills_service_fee_kobo=env.whole_int("BILLS_SERVICE_FEE_KOBO", base.bills_service_fee_kobo),
             web_enabled=env.text("WEB_ENABLED") != "0",
             web_search=SearchSettings.from_env(read),
             web_deny=(*DEFAULT_DENY, *_domains(env.text("WEB_DENY"))),
@@ -194,6 +198,14 @@ class _Env:
             return fallback
         if not raw.isdecimal() or int(raw) <= 0:
             raise ConfigError(f'{name} must be a positive whole number, got "{raw}".')
+        return int(raw)
+
+    def whole_int(self, name: str, fallback: int) -> int:
+        raw = self.text(name)
+        if raw is None:
+            return fallback
+        if not raw.isdecimal():
+            raise ConfigError(f'{name} must be a whole number of kobo, 0 or more, got "{raw}".')
         return int(raw)
 
     def flag(self, name: str) -> bool:

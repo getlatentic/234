@@ -17,12 +17,15 @@ class SimOrder:
     scenario: str
     created_at: int
     reversed_at: int | None = None
+    billers_code: str | None = None
+    subscription_type: str | None = None
 
 
 def _order(row: dict[str, Any]) -> SimOrder:
     return SimOrder(
         row["request_id"], row["service_id"], row["phone"], row["amount_naira"],
         row["variation_code"], row["scenario"], row["created_at"], row["reversed_at"],
+        row["billers_code"], row["subscription_type"],
     )  # fmt: skip
 
 
@@ -34,10 +37,11 @@ class VtpassSimStore:
         """False when the request id is taken: VTpass answers a repeated id with code 014."""
         changed = await self._db.execute(
             "INSERT OR IGNORE INTO sim_vtpass "
-            "(request_id, service_id, phone, amount_naira, variation_code, scenario, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "(request_id, service_id, phone, amount_naira, variation_code, scenario, created_at, "
+            "billers_code, subscription_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             order.request_id, order.service_id, order.phone, order.amount_naira,
-            order.variation_code, order.scenario, order.created_at,
+            order.variation_code, order.scenario, order.created_at, order.billers_code,
+            order.subscription_type,
         )  # fmt: skip
         return changed == 1
 

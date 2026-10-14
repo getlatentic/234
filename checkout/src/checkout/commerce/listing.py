@@ -49,6 +49,12 @@ def merchant_listing(
     return "\n".join([NOTICE, *none, *table, *map(merchant_line, shown), *tail, *other])
 
 
+def _limits(merchant: Merchant) -> str:
+    """The merchant's least and most for an order, or its least alone when it states no most."""
+    least = format_naira(merchant.min_kobo)
+    return f"{least} to {format_naira(merchant.max_kobo)}" if merchant.has_maximum else f"at least {least}"
+
+
 def _price(offer: Offer, merchant: Merchant) -> str:
     match offer.price_kind:
         case "fixed":
@@ -57,8 +63,10 @@ def _price(offer: Offer, merchant: Merchant) -> str:
             return (
                 f"any amount from {format_naira(offer.min_kobo or 0)} to {format_naira(offer.max_kobo or 0)}"
             )
+        case "renewal":
+            return "the renewal amount that check_account returns for the card"
         case _:
-            return f"any amount from {format_naira(merchant.min_kobo)} to {format_naira(merchant.max_kobo)}"
+            return f"any amount {'from ' if merchant.has_maximum else ''}{_limits(merchant)}"
 
 
 def _group(group: OptionGroup) -> str:
@@ -74,7 +82,7 @@ def _options(offer: Offer) -> str:
 def offer_line(offer: Offer, merchant: Merchant) -> str:
     if not offer.available:
         return f"{offer.id} | {offer.name} | sold out"
-    amount = " | name the amount as amount_kobo" if offer.price_kind != "fixed" else ""
+    amount = " | name the amount as amount_kobo" if offer.price_kind in ("range", "open") else ""
     return f"{offer.id} | {offer.name} | {_price(offer, merchant)}{amount}{_options(offer)}"
 
 
@@ -84,8 +92,9 @@ def _asks(merchant: Merchant) -> str:
         + (f", one of {', '.join(f.options)}" if f.options else "")
         for f in merchant.fields
     ]
+    named = ", ".join(f.name for f in merchant.check_fields)
     checks = (
-        " It checks the account first: call check_account, then pass its check_id."
+        f" It checks the account first: call check_account with {named}, then pass its check_id."
         if merchant.checks_account
         else ""
     )
@@ -97,8 +106,7 @@ def offer_listing(merchant: Merchant, offers: list[Offer], unmatched: str | None
     more = len(offers) - len(shown)
     fee = f" {merchant.fee_label}: {format_naira(merchant.fee_kobo)}." if merchant.fee_kobo else ""
     head = (
-        f"{merchant.name} ({status_words(merchant)}). Orders of {format_naira(merchant.min_kobo)} to "
-        f"{format_naira(merchant.max_kobo)}.{fee} {_asks(merchant)}"
+        f"{merchant.name} ({status_words(merchant)}). Orders of {_limits(merchant)}.{fee} {_asks(merchant)}"
     )
     tail = [f"{more} more: narrow with a query."] if more > 0 else []
     none = [NONE_MATCH.format(query=unmatched)] if unmatched else []

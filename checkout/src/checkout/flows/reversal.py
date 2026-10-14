@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""An airtime or data order VTpass took back after reporting it delivered (docs/wallet.md, "Reversals").
+"""An airtime, data, television or electricity order VTpass took back after reporting it delivered
+(docs/wallet.md, "Reversals"). A bill is a `merchants` quote of the `vtpass` provider, asked about through
+that provider's `status`; airtime and data are asked about through the VTpass client.
 
 VTpass's callback says so unsigned, so only a requery that answers reversed moves anything: the quote goes
 from settled to reversed and, when the wallet paid, a `refund` of what its hold took rides in the same batch,
@@ -22,6 +24,7 @@ from .checkout_leg import ask_refund
 from .context import Context
 
 CONNECTOR = "airtime"
+CONNECTORS = (CONNECTOR, "merchants")
 REVERSED = "VTpass reversed this order after delivering it."
 
 
@@ -48,13 +51,30 @@ async def _reverse(ctx: Context, quote: Quote, outcome: VtpassOutcome) -> Quote:
     return await ask_refund(ctx, reversed_quote)
 
 
-async def reverse_if_confirmed(ctx: Context, quote_id: str) -> Quote:
+async def _asked(ctx: Context, quote: Quote, request_id: str) -> VtpassOutcome | None:
+    """VTpass's answer about a delivered order, or None when this context cannot ask."""
+    if quote.connector == CONNECTOR:
+        return await ctx.vtpass.requery(request_id) if ctx.vtpass else None
+    if ctx.providers is None or quote.details["provider"] != "vtpass":
+        return None
+    found = await ctx.providers.named("vtpass").status(quote)
+    return VtpassOutcome(
+        "failed" if found.status == "reversed" else found.status,
+        None,
+        found.description,
+        reversed=found.status == "reversed",
+    )
+
+
+async def reverse_if_confirmed(ctx: Context, quote_id: str, connector: str = CONNECTOR) -> Quote:
     """Asks VTpass about a delivered quote once more, and reverses it only when VTpass answers reversed."""
-    quote = await ctx.ledger.require(quote_id, CONNECTOR)
+    quote = await ctx.ledger.require(quote_id, connector)
     request_id = (quote.progress.get("fulfilment") or {}).get("requestId")
-    if quote.state != "settled" or request_id is None or ctx.vtpass is None:
+    if quote.state != "settled" or request_id is None:
         return quote
-    outcome = await ctx.vtpass.requery(request_id)
+    outcome = await _asked(ctx, quote, request_id)
+    if outcome is None:
+        return quote
     if not outcome.reversed:
         ctx.audit.log("reversal.unconfirmed", quote=quote.id, code=outcome.code)
         return quote
