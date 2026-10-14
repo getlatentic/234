@@ -147,7 +147,7 @@ def basket_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
 
 def bill_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     """A bill for a checked account: the account was checked first, the quote carries that check, and its
-    one line is the offer asked for."""
+    one line is the offer asked for (a bill has the merchant's one offer, so leaving `lines` out is that line)."""
     calls = calls_to(turn, "create_quote")
     if not calls:
         return []
@@ -163,7 +163,7 @@ def bill_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     want = [{"offer_id": outcome["offer_id"], "quantity": 1}]
     return (
         problems
-        + _line_problems(want, given.get("lines") or [])
+        + _line_problems(want, given.get("lines") or want)
         + _field_problems(outcome["fields"], given.get("fields") or {})
         + _reply_problems(turn)
     )

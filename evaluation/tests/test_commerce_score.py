@@ -239,6 +239,15 @@ class TestABillForACheckedAccount:
         )
         assert scored("MER-D16", record).ok
 
+    def test_a_bill_that_leaves_the_lines_out_is_the_merchants_one_offer(self):
+        record = turn(
+            [self.CHECKED, self.bill(lines=[])],
+            "Check the card and approve the ₦5,000.",
+            [card()],
+            say="₦5,000",
+        )
+        assert scored("MER-D16", record).ok
+
     def test_a_bill_without_the_check_or_with_one_the_tool_never_gave_fails(self):
         assert not scored("MER-D16", turn([self.bill()], "Approve on the card.", [card()])).ok
         invented = self.bill(check_id="ck-ffffffffffffffffffff")
