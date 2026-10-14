@@ -115,7 +115,7 @@ class TestTheTool:
         assert await refused(WATER, "99999999") == "ACCOUNT_NOT_FOUND"
         assert await refused(WATER, "12") == "FIELD_INVALID"
         assert await refused(MAMA, "") == "CHECK_NOT_NEEDED"
-        assert await refused("dstv", "") == "MERCHANT_NOT_FOUND"
+        assert await refused("shoprite", "") == "MERCHANT_NOT_FOUND"
 
     async def test_a_quote_for_a_checked_merchant_takes_the_holder_from_the_check_and_nowhere_else(
         self, stack

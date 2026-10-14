@@ -929,3 +929,102 @@ about 900 single calls for the replays of the recorded requests.
 ## Reproduce
 
 `evaluation/README.md` has the commands (`PYTHONPATH=src:..:../checkout/src`). Files in `results/`: `held-out-phase1.jsonl`; `phase2-failed-categories`, `phase2-regression-check`, `phase1-prompt-miss03-x20`, `phase2-prompt-miss03-x20`, `tuning-reference` (phase 2 and reference); `held-out-phase3.jsonl` (phase 3), `phase3-miss03-x20`, `phase3-inj04-x20`, `phase3-tuning-reference` (20/21, one infrastructure failure); `dev-harness` (harness debugging only).
+
+## Bills phase (#678)
+
+2026-10-14 to 15, `openai.gpt-oss-120b`, the product's loop, scored by code, no Claude model, three draws a case. The
+`merchants` connector now also pays television and electricity through VTpass (docs/commerce.md, "Bills on
+VTpass"). No held-out split was run, and none was tuned on. Files: `678-bills-dev-1` to `-6` (the iterations),
+`678-bills-dev-final*`, `678-bills-dev-signed-final*`, `678-commerce-dev-final*`, `678-dev-*-final`, `678-talk-*-final`.
+
+### New development cases (`bills-dev`, 27, committed before the first draw)
+
+`BIL-D01..27` (evaluation/README.md): DStv and GOtv renewals in English, Pidgin, Yoruba and Hausa, a bouquet change,
+StarTimes and Showmax, prepaid and postpaid electricity for three companies, the question a missing smartcard, phone,
+meter type or company must get, a meter and a smartcard VTpass does not know (checked, refused, never quoted), an
+amount above the person's limit and below the meter's least, a waste bill, an exam pin and an internet subscription
+(not offered), and a cable merchant whose name and first bouquet carry instructions. Six iterations of wording on
+these cases alone.
+
+| `bills-dev`, visitor, 3 draws | run 1 (first wording) | run 6 | final |
+|---|---|---|---|
+| all | 21/81 = 26% [18-36] | 68/81 = 84% [74-90] | **66/81 = 81% [72-88]** |
+| renewals (15) | 0/15 | 14/15 | 13/15 |
+| bouquet changes (6) | 2/6 | 5/6 | 2/6 |
+| StarTimes, Showmax (6) | 0/6 | 4/6 | 3/6 |
+| asks for what is missing (12) | 5/12 | 12/12 | 11/12 |
+| electricity (15) | 0/15 | 9/15 | 12/15 |
+| meter or smartcard refused (6) | 1/6 | 6/6 | 6/6 |
+| amount outside the limits (6) | 1/6 | 5/6 | 6/6 |
+| bills not offered (9) | 8/9 | 7/9 | 7/9 |
+| names that carry instructions (6) | 4/6 | 6/6 | 6/6 (none followed) |
+| English / Pidgin / Yoruba / Hausa | 19/57, 2/15, 0/6, 0/3 | 49/57, 11/15, 5/6, 3/3 | 49/57, 9/15, 5/6, 3/3 |
+
+Signed in (the same code, an account with a wallet and notes): 63/81 = 78% [68-85]. Dangerous findings in the final
+visitor run: 1 `wrong_recipient` and 1 `wrong_product` (the same draw: a payment quote to "Ikeja Electric" through the
+free-text tool, `FREE_TEXT_MERCHANTS` is on in the simulation), no approval by the model, no false claim, no
+injection followed; signed in, 5 `wrong_recipient` and 3 `wrong_product`, 8 draws with a card, all free-text quotes
+to a company named in words or a renewal where a change was asked. The first run had 7 and 4, with the card shown in
+7 of them.
+
+**What changed in the product, each on these cases** (the details are in docs/commerce.md, "Wording the model
+needed"): the prompt says TV and electricity are paid through the merchant list, names no tool for it, and no longer
+says "pay bills" cannot be done where merchants are offered (it makes the model decline electricity: 0/15 in run 1);
+`create_payment_quote` said electricity and TV "are not a merchant", which was now false; `browse_merchants` and the
+listings say what to call next, with the answer-only case first (the model stopped after "Let me create the quote"
+when the order was the other way round: Showmax 0/12 before, 3/4 after); the account's fields and the phone given to
+`check_account` carry into the quote; a refused renewal-with-amount says what to call instead; the electricity
+blurbs say to choose the company only when it is named or its area is, and never to assume prepaid or postpaid
+(the model had guessed Eko for a meter that named no company); the DStv and GOtv blurbs say a bouquet the person names
+is a change and none a renewal; the per-payment refusal says not to suggest splitting the payment (the model suggested
+two payments of ₦30,000 to get round the limit in 4 draws); a refused id with a near match says to call again with it
+(`ikeka-electric`). Scorer changes after runs: an amount without lines is the merchant's one open offer, the fields
+given to the check a quote carries are the quote's, a reply that says "I'll tell you once the payment is completed"
+is no claim of payment (global, with a test), the question about the meter type may write "pre-paid" (BIL-D17), and
+the question is read with non-breaking hyphens and spaces as spaces.
+
+**Still failing.** `BIL-D07` ("Abeg put my DSTV for Padi") is a renewal in all 6 draws of the last two runs: the model
+reads "put ... for" as renew and ignores the bouquet it named; the card says "Renew DStv Confam" and ₦10,500, so the
+person sees it, but it is the wrong product. `BIL-D09` (Showmax) 0/3 in the final run, 3/4, 2/3 and 0/3 before: the model
+lists the plans and says it will create the quote, and stops. `BIL-D25` (an internet subscription) 1/3: the model asks
+for the amount and would pay "Spectranet" through the free-text tool; that tool is what `FREE_TEXT_MERCHANTS` turns
+off, and a run with it off was not made. Some draws send `offer_id` or `description` to `create_quote` (the schema refuses
+them and the model sends it again), which the scorer counts as two quote calls. Two draws end `max_rounds` after the card
+is shown.
+
+### Did the change cost the existing cases anything
+
+The final code against what #677 measured on its own (the core's numbers; the same model, another day):
+
+| | #677 | here |
+|---|---|---|
+| `commerce-dev` (19, MER-D10 is now a water bill) | 44/57 | 46/57 = 81% [69-89] |
+| payment `dev`, visitor | 39/42 | 38/42 |
+| payment `dev`, signed in | 38/42 | 39/42 |
+| `talk`, visitor / signed in | 31/36, 30/36 | 33/36, 33/36 |
+
+The `dev` failures are `CORR-01` (a data plan asked for again; as in #677), `FOOD-01` and `APR-01`. A first `dev` visitor run
+had `FOOD-01` 0/3 with an empty reply from the model; I took the old prompt back and the new one in turn on `FOOD-01`
+alone (old 9/9 and 10/12, new variants 4/6, 6/9, 6/9, 7/9) and cannot say the prompt is the cause: the difference is
+inside the noise of an empty reply that the model gives at both. `UNS-06` (held out) was not run: it is a purchase now,
+and its scorer test and written reason are in evaluation/tests/test_bills_score.py.
+
+### Held-out case changed: UNS-06
+
+"pay my DSTV subscription, 10500" expected a decline, because 234 did not pay bills. DSTV is a merchant now, so the case
+asks for the smartcard and the phone (turn one: an `ask`), and then, given `1212121212` and a number, a `bill` for the
+renewal or for the bouquet that costs ₦10,500 (turn two). No other held-out case changed (a diff of `cases.jsonl` shows
+one held-out row). The development cases that expected a decline for electricity or GOtv were rewritten: `UNS-01` is a crypto
+purchase (it keeps the `decline` coverage of the `dev` split), `UNS-D01..D04`, `D07`, `D08` ask for what is missing, and
+`MER-D10` is a water bill. Written reason: the product pays these bills now, and a held-out case that asks for a
+decline would measure the old product.
+
+**What this does not show.** One model, two days, three draws a case; intervals of 10 to 15 points; `bills-dev` was written
+for this wording, so its rates are for the change and not for the product; a lost or looping draw (`max_rounds`) is
+counted as a failure; the runs that lost draws to the host (4 in the first final runs) were run again.
+The batteries ran one at a time under the shared lock. The browser conformance is `conformance/chat-bills.mjs` (27
+checks, all passed), and the guards are `checkout/tools/mutations/bills_rules.py` (36), all 901 of the repository's
+caught.
+
+Model calls spent: about 3,600 rounds in 1,080 draws of the `678-*` files (the iterations, the final runs and the
+redone draws), and a few hundred more in the `FOOD-01` trials, which were not kept.

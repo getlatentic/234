@@ -5,6 +5,7 @@ is recorded by a statement that applies only while the quote is still approved. 
 delivered ends the quote, failed leaves a refund owed, and anything else is pending and asked about again
 with `status`, never placed again (docs/commerce.md, rule 6)."""
 
+from dataclasses import replace
 from typing import Any
 
 from ..commerce.model import Outcome
@@ -17,15 +18,12 @@ from .context import Context
 CONNECTOR = "merchants"
 
 
-def _request_id(quote: Quote) -> str:
-    return f"mrq-{quote.id}"
-
-
-async def _fulfilment(ctx: Context, quote: Quote) -> dict[str, Any]:
+async def _fulfilment(ctx: Context, providers: Providers, quote: Quote) -> dict[str, Any]:
     """The order's request id and how many times its provider has been asked, fixed once per quote."""
     if quote.progress.get("fulfilment"):
         return quote.progress["fulfilment"]
-    proposed = {"requestId": _request_id(quote), "status": "pending", "attempts": 0}
+    provider = providers.named(quote.details["provider"])
+    proposed = {"requestId": provider.request_id(quote, ctx.clock.now()), "status": "pending", "attempts": 0}
     if await ctx.ledger.set_progress_once(quote.id, "fulfilment", proposed):
         ctx.audit.log("fulfilment.started", quote=quote.id, request=proposed["requestId"])
     current = await ctx.ledger.get(quote.id)
@@ -33,16 +31,20 @@ async def _fulfilment(ctx: Context, quote: Quote) -> dict[str, Any]:
 
 
 async def _ask(providers: Providers, quote: Quote, fulfilment: dict[str, Any]) -> Outcome:
+    """The first ask places the order; later ones ask where it stands, and place it again only when the
+    provider says it never saw the request."""
     provider = providers.named(quote.details["provider"])
+    placed = replace(quote, progress={**quote.progress, "fulfilment": fulfilment})
     if fulfilment["attempts"] == 0:
-        return await provider.fulfil(quote)
-    return await provider.status(quote)
+        return await provider.fulfil(placed)
+    outcome = await provider.status(placed)
+    return await provider.fulfil(placed) if outcome.unknown_request else outcome
 
 
 async def deliver(ctx: Context, providers: Providers, quote: Quote) -> Quote:
     """Asks the merchant's provider about a paid quote, once at a time, and records the answer."""
     ledger = ctx.ledger
-    fulfilment = await _fulfilment(ctx, quote)
+    fulfilment = await _fulfilment(ctx, providers, quote)
     if not await ledger.acquire_step(quote.id, STEP_STALE_MS):
         return await ledger.require(quote.id, CONNECTOR)
     try:
@@ -62,6 +64,7 @@ async def _record(ctx: Context, quote: Quote, before: dict[str, Any], outcome: O
         "status": outcome.status,
         "description": outcome.description,
         "attempts": before["attempts"] + 1,
+        **({"receipt": [list(line) for line in outcome.receipt]} if outcome.receipt else {}),
     }
     patch: dict[str, Any] = {"fulfilment": seen, "inFlightSince": None}
     try:

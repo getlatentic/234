@@ -34,7 +34,7 @@
   const NO_MONEY_MOVED = ["failed", "unavailable", "abandoned", "declined", "expired"];
   const PLAIN_SUB = ["text-sm", "text-ink-3"];
   const PHONE_SUB = ["text-base", "font-medium", "text-ink"];
-  const isReference = (label) => /reference|request/i.test(label);
+  const isReference = (label) => /reference|request|token|voucher/i.test(label);
   const firstSentence = (text) => (text ?? "").split(/(?<=[.!?])\s+/)[0];
 
   // Who the money goes to: the two lines above the amount, and what for below it.

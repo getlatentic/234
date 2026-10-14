@@ -37,7 +37,7 @@ The model never touches the wallet: its one tool, `wallet_balance`, reads, and e
 
 ## Reversals
 
-VTpass can take back airtime or data after reporting it delivered: the order bounced at the network, and VTpass
+VTpass can take back airtime, data, a television subscription or electricity after reporting it delivered: the order bounced at the network, and VTpass
 returns the money to 234's VTpass wallet. Its `transaction-update` callback then carries `code` 040 ("TRANSACTION
 REVERSAL TO WALLET") and `content.transactions.status` `reversed`, as against `failed` for an order refused on
 request (https://vtpass.com/documentation/transaction-update-webhook-api/; code 040 is "TRANSACTION REVERSAL" in
@@ -45,8 +45,8 @@ https://vtpass.com/documentation/response-codes/). The requery page shows only a
 (https://vtpass.com/documentation/re-query-services/), so 234 reads a requery as a reversal on the same two fields:
 status `reversed` with code 040, 000 or 001.
 
-The callback is unsigned, so it is a hint. A callback that reports a reversal of a delivered airtime or data quote
-queues one requery of it; any other callback is handled as before, so a reversal before delivery is the failure it
+The callback is unsigned, so it is a hint. A callback that reports a reversal of a delivered airtime, data or bill quote
+(a `merchants` quote of the `vtpass` provider, asked through that provider's `status`) queues one requery of it; any other callback is handled as before, so a reversal before delivery is the failure it
 always was. Only a requery that answers reversed moves anything, and nothing polls delivered quotes. Then one batch
 moves the quote `settled → reversed` and, for a wallet-paid quote, writes the `refund` of what its hold took, whose
 `WHERE` requires the quote reversed and paid from the wallet; a trigger lets a settled quote become nothing but
@@ -168,6 +168,10 @@ their own balances, and **234 tops those up** from its Bachs settlements. The le
 tracks the debt, so the code reconciles the two (Reconciliation, below). Who tops up the providers, and how often, is
 operations.
 
+A bill's refund is the same `refund` of what the hold took, the service fee (`BILLS_SERVICE_FEE_KOBO`, docs/commerce.md)
+included: VTpass is ordered the bill alone, the wallet pays the total, and a failed or reversed bill gives the total
+back.
+
 ## Reconciliation
 
 Once an hour the minute cron, and an operator at any time with `GET /ops/wallet/reconcile` (holding `OPS_TOKEN`),
@@ -177,7 +181,8 @@ sets what 234 owes against what it holds (`checkout/src/checkout/wallet/reconcil
   yet paid is already out of it.
 * **Held** is 234's NGN at Bachs, available and pending together, and a lost dispute can take it below zero
   (`GET /v1/balances`, https://docs.bachs.io/connect/balances); at Paystack (`GET /balance`), which pays
-  withdrawals; and at VTpass (its balance check), which pays airtime and data (`wallet/treasury.py`).
+  withdrawals; and at VTpass (its balance check), which pays airtime, data, television and electricity (`wallet/treasury.py`; a bill
+is paid out of the same VTpass wallet, so the reconciliation counts it with no change).
 * **The gap** is owed less held. A provider that cannot be read is unknown, never zero, and is audited
   (`wallet.reconcile.unread`); the run then has no gap.
 

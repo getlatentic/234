@@ -34,6 +34,7 @@ def details_of(merchant: Merchant, totals: Totals) -> dict[str, Any]:
         "fields": [{"name": name, "label": label, "value": value} for name, label, value in totals.fields],
         "holder": totals.holder_name,
         "checkId": totals.check_id,
+        **({"order": dict(totals.order)} if totals.order else {}),
     }
 
 

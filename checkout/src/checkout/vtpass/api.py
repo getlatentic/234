@@ -2,10 +2,13 @@
 """The slice of VTpass the airtime connector uses."""
 
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from ..money import Kobo
 from ..network import Network
+
+if TYPE_CHECKING:
+    from .bills import BillAccount, BillCheck, BillOrder, Bouquet
 
 AIRTIME_SERVICE: dict[str, str] = {"mtn": "mtn", "airtel": "airtel", "glo": "glo", "9mobile": "etisalat"}
 DATA_SERVICE: dict[str, str] = {
@@ -56,6 +59,7 @@ class VtpassOutcome:
     description: str
     unknown_request: bool = False
     reversed: bool = False
+    receipt: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -80,3 +84,12 @@ class VtpassApi(Protocol):
     async def requery(self, request_id: str) -> VtpassOutcome: ...
 
     async def data_plans(self, network: Network) -> list[DataPlan]: ...
+
+    async def verify_bill(self, check: BillCheck) -> BillAccount:
+        """Looks up a smartcard or meter. Raises `BillRefused` for one VTpass does not know or cannot sell to,
+        and `VtpassError` when it could not be asked."""
+        ...
+
+    async def buy_bill(self, order: BillOrder) -> VtpassOutcome: ...
+
+    async def bouquets(self, service_id: str) -> list[Bouquet]: ...

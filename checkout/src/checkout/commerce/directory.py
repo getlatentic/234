@@ -69,6 +69,9 @@ class DirectoryProvider:
         assert_order_within_limits(merchant, totals.total_kobo)
         return totals
 
+    def request_id(self, quote: Quote, now: int) -> str:
+        return f"mrq-{quote.id}"
+
     async def fulfil(self, quote: Quote) -> Outcome:
         return await self._sim.place(quote.id)
 

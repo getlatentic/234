@@ -88,6 +88,11 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
   A Paystack test key or VTpass credentials set by mistake change nothing, and a live key (`sk_live_`) or
   `VTPASS_MODE=live` stops the connectors at startup. These rules are tests (`checkout/tests/test_public_config.py`,
   `test_config.py`), which `tools/deploy.sh` runs before every deploy. Never put a Paystack or VTpass key on these Workers.
+- **Bills have a fee setting and no default fee.** `BILLS_SERVICE_FEE_KOBO` (whole kobo, default `0`) adds a "Service
+  fee" line to a television or electricity quote; it is the owner's decision (docs/commerce.md, "Open before real
+  money"). The television and electricity merchants are offered only while VTpass is simulated or in its sandbox; the
+  simulated ones accept the sandbox's documented smartcard `1212121212` and meters `1111111111111` (prepaid) and
+  `1010101010101` (postpaid), and `201000000000` stays pending and `100000000000` fails after the account check.
 - **The simulated VTpass delivers to any valid Nigerian mobile number**, so a visitor who pays with their own
   number gets a receipt (nothing reaches the phone). `201000000000` stays pending and `100000000000` fails, to
   show those cards. The real VTpass sandbox does not work like this: the connectors' own tests cover what the real sandbox does differently.

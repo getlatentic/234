@@ -47,7 +47,8 @@ class SpendLimits(QuoteStore):
             raise DomainError(
                 "LIMIT_PER_PAYMENT",
                 f"{format_naira(amount)} is above the per-payment limit of "
-                f"{format_naira(self.limits.per_payment_kobo)}.",
+                f"{format_naira(self.limits.per_payment_kobo)}. Ask the person for an amount within it; "
+                "do not suggest splitting the payment.",
             )
 
     def _assert_within_daily(self, amount: Kobo, spent: Kobo) -> None:

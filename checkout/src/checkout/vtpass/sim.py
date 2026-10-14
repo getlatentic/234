@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from ..clock import Clock
 from ..transport import Reply, TransportError
+from . import sim_bills
 from .phone import DOCUMENTED_SUCCESS_NUMBER, SIMULATED_FAILURE_NUMBER, is_nigerian_mobile
 from .plans import simulated_variations
 from .sim_store import SimOrder, VtpassSimStore
@@ -52,6 +53,8 @@ def _iso(at: int) -> str:
 
 
 def _transaction_body(order: SimOrder, status: str, code: str, description: str, now: int) -> dict[str, Any]:
+    given = order.billers_code and status in ("delivered", "reversed")
+    delivery = sim_bills.delivered_fields(order) if given else {}
     return {
         "code": code,
         "response_description": description,
@@ -59,10 +62,11 @@ def _transaction_body(order: SimOrder, status: str, code: str, description: str,
             "transactions": {
                 "status": status,
                 "product_name": order.service_id,
-                "unique_element": order.phone,
+                "unique_element": order.billers_code or order.phone,
                 "unit_price": _text(_whole(order.amount_naira)),
                 "quantity": 1,
-                "type": "Data Services" if order.variation_code else "Airtime Recharge",
+                "type": sim_bills.type_of(order)
+                or ("Data Services" if order.variation_code else "Airtime Recharge"),
                 "transactionId": f"SIM{order.created_at}",
             }
         },
@@ -70,6 +74,7 @@ def _transaction_body(order: SimOrder, status: str, code: str, description: str,
         "amount": _whole(order.amount_naira),
         "transaction_date": _iso(now),
         "purchased_code": "",
+        **delivery,
     }
 
 
@@ -136,6 +141,8 @@ class VtpassSimulator:
                 return await self._purchase(payload)
             case "POST /requery":
                 return await self._requery(payload)
+            case "POST /merchant-verify":
+                return _json_reply(sim_bills.verify_body(payload))
             case "GET /service-variations":
                 return _variations(parse_qs(parts.query).get("serviceID", [""])[0])
             case "GET /balance":
@@ -192,6 +199,9 @@ def _amount(value: Any) -> float | None:
 
 
 def _parse_order(body: dict[str, Any], now: int) -> SimOrder | Reply:
+    if sim_bills.is_bill(_text(body.get("serviceID"))):
+        parsed = sim_bills.parse_order(body, now)
+        return parsed if isinstance(parsed, SimOrder) else _json_reply(parsed)
     request_id, service_id, phone = (
         _text(body.get("request_id")),
         _text(body.get("serviceID")),

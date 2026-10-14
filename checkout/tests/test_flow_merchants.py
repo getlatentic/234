@@ -145,7 +145,7 @@ class TestMakingAQuote:
 
     async def test_every_refusal_and_every_quote_is_audited(self, stack):
         await quote(stack)
-        await stack.call(CONNECTOR, "create_quote", **meal(merchant_id="dstv"))
+        await stack.call(CONNECTOR, "create_quote", **meal(merchant_id="shoprite"))
         log = "\n".join(stack.audit_lines)
         assert '"quote.created"' in log and '"merchant_id": "mama-put-yaba"' in log
 

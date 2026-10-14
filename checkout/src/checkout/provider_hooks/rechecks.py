@@ -3,8 +3,9 @@
 names it, and every minute for a payment still pending (a webhook can be lost). Only an approved quote is
 checked: the others have ended or have not started, and a webhook about them changes nothing.
 
-A delivered airtime or data quote is asked about once more only when VTpass's callback says it was reversed,
-and is reversed only when that requery says so too (flows/reversal.py); nothing polls delivered quotes.
+A delivered airtime, data, television or electricity quote is asked about once more only when VTpass's
+callback says it was reversed, and is reversed only when that requery says so too (flows/reversal.py);
+nothing polls delivered quotes.
 
 A wallet withdrawal is checked the same way: a Paystack transfer event names it by its reference, and every
 minute each one still undecided is asked about again (wallet/withdrawal_outcome.py). So is a quote's Paystack
@@ -20,7 +21,7 @@ from ..flows.context import Context
 from ..flows.food import FoodFlow
 from ..flows.merchants import MerchantsFlow
 from ..flows.payment import PaymentFlow
-from ..flows.reversal import CONNECTOR as REVERSIBLE
+from ..flows.reversal import CONNECTORS as REVERSIBLE
 from ..flows.reversal import reverse_if_confirmed
 from ..flows.transfer import TransferFlow
 from ..jobs import Jobs
@@ -62,9 +63,9 @@ class Rechecks:
         return row if row and row["state"] == "approved" and row["connector"] in FLOWS else None
 
     async def _delivered(self, quote_id: str) -> dict | None:
-        """Names no owner either: a delivered quote of the one connector whose provider reverses."""
+        """Names no owner either: a delivered quote of a connector whose provider reverses."""
         row = await self._db.row("SELECT owner, connector, state FROM quotes WHERE id = ?", quote_id)
-        return row if row and row["state"] == "settled" and row["connector"] == REVERSIBLE else None
+        return row if row and row["state"] == "settled" and row["connector"] in REVERSIBLE else None
 
     async def ask_reversal(self, quote_id: str | None) -> bool:
         """VTpass's callback says it reversed an order. A delivered quote is asked about once more; any
@@ -107,7 +108,7 @@ class Rechecks:
         if row is None:
             return
         with acting_for(row["owner"]):
-            quote = await reverse_if_confirmed(self._contexts[REVERSIBLE], quote_id)
+            quote = await reverse_if_confirmed(self._contexts[row["connector"]], quote_id, row["connector"])
         self._audit.log("recheck.done", quote=quote_id, state=quote.state)
 
     async def run_withdrawal(self, withdrawal_id: str) -> None:

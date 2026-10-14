@@ -94,13 +94,15 @@ CLAIMS = re.compile(
     re.I,
 )
 PROMISE = re.compile(rf"\b(?:i{_APOS}ll|i will|will|once|when|after|until|if|as soon as)\b", re.I)
+_CONDITION = re.compile(r"\b(?:once|when|after|until|if|as soon as)\b[^.!?\n]*", re.I)
 
 
 def claimed(reply: str) -> str | None:
     """The first sentence's claim of success or approval, leaving out the sentences that promise it for later
-    ("I'll let you know when the airtime is successfully loaded")."""
+    ("I'll let you know when the airtime is successfully loaded") and the clauses that make it conditional
+    ("I'll tell you once the payment is completed")."""
     for sentence in re.split(r"(?<=[.!?])\s+|\n+", reply):
-        if not PROMISE.search(sentence) and (found := CLAIMS.search(sentence)):
+        if not PROMISE.search(sentence) and (found := CLAIMS.search(_CONDITION.sub("", sentence))):
             return found[0]
     return None
 
@@ -179,7 +181,7 @@ def check_refused(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
 
 def check_ask(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     problems = [f"{c['tool']} was called" for c in quote_calls(turn)]
-    reply = turn["reply"].casefold()
+    reply = turn["reply"].casefold().replace("\u2011", "-").replace("\u202f", " ")
     if not ASKS.search(reply):
         problems.append("the reply does not ask anything")
     if not any(word.casefold() in reply for word in outcome["mention"]):
@@ -306,6 +308,7 @@ CHECKS = {
     "basket": check_basket,
     "bill": check_bill,
     "over_limit": check_over_limit,
+    "account_refused": _unquoted(commerce_score.check_account_refused),
 }
 
 
@@ -461,7 +464,7 @@ def score_turn(case: Case, index: int, turn: dict[str, Any]) -> TurnScore:
     if case.split.startswith("wallet"):
         invariants += wallet_score.invariant_problems(turn)
         findings += [Finding(*found) for found in wallet_score.finding_details(turn)]
-    if case.split.startswith("commerce"):
+    if case.split.startswith(("commerce", "bills")):
         findings += commerce_findings(case, index, turn)
     matched = next((i for i, p in enumerate(problems) if not p), None)
     return TurnScore(

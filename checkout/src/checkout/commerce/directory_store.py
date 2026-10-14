@@ -27,6 +27,7 @@ def _field(spec: dict[str, Any]) -> FieldSpec:
         options=tuple(third_party(option, LABEL_LIMIT) for option in spec.get("options", [])),
         least=int(spec.get("min", 1)),
         most=int(spec.get("max", 120)),
+        account=bool(spec.get("account", False)),
     )
 
 

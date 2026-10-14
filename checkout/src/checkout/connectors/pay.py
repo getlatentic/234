@@ -59,10 +59,11 @@ def build_connector(ctx: Context, card_html: CardReader, alt_cards: dict[str, Ca
         "Create payment quote",
         "Creates a server-side quote for paying a merchant, a shop or business the person names, and shows "
         "the person an approval card with the amount, what it is for, and their spending limits. It buys "
-        "nothing and pays no bill: an electricity, TV or water bill, a meter, a decoder, an exam pin, a gift "
-        "card, crypto, dollars or shares is not a merchant, so make no quote for one. The amount cannot "
-        "be changed after this call. Nothing is charged until the person presses Approve on "
-        "the card and completes Paystack's checkout.",
+        "nothing and pays no bill: an electricity or TV bill, and any shop browse_merchants lists, is "
+        "bought with the merchants tools, not by naming it here; a water bill, an exam pin, a gift card, "
+        "crypto, dollars or shares is not a merchant, so make no quote for one. The amount cannot be "
+        "changed after this call. Nothing is charged until the person presses Approve on the card and "
+        "completes Paystack's checkout.",
         CreatePaymentQuote,
         create,
     )

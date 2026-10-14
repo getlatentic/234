@@ -11,6 +11,7 @@ https://vtpass.com/documentation/response-codes/). It is failed, and marked so a
 from typing import Any
 
 from .api import VtpassOutcome
+from .receipt import bill_receipt
 
 # Codes that VTpass documents as an order that was not processed.
 FAILED_CODES = frozenset(
@@ -47,10 +48,12 @@ def _description(payload: dict[str, Any]) -> str:
     return described if isinstance(described, str) else "No description"
 
 
-def _processed(code: str, inner: Any, description: str) -> VtpassOutcome:
+def _processed(
+    code: str, inner: Any, description: str, receipt: tuple[tuple[str, str], ...]
+) -> VtpassOutcome:
     match inner:
         case "delivered":
-            return VtpassOutcome("delivered", code, description)
+            return VtpassOutcome("delivered", code, description, receipt=receipt)
         case "failed":
             return VtpassOutcome("failed", code, description)
         case _:
@@ -69,7 +72,7 @@ def interpret_vtpass(payload: Any, http_status: int | None = None) -> VtpassOutc
     if code in _REVERSAL_CODES and _inner_status(payload) == "reversed":
         return VtpassOutcome("failed", code, description, reversed=True)
     if code in _PROCESSED_CODES:
-        return _processed(code, _inner_status(payload), description)
+        return _processed(code, _inner_status(payload), description, bill_receipt(payload))
     if code == "015":
         return VtpassOutcome("pending", code, description, unknown_request=True)
     if code in FAILED_CODES:

@@ -54,7 +54,8 @@ class MerchantsFlow(CardFlow):
         async def work():
             assert_idempotency_key(idempotency_key)
             merchant = await self.providers.merchant(merchant_id)
-            buyer = buyer_fields(merchant, fields or await self._checked_fields(merchant, check_id))
+            checked = await self._checked_fields(merchant, check_id)
+            buyer = buyer_fields(merchant, {**checked, **fields})
             named = lines or await self._the_offer_paid_for_an_amount(merchant, amount_kobo)
             basket = Basket(merged(named), amount_kobo, {name: value for name, _, value in buyer})
             check_id_used = check_id if merchant.checks_account else None

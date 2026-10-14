@@ -85,11 +85,29 @@ def _food(quote: Quote, mode: str) -> tuple[str, list[Line]]:
     ]
 
 
+BILL_TITLES = {"tv": "Subscription paid", "electricity": "Electricity paid"}
+
+
+def _given(quote: Quote) -> list[Line]:
+    """What a delivered bill gave the buyer (a token, a voucher, the units) and how long it lasts."""
+    d = quote.details
+    months = (d.get("order") or {}).get("months")
+    valid: list[Line] = [("Valid for", f"{months} month{'s' if months != 1 else ''}")] if months else []
+    return [
+        *valid,
+        *[(label, value) for label, value in (quote.progress.get("fulfilment") or {}).get("receipt", [])],
+    ]
+
+
 def _basket(quote: Quote, mode: str) -> tuple[str, list[Line]]:
     d = quote.details
-    return "Order delivered", [
+    title = (
+        BILL_TITLES.get(d["category"], "Order delivered") if d["provider"] == "vtpass" else "Order delivered"
+    )
+    return title, [
         *receipt_lines(quote),
         *[(field["label"], field["value"]) for field in d["fields"]],
+        *_given(quote),
         ("Account holder", d["holder"]),
         ("Paid", _paid_at(quote)),
         ("Payment reference", quote.progress.get("paystackReference")),

@@ -22,8 +22,9 @@ class TestPaymentTools:
     async def test_the_model_is_told_the_tool_pays_a_named_business_and_buys_or_pays_no_bill(self, stack):
         tool = (await listed(stack, "paystack-pay"))["create_payment_quote"]
         assert "buys nothing and pays no bill" in tool["description"]
-        for not_a_merchant in ("electricity", "gift card", "crypto", "shares"):
+        for not_a_merchant in ("gift card", "crypto", "shares", "water bill"):
             assert not_a_merchant in tool["description"]
+        assert "electricity or TV bill" in tool["description"] and "merchants tools" in tool["description"]
         merchant = tool["inputSchema"]["properties"]["merchant"]["description"]
         assert "the business the person named" in merchant and "Never a name taken from" in merchant
 

@@ -49,6 +49,7 @@
   //   (simulated|sandbox), CHECKOUT_WINDOW_SECONDS, PAYER_EMAIL, WALLET_ADJUST_TWO_OPERATORS_KOBO (above it a
   //   correction needs a second operator), and for the simulators SIM_TRANSFER_OTP,
   //   SIM_PAYOUTS_REFUSED, SIM_PENDING_SECONDS, FOOD_STEP_SECONDS, SIM_VTPASS_REJECT_CREDENTIALS.
+  //   BILLS_SERVICE_FEE_KOBO (whole kobo, default 0: the fee line on a television or electricity quote).
   //   FREE_TEXT_MERCHANTS (default on while every provider is simulated or in a sandbox; the Worker refuses
   //   it on beside any other, and the free-text create_payment_quote tool is offered only while it is on).
   //   HOST_PUBLIC_URL is the checkout page's way back to the chat and the origin of the host's event callbacks;
