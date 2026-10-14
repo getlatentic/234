@@ -5,6 +5,8 @@ or the network does with the order ends in one of the three outcomes without a s
 
 import asyncio
 
+import pytest
+
 from checkout.commerce.index.following import WINDOW_MS
 from checkout.http import handle
 from checkout.owner import acting_for, remembering_for
@@ -356,6 +358,19 @@ class TestOtherFundingIsKeptApart:
         refused = await account(stack, "approve_quote", **approval(ordinary), funding="external")
         assert "FUNDING_MISMATCH" in text_of(refused)
         assert (await stored(stack, view_of(ordinary)["id"]))["state"] == "open"
+
+    async def test_the_claim_itself_refuses_a_quote_that_was_not_made_to_be_paid_by_index(self, stack):
+        from checkout.errors import DomainError
+        from tests.commerce_support import as_account, meal
+
+        ordinary = await as_account(stack, "create_quote", **meal())
+        view = view_of(ordinary)
+        with acting_for(ALICE), remembering_for(ALICE):
+            with pytest.raises(DomainError):
+                await stack.merchants.authorise_approval(
+                    view["id"], ordinary["_meta"]["approvalToken"], view["amount"]["kobo"], terms=_external_terms()
+                )
+        assert (await stored(stack, view["id"]))["state"] == "open"
 
     async def test_the_approval_token_is_bound_to_where_the_money_comes_from(self, stack):
         from checkout.commerce.binding import quote_digest

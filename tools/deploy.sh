@@ -14,7 +14,8 @@
 #                                         PACT Delegated key: tokens and receipts it signed stop verifying),
 #                                         PACT_AGENT_KEY (234's key as an agent at other Brands: re-register it),
 #                                         SANDBOX_SIGNING_KEY (host and sandbox, set on both), DJANGO_SECRET_KEY
-#                                         or APPROVAL_SECRET
+#                                         APPROVAL_SECRET or INDEX_TOKEN_KEY (the key people's Paystack Index tokens
+#                                         are sealed with: they connect their Index accounts again)
 #   tools/deploy.sh upload host|connectors|sandbox  uploads the committed code again with no checks (a secret the host bakes in
 #                                         at startup takes effect only in a new version: `rotate` does this itself)
 #   tools/deploy.sh versions|rollback|tail host|connectors|sandbox
@@ -354,7 +355,7 @@ deploy_all() {
   ensure_queues
   ensure_host_exists
   say "deploying $CONNECTORS_WORKER"
-  { secret_lines "$CONNECTORS_WORKER" APPROVAL_SECRET; [ -z "$shared" ] || echo "MCP_ACCESS_TOKEN=$shared"; } \
+  { secret_lines "$CONNECTORS_WORKER" APPROVAL_SECRET INDEX_TOKEN_KEY; [ -z "$shared" ] || echo "MCP_ACCESS_TOKEN=$shared"; } \
     | deploy_worker checkout
   say "deploying $HOST_WORKER"
   { secret_lines "$HOST_WORKER" DJANGO_SECRET_KEY; auth_secret_lines; turnstile_secret_lines; [ -z "$shared" ] || echo "CHECKOUT_MCP_TOKEN=$shared"
@@ -548,10 +549,10 @@ cmd_rotate() {
     EVENTS_SECRET) printf %s "$value" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     PACT_SIGNING_KEY) node "$root/tools/pact-key.mjs" | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
     PACT_AGENT_KEY) node "$root/tools/pact-key.mjs" --ec | put_secret "$HOST_WORKER" "$1"; cmd_upload host ;;
-    APPROVAL_SECRET) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1" ;;
+    APPROVAL_SECRET | INDEX_TOKEN_KEY) printf %s "$value" | put_secret "$CONNECTORS_WORKER" "$1" ;;
     SANDBOX_SIGNING_KEY) printf %s "$value" | put_secret "$SANDBOX_WORKER" SIGNING_KEY
                          printf %s "$value" | put_secret "$HOST_WORKER" "$1" ;;
-    *) die "rotate token, DJANGO_SECRET_KEY, EVENTS_SECRET, PACT_SIGNING_KEY, PACT_AGENT_KEY, APPROVAL_SECRET or SANDBOX_SIGNING_KEY" ;;
+    *) die "rotate token, DJANGO_SECRET_KEY, EVENTS_SECRET, PACT_SIGNING_KEY, PACT_AGENT_KEY, APPROVAL_SECRET, INDEX_TOKEN_KEY or SANDBOX_SIGNING_KEY" ;;
   esac
 }
 

@@ -54,6 +54,10 @@
     "FOOD_ORDER_MODE": "simulated",
     "MERCHANTS_MODE": "simulated",
     "VTPASS_MODE": "simulated",
+    // A person's Paystack Index account is the simulated one too: its sign-in page and tools are on this Worker
+    // (/sim/index) and nothing reaches Index. Live needs INDEX_MODE=live, INDEX_TOKEN_KEY and an https HOST_PUBLIC_URL
+    // (docs/deploy.md, docs/commerce.md).
+    "INDEX_MODE": "simulated",
     // create_payment_quote may pay a merchant named only in words, which is harmless while every provider is
     // simulated. The Worker refuses it on beside any provider that is not simulated or in a sandbox
     // (docs/commerce.md, rule 2; docs/deploy.md).
@@ -70,6 +74,6 @@
     // /test routes reset the ledger and read inside it: never here.
     "ENABLE_TEST_ROUTES": "0"
   }
-  // Secrets (docs/deploy.md): APPROVAL_SECRET, MCP_ACCESS_TOKEN, and OPS_TOKEN for an operator's wallet
+  // Secrets (docs/deploy.md): APPROVAL_SECRET, INDEX_TOKEN_KEY, MCP_ACCESS_TOKEN, and OPS_TOKEN for an operator's wallet
   // corrections (tools/deploy.sh secret connectors OPS_TOKEN; without it /ops/ answers 404).
 }

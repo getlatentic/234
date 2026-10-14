@@ -18,6 +18,7 @@ from tools.mutations import (
     dispute_rules,
     event_rules,
     host_rules,
+    index_rules,
     input_rules,
     knowledge_rules,
     ledger_rules,
@@ -100,4 +101,5 @@ MUTATIONS: list[Mutation] = [
     *reconciliation_rules.MUTATIONS,
     *refund_rules.MUTATIONS,
     *commerce_rules.MUTATIONS,
+    *index_rules.MUTATIONS,
 ]

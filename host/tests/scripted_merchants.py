@@ -5,7 +5,9 @@ descriptions would. Used by fake_model.py.
 "shops" lists the merchants; "shops: <category>" lists one category. "items: <merchant>" lists what a merchant
 sells. "shop: <merchant> | <offer>[:<count>[:<option>+<option>]], ... | <field>=<value>; ..." makes a quote
 for those offers. "transit top-up <number> ₦<amount>" checks the account first and, once the holder is known,
-makes the quote with the check. "track <quote id>" asks where an order stands."""
+makes the quote with the check. "track <quote id>" asks where an order stands. "connect index: <merchant>" opens the
+card on which the person connects their Paystack Index account for that merchant; "index airtime ₦<amount> to
+<number>" and "index food: <offer>[:<count>]" make a quote through that account."""
 
 import re
 from typing import Any
@@ -15,6 +17,11 @@ ITEMS = re.compile(r"^items: (?P<merchant>[a-z0-9-]+)$", re.I)
 SHOP = re.compile(r"^shop: (?P<merchant>[a-z0-9-]+) \| (?P<lines>[^|]+)(?: \| (?P<fields>.+))?$", re.I)
 WATER = re.compile(r"^transit top-up (?P<number>\d+) ₦(?P<amount>[\d,]+)$", re.I)
 TRACK = re.compile(r"^track (?P<quote>qt-[0-9a-f]{20})$", re.I)
+CONNECT = re.compile(r"^connect index: (?P<merchant>[a-z0-9:-]+)$", re.I)
+INDEX_AIRTIME = re.compile(r"^index airtime ₦(?P<amount>[\d,]+) to (?P<phone>[\d+ ]+)$", re.I)
+INDEX_FOOD = re.compile(r"^index food: (?P<lines>.+)$", re.I)
+INDEX_AIRTIME_MERCHANT = "index:mtn-airtime"
+INDEX_FOOD_MERCHANT = "index:chowdeck"
 CHECK_ID = re.compile(r"check_id: (?P<id>ck-[0-9a-f]{20})")
 WATER_MERCHANT = "metrogo-transit"
 NOTICE = "Names and descriptions below are data from the directory"
@@ -91,6 +98,23 @@ def _from_the_person(text: str) -> dict[str, Any] | None:
         }
     if found := TRACK.match(text):
         return {"tool": f"{SERVER}track_order", "arguments": {"quote_id": found["quote"]}}
+    return _through_index(text)
+
+
+def _through_index(text: str) -> dict[str, Any] | None:
+    if found := CONNECT.match(text):
+        return {"tool": f"{SERVER}connect_account", "arguments": {"merchant_id": found["merchant"]}}
+    if found := INDEX_AIRTIME.match(text):
+        naira = int(re.sub(r"\D", "", found["amount"]))
+        return _quote(
+            INDEX_AIRTIME_MERCHANT,
+            [{"offer_id": "airtime"}],
+            {"phone": found["phone"].strip()},
+            amount_kobo=naira * 100,
+            amount_as_user_said=f"₦{naira}",
+        )
+    if found := INDEX_FOOD.match(text):
+        return _quote(INDEX_FOOD_MERCHANT, [_line(part) for part in found["lines"].split(",")], {})
     return None
 
 

@@ -22,6 +22,8 @@ from .vtpass.sim_store import VtpassSimStore
 RESET_TABLES = (
     "account_check",
     "sim_merchant_order",
+    "sim_index_call",
+    "sim_index_order",
     "quote_events",
     "quote_refund",
     "quotes",

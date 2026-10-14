@@ -99,3 +99,15 @@ def test_the_public_deployment_queues_rechecks_and_deliveries_with_dead_letter_q
     assert {p["binding"] for p in queues["producers"]} == {"PROVIDER_JOBS", "EVENT_JOBS"}
     assert all(c["dead_letter_queue"].endswith("-dlq") and c["max_retries"] >= 1 for c in queues["consumers"])
     assert public_template()["triggers"] == {"crons": ["* * * * *"]}
+
+
+def test_the_public_deployment_talks_to_the_simulated_paystack_index_and_live_needs_a_key_of_its_own():
+    import pytest
+
+    from checkout.errors import ConfigError
+
+    assert public_vars()["INDEX_MODE"] == "simulated" and "INDEX_MCP_URL" not in public_vars()
+    assert load().index.live is False
+    with pytest.raises(ConfigError, match="INDEX_TOKEN_KEY"):
+        load(INDEX_MODE="live")
+    assert load(INDEX_MODE="live", INDEX_TOKEN_KEY="k" * 40).index.live is True

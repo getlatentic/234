@@ -4,7 +4,7 @@ the names are data. Every name, description and holder in them has been through 
 (directory_store.py); the merchant's `blurb` is 234's own words and is the only guidance in them."""
 
 from ..money import format_naira
-from .model import Merchant, Offer, OptionGroup
+from .model import Choice, Merchant, Offer, OptionGroup
 from .text import NOTICE
 
 BUY_NEXT = (
@@ -61,9 +61,15 @@ def _price(offer: Offer, merchant: Merchant) -> str:
             return f"any amount from {format_naira(merchant.min_kobo)} to {format_naira(merchant.max_kobo)}"
 
 
+def _choice(choice: Choice) -> str:
+    """A choice by its id, with its name when the id does not say it (an id of numbers)."""
+    named = "" if choice.label.casefold() == choice.id.casefold() else f" ({choice.label})"
+    return f"{choice.id}{named} +{format_naira(choice.delta_kobo)}"
+
+
 def _group(group: OptionGroup) -> str:
     count = f"{group.least}" if group.least == group.most else f"{group.least} to {group.most}"
-    choices = ", ".join(f"{c.id} +{format_naira(c.delta_kobo)}" for c in group.choices)
+    choices = ", ".join(map(_choice, group.choices))
     return f"{group.id} (choose {count}): {choices}"
 
 

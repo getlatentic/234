@@ -39,6 +39,8 @@
   }
   // Secrets, set with `wrangler secret put NAME`; locally dummies in .dev.vars (never committed):
   //   APPROVAL_SECRET            required: signs the approval tokens
+  //   INDEX_TOKEN_KEY            seals people's Paystack Index tokens (32+ characters); needed by INDEX_MODE=live,
+  //                              and without it the simulated Index borrows a key from APPROVAL_SECRET
   //   OPS_TOKEN                  an operator's bearer for /ops/ (wallet corrections); unset, /ops/ answers 404
   //   PAYSTACK_TEST_SECRET_KEY   an sk_test_ key turns Paystack test mode on; a live key stops the Worker
   //   VTPASS_API_KEY, VTPASS_PUBLIC_KEY, VTPASS_SECRET_KEY   all three turn the VTpass sandbox on
@@ -49,6 +51,11 @@
   //   (simulated|sandbox), CHECKOUT_WINDOW_SECONDS, PAYER_EMAIL, WALLET_ADJUST_TWO_OPERATORS_KOBO (above it a
   //   correction needs a second operator), and for the simulators SIM_TRANSFER_OTP,
   //   SIM_PAYOUTS_REFUSED, SIM_PENDING_SECONDS, FOOD_STEP_SECONDS, SIM_VTPASS_REJECT_CREDENTIALS.
+  //   INDEX_MODE (simulated|live: whose Paystack Index a person's account is connected to; default simulated),
+  //   INDEX_MCP_URL (live only: Index's MCP address, which must be https on index.mcp.paystack.africa or
+  //   index.paystack.com; default https://index.mcp.paystack.africa/mcp), INDEX_CAPS_KOBO (JSON, 234's cap per order
+  //   below Index's bounds, by airtime, electricity and food). Live also needs HOST_PUBLIC_URL to be https: Index
+  //   sends the person back to the chat host's /connect/index/callback.
   //   FREE_TEXT_MERCHANTS (default on while every provider is simulated or in a sandbox; the Worker refuses
   //   it on beside any other, and the free-text create_payment_quote tool is offered only while it is on).
   //   HOST_PUBLIC_URL is the checkout page's way back to the chat and the origin of the host's event callbacks;

@@ -74,6 +74,12 @@ def merchants() -> list[dict[str, Any]]:
     ]
     listed.append(
         {
+            **_entry("etisalat-airtime", "Etisalat Airtime (simulated)", "airtime", "Not open yet."),
+            "status": "coming_soon",
+        }
+    )
+    listed.append(
+        {
             **_entry("shopfront", "Shopfront (simulated)", "ecommerce", "Not open yet."),
             "status": "coming_soon",
         }

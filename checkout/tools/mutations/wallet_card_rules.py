@@ -69,8 +69,8 @@ MUTATIONS: list[Mutation] = [
     wallet(
         "an approval without funding is the checkout, as it always was",
         "connectors/kit.py",
-        'funding: Literal["checkout", "wallet"] = "checkout"',
-        'funding: Literal["checkout", "wallet"] = "wallet"',
+        'funding: Literal["checkout", "wallet", "external"] = "checkout"',
+        'funding: Literal["checkout", "wallet", "external"] = "wallet"',
         APPROVAL,
     ),
     wallet(
@@ -111,8 +111,8 @@ MUTATIONS: list[Mutation] = [
     wallet(
         "the card offers the wallet only while the quote is open",
         "flows/wallet_leg.py",
-        'if ctx.wallet is None or quote.state != "open":',
-        "if ctx.wallet is None:",
+        'if ctx.wallet is None or quote.state != "open" or is_external(quote):',
+        "if ctx.wallet is None or is_external(quote):",
         BOTH,
     ),
     host_wallet(
@@ -148,14 +148,14 @@ MUTATIONS: list[Mutation] = [
     host_wallet(
         "a guest of a shared chat cannot pay from the owner's wallet",
         "chat/views/cards.py",
-        "return WALLET_OWNER_ONLY if server == WALLET_SERVER or paid_from_wallet else None",
+        'return WALLET_OWNER_ONLY if server == WALLET_SERVER or arguments.get("funding") == "wallet" else None',
         "return WALLET_OWNER_ONLY if server == WALLET_SERVER else None",
     ),
     host_wallet(
         "a guest of a shared chat cannot see or add to the owner's wallet",
         "chat/views/cards.py",
-        "return WALLET_OWNER_ONLY if server == WALLET_SERVER or paid_from_wallet else None",
-        "return WALLET_OWNER_ONLY if paid_from_wallet else None",
+        'return WALLET_OWNER_ONLY if server == WALLET_SERVER or arguments.get("funding") == "wallet" else None',
+        'return WALLET_OWNER_ONLY if arguments.get("funding") == "wallet" else None',
     ),
     host_wallet(
         "an outside client is offered no wallet",
