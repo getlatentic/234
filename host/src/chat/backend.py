@@ -11,7 +11,7 @@ from django.conf import settings
 from config import runtime
 from turns.binding import connector_client
 from turns.connector_tools import CardPage
-from turns.hub import MEMORY_SERVER, Hub, build_hub
+from turns.hub import MEMORY_SERVER, MERCHANTS_SERVER, Hub, build_hub
 from turns.ledger_owner import ledger_owner
 
 
@@ -45,6 +45,8 @@ class Backend(Protocol):
     def rate_ok(self, key: str, limiter: str = "CHAT_LIMITER") -> bool: ...
 
     def end_brand(self, owner: str, brand: str) -> bool: ...
+
+    def connect_account(self, owner: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]: ...
 
 
 class WorkerBackend:
@@ -156,6 +158,14 @@ class WorkerBackend:
             return True
         outcome = run_sync(binding.limit(to_js({"key": key}, dict_converter=Object.fromEntries)))
         return bool(outcome.success)
+
+    def connect_account(self, owner: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """The chat host's own call to the merchants connector for the signed-in account whose chat owner string
+        is `owner`: Index sending the person back after they signed in there (views/connect.py)."""
+        from pyodide.ffi import run_sync
+
+        hub = self._connectors()
+        return run_sync(hub.call_app_tool(MERCHANTS_SERVER, name, arguments, ledger_owner(owner), True))
 
     def end_brand(self, owner: str, brand: str) -> bool:
         """Ends what 234 holds for the chat owner `owner` at a Brand (turns/reach/); whether the Brand

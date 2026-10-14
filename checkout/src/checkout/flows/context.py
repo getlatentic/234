@@ -8,6 +8,7 @@ from typing import Any
 from ..audit import Audit
 from ..clock import Clock
 from ..commerce.checks import AccountChecks
+from ..commerce.index.build import IndexParts
 from ..commerce.registry import Providers
 from ..ledger import Ledger
 from ..memory.store import MemoryStore
@@ -42,6 +43,8 @@ class Context:
     """The merchants a `merchants` quote is made for and fulfilled by (commerce/)."""
     checks: AccountChecks | None = None
     """The account checks a quote for a merchant that checks accounts carries (commerce/checks.py)."""
+    index: IndexParts | None = None
+    """Paystack Index: the connect card's accounts and, where it is simulated, the simulator (commerce/index/)."""
     free_text_merchants: bool = True
     """`create_payment_quote` may name any merchant in words (`FREE_TEXT_MERCHANTS`, config.py)."""
 

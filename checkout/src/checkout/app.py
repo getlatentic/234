@@ -17,6 +17,7 @@ from .background import Background, build_background
 from .clock import Clock, SystemClock
 from .commerce.checks import AccountChecks
 from .commerce.directory import DirectoryProvider
+from .commerce.index.build import build_index
 from .commerce.registry import Providers
 from .config import CONNECTORS, Settings
 from .connectors import airtime, food_order, merchants, pay, send_money
@@ -67,6 +68,7 @@ CARD_DIR = Path(__file__).parent / "card"
 MENU_FILE = "menu.html"
 MEMORY_CARD_FILE = "memory.html"
 WALLET_CARD_FILE = "wallet.html"
+CONNECT_CARD_FILE = "connect.html"
 SIMULATED_KEY = "sk_test_simulated"
 SIMULATED_VTPASS = VtpassCredentials("simulated", "simulated", "simulated")
 FOOD_MERCHANT = "Simulated merchant: not Chowdeck"
@@ -160,7 +162,8 @@ def build_contexts(
     store = MemoryStore(db, clock, settings.memory)
     wallet = WalletSpending(journal, db, clock)
     refunds = RefundRequests(audit)
-    providers = Providers(DirectoryProvider(db, clock))
+    index = build_index(settings, db, clock, audit, ledger, transport)
+    providers = Providers(DirectoryProvider(db, clock), index.provider)
     checks = AccountChecks(db, clock, ledger.owner)
     contexts: dict[str, Context] = {}
     for connector in CONNECTORS:
@@ -190,6 +193,7 @@ def build_contexts(
             wallet=wallet if connector in WALLET_CONNECTORS else None,
             refunds=refunds,
             providers=providers if connector == "merchants" else None,
+            index=index if connector == "merchants" else None,
             checks=checks if connector == "merchants" else None,
             free_text_merchants=settings.free_text_merchants,
         )
@@ -241,7 +245,7 @@ def build_connectors(
         send_money.build_connector(contexts["send-money"], card),
         airtime.build_connector(contexts["airtime"], card),
         food_order.build_connector(contexts["food-order"], card, card_reader(MENU_FILE)),
-        merchants.build_connector(contexts["merchants"], card),
+        merchants.build_connector(contexts["merchants"], card, card_reader(CONNECT_CARD_FILE)),
         memory_connector.build_connector(memory, card_reader(MEMORY_CARD_FILE)),
         knowledge_connector.build_connector(knowledge, memory.audit),
         web_connector.build_connector(reader, memory.audit, search, clock),

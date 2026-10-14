@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from ..errors import DomainError
-from ..ledger import Quote
+from ..ledger import ClaimTerms, Quote
 from ..mask import mask_account, mask_phone
 from ..money import Kobo, format_naira
 from ..present import present_quote
@@ -72,10 +72,16 @@ class CardFlow(ABC):
         return self.ctx.ledger.check_approval_token(quote_id, token)
 
     async def authorise_approval(
-        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, wallet: WalletSpending | None = None
+        self,
+        quote_id: str,
+        token: str,
+        displayed_amount_kobo: Kobo,
+        wallet: WalletSpending | None = None,
+        terms: ClaimTerms | None = None,
     ) -> tuple[Quote, bool]:
         """The token proves the call came from the card the person was looking at, and the displayed
-        amount proves the card and the server agree on it. With `wallet`, the wallet pays for the approval."""
+        amount proves the card and the server agree on it. With `wallet`, the wallet pays for the approval;
+        with `terms`, the funding source they name does."""
         ledger, audit = self.ctx.ledger, self.ctx.audit
         if not await self.token_is_valid(quote_id, token):
             audit.log("approval.denied", quote=quote_id, why="token")
@@ -93,11 +99,13 @@ class CardFlow(ABC):
                 f"{format_naira(quote.amount_kobo)}. Nothing was approved.",
             )
         if wallet is None:
-            quote, claimed = await ledger.claim_approval(quote.id, self.connector)
+            quote, claimed = await ledger.claim_approval(quote.id, self.connector, terms)
         else:
             quote, claimed = await wallet.pay(ledger, quote)
         if claimed:
             paid_by = {"funding": "wallet"} if wallet else {}
+            if terms is not None:
+                paid_by = {"funding": terms.progress["funding"]}
             audit.log(
                 "approval.claimed", quote=quote.id, kind=quote.kind, amount_kobo=quote.amount_kobo, **paid_by
             )
@@ -114,6 +122,15 @@ class CardFlow(ABC):
         """The approval, paid from the person's wallet instead of a checkout, where the flow offers it."""
         raise DomainError(
             "WALLET_UNAVAILABLE", "Paying from the wallet is not offered here. Nothing was taken."
+        )
+
+    async def approve_external(
+        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
+    ) -> dict[str, Any]:
+        """The approval of a quote the person's own account at the provider pays, where the flow has such."""
+        raise DomainError(
+            "FUNDING_UNAVAILABLE",
+            "Paying from an account at the provider is not offered here. Nothing was taken.",
         )
 
     @abstractmethod

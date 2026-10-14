@@ -12,6 +12,7 @@ from .owner import acting_for, is_owner_key
 from .provider_hooks.http import vtpass_hook
 from .responses import HttpResponse, json_response
 from .sim_bachs_dispute import raise_dispute
+from .sim_index import handle_index_test
 from .sim_merchant_order import move_merchant_order
 from .sim_paystack_refund import move_refund
 from .transport import TransportError, WorkerFetch
@@ -132,6 +133,8 @@ async def _provider_route(app: App, method: str, parts: list[str], query: str) -
             return await move_refund(app, reference, asked.get("status", "processed"))
         case "POST", ["merchant-order", quote_id]:
             return await move_merchant_order(app, quote_id, asked.get("outcome", "delivered"))
+        case _, ["index", *rest]:
+            return await handle_index_test(app, method, rest, asked)
         case "POST", ["bachs-dispute", checkout_id]:
             event, status = asked.get("event", "dispute.created"), asked.get("status", "needs_response")
             return await raise_dispute(app, checkout_id, event, status, asked.get("amount"))

@@ -8,6 +8,7 @@ with `status`, never placed again (docs/commerce.md, rule 6)."""
 from typing import Any
 
 from ..commerce.model import Outcome
+from ..commerce.quote_details import is_external
 from ..commerce.registry import Providers
 from ..errors import DomainError
 from ..ledger import Quote
@@ -57,18 +58,25 @@ async def _record(ctx: Context, quote: Quote, before: dict[str, Any], outcome: O
     """Writes what the provider said and lets go of the provider step in one statement that applies only
     while the quote is still approved."""
     ledger, audit = ctx.ledger, ctx.audit
-    seen = {
+    seen: dict[str, Any] = {
         "requestId": before["requestId"],
         "status": outcome.status,
         "description": outcome.description,
         "attempts": before["attempts"] + 1,
     }
+    if outcome.receipt_lines:
+        seen["lines"] = [list(line) for line in outcome.receipt_lines]
     patch: dict[str, Any] = {"fulfilment": seen, "inFlightSince": None}
     try:
         match outcome.status:
             case "delivered":
                 audit.log("fulfilment.delivered", quote=quote.id, request=before["requestId"])
                 return await ledger.transition(quote.id, ("approved",), "settled", patch)
+            case "failed" | "reversed" if is_external(quote):
+                audit.log("fulfilment.failed", quote=quote.id, status=outcome.status)
+                return await ledger.transition(
+                    quote.id, ("approved",), "failed", {**patch, "failureReason": outcome.description}
+                )
             case "failed" | "reversed":
                 audit.log("fulfilment.failed", quote=quote.id, status=outcome.status)
                 audit.log("refund.due", quote=quote.id, why="paid, not delivered")

@@ -83,11 +83,15 @@
   }
 
   const chosen = (l) => (l.options?.length ? ` (${l.options.join(", ")})` : "");
+  // An order paid from the person's own account at the provider says whose money it is and what is left of it.
+  const fundingRows = (d) => (d.paidFrom ? [["Paid from", d.paidFrom], ...(d.balanceAfter ? [["Balance after", d.balanceAfter]] : [])] : []);
+  const paidElsewhere = (q) => Boolean(q.details.paidFrom);
   const basket = (q) => {
     const d = q.details;
     const items = d.lines.map((l) => [`${l.quantity} × ${l.name}${chosen(l)}`, l.total]);
     if (d.kind === "food") return rows([...items, ["Delivery", d.deliveryFee]]);
-    return rows([...items, ...d.fees.map((f) => [f.label, f.amount]), ...d.fields.map((f) => [f.label, f.value])]);
+    const more = [...d.fees.map((f) => [f.label, f.amount]), ...d.fields.map((f) => [f.label, f.value])];
+    return rows([...items, ...more, ...fundingRows(d)]);
   };
 
   function tracker(q) {
@@ -122,7 +126,7 @@
     switch (q.phase) {
       case "awaiting_approval": {
         const node = fromTemplate("t-approval");
-        if (q.wallet) setText(node, "wallet", "Pay from wallet");
+        if (q.wallet && !paidElsewhere(q)) setText(node, "wallet", "Pay from wallet");
         else slot(node, "wallet").remove();
         return node;
       }
@@ -310,7 +314,7 @@
 
   const actionsByName = {
     approve: async () => {
-      const outcome = await run("approve_quote", approval());
+      const outcome = await run("approve_quote", approval(paidElsewhere(state.quote) ? { funding: "external" } : {}));
       if (outcome.quote?.checkoutUrl) openCheckout();
     },
     "approve-wallet": () => run("approve_quote", approval({ funding: "wallet" })),

@@ -4,8 +4,10 @@ usable came back (no connection, a timeout). The simulators implement the same s
 clients run unchanged in simulated mode, and the tests script it."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+KEPT_HEADERS = ("mcp-session-id",)
 
 
 class TransportError(Exception):
@@ -17,6 +19,8 @@ class Reply:
     status: int
     body: str
     content_type: str | None = None
+    headers: Mapping[str, str] = field(default_factory=dict)
+    """The few response headers a provider's protocol needs (`KEPT_HEADERS`), by lower-case name."""
 
     @property
     def ok(self) -> bool:
@@ -33,6 +37,12 @@ class Transport(Protocol):
         body: str | None,
         timeout_seconds: float,
     ) -> Reply: ...
+
+
+def _reply_of(response: Any, text: Any) -> Reply:
+    kind = response.headers.get("content-type")
+    kept = {name: str(value) for name in KEPT_HEADERS if (value := response.headers.get(name)) is not None}
+    return Reply(int(response.status), str(text), kind if isinstance(kind, str) else None, kept)
 
 
 class WorkerFetch:
@@ -68,8 +78,7 @@ class WorkerFetch:
             text = await response.text()
         except Exception as error:
             raise TransportError(str(error)) from error
-        kind = response.headers.get("content-type")
-        return Reply(int(response.status), str(text), kind if isinstance(kind, str) else None)
+        return _reply_of(response, text)
 
 
 class BindingFetch:
@@ -94,5 +103,4 @@ class BindingFetch:
             text = await reply.text()
         except Exception as error:
             raise TransportError(str(error)) from error
-        kind = reply.headers.get("content-type")
-        return Reply(int(reply.status), str(text), kind if isinstance(kind, str) else None)
+        return _reply_of(reply, text)

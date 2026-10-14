@@ -5,6 +5,7 @@ the refund when the provider fails after approval. The approval itself is the wa
 
 from typing import Any
 
+from ..commerce.quote_details import is_external
 from ..errors import DomainError
 from ..ledger import Quote
 from ..money import format_naira
@@ -43,7 +44,7 @@ async def wallet_offer(ctx: Context, quote: Quote) -> dict[str, Any] | None:
     """What the approval card offers besides the checkout: paying from the wallet, for an account whose
     balance covers an open quote. None otherwise, and the card is as it was. The balance itself is not on the
     card: a card result stays in the chat, and a shared chat's guest would read it."""
-    if ctx.wallet is None or quote.state != "open":
+    if ctx.wallet is None or quote.state != "open" or is_external(quote):
         return None
     owner = account_of_call()
     if owner is None:

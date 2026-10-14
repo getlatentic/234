@@ -10,14 +10,35 @@ MODEL_TOOLS = {
     "send-money": ["create_transfer_quote"],
     "airtime": ["create_airtime_quote", "create_data_quote", "list_data_plans"],
     "food-order": ["search_menu", "build_basket", "create_food_quote"],
-    "merchants": ["browse_merchants", "find_items", "check_account", "create_quote", "track_order"],
+    "merchants": [
+        "browse_merchants",
+        "find_items",
+        "check_account",
+        "create_quote",
+        "track_order",
+        "connect_account",
+    ],
 }
 STATUS_TOOLS = {"merchants": "track_order"}
 """A connector's own status tool, where it is not `get_quote_status`."""
 CARD_TOOLS = ["approve_quote", "verify_quote", "decline_quote"]
 MENU_URI = "ui://food-order/menu.html"
-EXTRA_APP_TOOLS = {"send-money": ["submit_otp"], "food-order": ["order_from_menu"]}
-EXTRA_VIEWS = {"food-order": [MENU_URI]}
+CONNECT_URI = "ui://merchants/connect.html"
+CONNECT_APP_TOOLS = [
+    "connection_status",
+    "restart_connection",
+    "send_link_code",
+    "confirm_link_code",
+    "disconnect_account",
+    "complete_connection",
+    "connection_declined",
+]
+EXTRA_APP_TOOLS = {
+    "send-money": ["submit_otp"],
+    "food-order": ["order_from_menu"],
+    "merchants": CONNECT_APP_TOOLS,
+}
+EXTRA_VIEWS = {"food-order": [MENU_URI], "merchants": [CONNECT_URI]}
 CONNECTORS = list(MODEL_TOOLS)
 
 

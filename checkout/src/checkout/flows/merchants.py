@@ -10,11 +10,12 @@ from typing import Any
 
 from ..commerce.binding import approval_subject
 from ..commerce.fields import buyer_fields
+from ..commerce.index.tokens import not_connected
 from ..commerce.model import Basket, BasketLine, Merchant, Totals
 from ..commerce.pricing import merged
-from ..commerce.quote_details import describe, details_of
+from ..commerce.quote_details import describe, details_of, is_external
 from ..errors import DomainError
-from ..ledger import NewQuote, Quote, request_hash
+from ..ledger import ClaimTerms, NewQuote, Quote, request_hash
 from ..money import Kobo
 from .base import CardFlow
 from .checkout_leg import begin_checkout, check_payment
@@ -22,6 +23,11 @@ from .context import Context, QuoteIssued
 from .inputs import assert_idempotency_key, confirm_stated_amount
 from .merchant_leg import CONNECTOR, deliver
 from .wallet_leg import refund_to_wallet, wallet_of
+
+EXTERNAL_PAID = ClaimTerms(
+    {"funding": "external", "paymentStatus": "success"},
+    "json_extract(quotes.details, '$.funding') = 'external'",
+)
 
 
 class MerchantsFlow(CardFlow):
@@ -99,11 +105,39 @@ class MerchantsFlow(CardFlow):
         readback_confirmed: bool | None = None,
         funding: str = "checkout",
     ) -> dict[str, Any]:
+        await self._assert_funding_is_the_quotes(quote_id, funding)
         if funding == "wallet":
             await self.authorise_approval(quote_id, token, displayed_amount_kobo, wallet_of(self.ctx))
             return await self.verify(quote_id)
         quote, _ = await self.authorise_approval(quote_id, token, displayed_amount_kobo)
         return await self.present(await begin_checkout(self.ctx, quote))
+
+    async def approve_external(
+        self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
+    ) -> dict[str, Any]:
+        """The person's own account at the provider pays: the approval is the quote's one claim, and the
+        provider is then asked to place the order (merchant_leg.py), once."""
+        await self._assert_funding_is_the_quotes(quote_id, "external")
+        if self.ctx.index is not None and not await self.ctx.index.provider.connected():
+            raise not_connected()
+        await self.authorise_approval(quote_id, token, displayed_amount_kobo, terms=EXTERNAL_PAID)
+        return await self.verify(quote_id)
+
+    async def _assert_funding_is_the_quotes(self, quote_id: str, funding: str) -> None:
+        """A quote paid from the person's own account at the provider is approved as that and no other way, and
+        no other quote is: otherwise the wallet or the checkout could be charged for an order the provider also
+        charges, or the provider asked to place an order nobody paid for."""
+        quote = await self.ctx.ledger.require(quote_id, self.connector)
+        if (funding == "external") != is_external(quote):
+            audit_why = "external" if is_external(quote) else funding
+            self.ctx.audit.log("approval.denied", quote=quote_id, why=f"funding {audit_why}")
+            raise DomainError(
+                "FUNDING_MISMATCH",
+                "This quote is paid from the person's own account at the provider, and is approved on its "
+                "card as that. Nothing was approved."
+                if is_external(quote)
+                else "This quote is not paid from an account at the provider. Nothing was approved.",
+            )
 
     async def approve_from_wallet(
         self, quote_id: str, token: str, displayed_amount_kobo: Kobo, readback_confirmed: bool | None = None
@@ -123,7 +157,9 @@ def _assert_quotable(merchant: Merchant) -> None:
     if merchant.requires_link:
         raise DomainError(
             "LINK_REQUIRED",
-            f"{merchant.name} needs the person to connect their account first, which 234 cannot do yet.",
+            f"{merchant.name} needs the person to connect their account first. Call connect_account for "
+            "it: its card is where they connect, and nothing about it goes through the chat. Nothing was "
+            "quoted.",
         )
     if not merchant.quotable:
         raise DomainError(

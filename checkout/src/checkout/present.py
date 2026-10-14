@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .clock import Clock
-from .commerce.quote_details import basket_view
+from .commerce.quote_details import basket_view, external_mode, is_external
 from .food.tracking import ORDER_STEPS, tracking_of
 from .ledger import Budget, Quote
 from .mask import group_phone, mask_account
@@ -77,6 +77,9 @@ def phase_of(quote: Quote) -> str:
 
 def _waiting_message(quote: Quote, phase: str) -> str | None:
     if phase == "processing":
+        if is_external(quote):
+            said = (quote.progress.get("fulfilment") or {}).get("description")
+            return said or "Sent to Paystack Index. Waiting for its answer."
         if quote.progress.get("paymentStatus") == "success":
             return "Payment received. Confirming delivery."
         return "Working on it."
@@ -170,7 +173,7 @@ def _mode_note(quote: Quote, modes: Modes) -> str | None:
     if quote.kind == "food":
         return FOOD_NOTE
     if quote.kind == "basket":
-        return BASKET_NOTE
+        return None if is_external(quote) else BASKET_NOTE
     if quote.kind not in ("airtime", "data") or not modes.vtpass:
         return None
     return SIMULATED_RULES if modes.vtpass == "simulated" else SANDBOX_RULES
@@ -194,7 +197,7 @@ def present_quote(
     quote: Quote, budget: Budget, modes: Modes, clock: Clock, food_step_seconds: int = 15
 ) -> dict[str, Any]:
     phase = phase_of(quote)
-    mode = describe_mode(modes)
+    mode = external_mode(quote) or describe_mode(modes)
     tracking = tracking_of(quote.state, quote.kind, quote.progress, clock.now(), food_step_seconds * 1000)
     return {
         "id": quote.id,

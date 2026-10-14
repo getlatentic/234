@@ -22,6 +22,8 @@ def quote_digest(quote: Quote) -> str:
         "total": quote.amount_kobo,
         "expires": quote.expires_at,
     }
+    if d.get("funding"):
+        terms["funding"], terms["index"] = d["funding"], d["index"]
     return hashlib.sha256(json.dumps(terms, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 

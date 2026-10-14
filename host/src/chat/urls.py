@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from django.urls import path, re_path
 
-from .views import cancel, cards, compact, events, hooks, me, memory, pages, send, socket
+from .views import cancel, cards, compact, connect, events, hooks, me, memory, pages, send, socket
 
 app_name = "chat"
 
@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/me", me.me, name="me"),
     path("manifest.webmanifest", pages.manifest, name="manifest"),
     path("hooks/events", hooks.events, name="events-hook"),
+    path("connect/index/callback", connect.index_callback, name="connect-index-callback"),
     path("join/<str:token>", pages.join, name="join"),
     path("memory/", memory.entries, name="memory"),
     path("memory/export.json", memory.export, name="memory-export"),

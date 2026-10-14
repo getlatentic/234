@@ -137,5 +137,9 @@ class TestOnlyTheCardChoosesFunding:
     async def test_the_approval_tool_that_takes_it_is_for_cards_only(self, stack):
         approve_tool = (await listed(stack, "airtime"))["approve_quote"]
         assert visibility(approve_tool) == ["app"]
-        assert approve_tool["inputSchema"]["properties"]["funding"]["enum"] == ["checkout", "wallet"]
+        assert approve_tool["inputSchema"]["properties"]["funding"]["enum"] == [
+            "checkout",
+            "wallet",
+            "external",
+        ]
         assert "funding" not in approve_tool["inputSchema"].get("required", [])

@@ -143,6 +143,18 @@ class Fee:
 
 
 @dataclass(frozen=True)
+class ExternalFunding:
+    """An order the buyer pays from their own account at the provider (Paystack Index's Zap), not from the
+    wallet or at the checkout: 234 holds nothing for it and the quote and the receipt say so."""
+
+    source: str
+    """Whose money pays, as the card says it: "your Zap balance at Paystack Index"."""
+    balance_after_kobo: Kobo | None
+    terms: Mapping[str, object]
+    """What the provider needs to place the order later, kept with the quote as the person approved it."""
+
+
+@dataclass(frozen=True)
 class Totals:
     """What a provider says an order costs. The quote stores all of it, and the card shows all of it."""
 
@@ -152,6 +164,7 @@ class Totals:
     """The buyer's fields as (name, label, value), in the merchant's order."""
     holder_name: str | None = None
     check_id: str | None = None
+    external: ExternalFunding | None = None
 
     @property
     def subtotal_kobo(self) -> Kobo:
@@ -168,3 +181,5 @@ class Outcome:
 
     status: OutcomeStatus
     description: str
+    receipt_lines: tuple[tuple[str, str], ...] = ()
+    """What the receipt shows besides the order: a prepaid token, a delivery PIN (label, value)."""

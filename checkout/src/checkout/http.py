@@ -36,6 +36,7 @@ from .provider_hooks.http import paystack_hook, paystack_keys, vtpass_hook
 from .responses import HttpResponse, json_response
 from .sim_bachs import handle_bachs_checkout
 from .sim_checkout import handle_checkout
+from .sim_index import handle_index_page
 from .testing_routes import handle_test
 
 
@@ -175,6 +176,8 @@ async def handle(
         return await handle_checkout(app, method, path, headers, query)
     if parts[0] == "sim" and len(parts) >= 3 and parts[1] == "bachs":
         return await handle_bachs_checkout(app, method, path, headers)
+    if parts[0] == "sim" and len(parts) >= 3 and parts[1] == "index":
+        return await handle_index_page(app, method, parts, headers, raw, query)
     if parts[0] == "ops":
         return await handle_ops(app, method, parts, headers, raw)
     if parts[0] == "test" and app.settings.enable_test_routes:

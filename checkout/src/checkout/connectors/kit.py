@@ -85,7 +85,7 @@ class ApproveQuote(Strict):
     approval_token: Annotated[str, Field(min_length=1, max_length=200)]
     displayed_amount_kobo: int
     readback_confirmed: bool | None = None
-    funding: Literal["checkout", "wallet"] = "checkout"
+    funding: Literal["checkout", "wallet", "external"] = "checkout"
 
 
 class VerifyQuote(Strict):
@@ -239,11 +239,14 @@ class CardConnector:
 
         async def approve(args: ApproveQuote) -> ToolResult:
             terms = (args.quote_id, args.approval_token, args.displayed_amount_kobo, args.readback_confirmed)
-            if args.funding == "wallet":
-                wallet_owner()
-                view = await flow.approve_from_wallet(*terms)
-            else:
-                view = await flow.approve(*terms)
+            match args.funding:
+                case "wallet":
+                    wallet_owner()
+                    view = await flow.approve_from_wallet(*terms)
+                case "external":
+                    view = await flow.approve_external(*terms)
+                case _:
+                    view = await flow.approve(*terms)
             return card_result(view, summarise(view), await flow.card_meta(args.quote_id))
 
         async def verify(args: VerifyQuote) -> ToolResult:

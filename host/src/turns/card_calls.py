@@ -27,7 +27,7 @@ CARD_FIELDS = ("content", "structuredContent")
 SPAWNED = "spawned"
 ORDER_READY = "Order ready to approve"
 _REF_KEYS = ("quote_id", "card_id", "proposal_id")
-_STATE_KEYS = ("quote", "memory", "sign_in")
+_STATE_KEYS = ("quote", "memory", "sign_in", "connection")
 ACCOUNT_ONLY = {MEMORY_SERVER: NOT_AN_ACCOUNT, WALLET_SERVER: wallet.NOT_AN_ACCOUNT}
 
 Note = Callable[[str], Awaitable[dict[str, Any]]]

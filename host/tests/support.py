@@ -225,6 +225,8 @@ class FakeBackend:
         self.relayed: list[tuple] = []
         self.brands_ended: list[tuple] = []
         self.brand_revokes = False
+        self.account_calls: list[tuple] = []
+        self.account_answer: dict = {"content": [{"type": "text", "text": "Connected."}], "structuredContent": {}}
         self.relay_answer: tuple = (
             200,
             {"content-type": "application/json", "mcp-session-id": "sess-2"},
@@ -282,3 +284,7 @@ class FakeBackend:
     def end_brand(self, owner, brand):
         self.brands_ended.append((owner, brand))
         return self.brand_revokes
+
+    def connect_account(self, owner, name, arguments):
+        self.account_calls.append((owner, name, arguments))
+        return self.account_answer

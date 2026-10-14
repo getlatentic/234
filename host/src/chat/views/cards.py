@@ -2,7 +2,7 @@
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 
-from turns.hub import MEMORY_SERVER, WALLET_SERVER
+from turns.hub import MEMORY_SERVER, MERCHANTS_SERVER, WALLET_SERVER
 from turns.mcp_http import HubError
 
 from .. import card_csp, sandbox
@@ -13,16 +13,20 @@ from .send import json_body
 SCHEME_META = '<meta name="color-scheme" content="light dark">'
 OWNER_ONLY = "Only the owner of this chat can change what 234 remembers."
 WALLET_OWNER_ONLY = "Only the owner of this chat can use their wallet."
+ACCOUNT_OWNER_ONLY = "Only the owner of this chat can connect their accounts or pay from them."
 
 
 def owners_alone(body: dict) -> str | None:
     """Why a guest of a shared chat may not make this card call: it changes the owner's notes or spends,
-    sees or adds to the owner's wallet. None for any other call, which a guest makes as the owner."""
+    sees or adds to the owner's wallet, connects or ends the owner's account at a merchant, or pays from it.
+    None for any other call, which a guest makes as the owner."""
     server, arguments = body.get("server"), body.get("arguments")
     if server == MEMORY_SERVER:
         return OWNER_ONLY
-    paid_from_wallet = isinstance(arguments, dict) and arguments.get("funding") == "wallet"
-    return WALLET_OWNER_ONLY if server == WALLET_SERVER or paid_from_wallet else None
+    arguments = arguments if isinstance(arguments, dict) else {}
+    if server == MERCHANTS_SERVER and (arguments.get("funding") == "external" or "card_id" in arguments):
+        return ACCOUNT_OWNER_ONLY
+    return WALLET_OWNER_ONLY if server == WALLET_SERVER or arguments.get("funding") == "wallet" else None
 
 
 def with_color_scheme(markup: str) -> str:

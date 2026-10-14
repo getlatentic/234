@@ -114,7 +114,7 @@ class TestBrowsing:
         soon = next(line for line in text.splitlines() if line.startswith("soon |"))
         linked = next(line for line in text.splitlines() if line.startswith("linked |"))
         assert "coming soon, so it cannot be quoted yet" in soon
-        assert "connect an account first, so it cannot be quoted yet" in linked
+        assert "connect their account first (call connect_account), so it cannot be quoted yet" in linked
 
     async def test_nothing_is_priced_or_spent_by_reading(self, stack):
         for tool, arguments in (("browse_merchants", {}), ("find_items", {"merchant_id": MAMA})):

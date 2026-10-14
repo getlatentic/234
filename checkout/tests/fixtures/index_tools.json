@@ -1,0 +1,407 @@
+{
+ "tools": [
+  {
+   "name": "get_balance",
+   "description": "Read the user's balances. Returns the user's INDEX CREDITS — the spendable Paystack Index balance, in naira — AND, when a Zap account is linked, the current Zap balance. THIS IS THE TOOL for 'what's my Zap balance?' / 'how much do I have in Zap?' — call it directly; do not say Zap balance can't be read. Also use it before a transaction to confirm funds, or for 'how much do I have?'. Read-only, no side effects.\n\nReturns (structuredContent): balance_kobo (Index credits, in kobo), zap_linked, and zap_balance_kobo (the linked Zap balance, null when not linked or briefly unavailable). If zap_linked is false, tell the user no Zap account is linked and they can link one from the Index dashboard.\n\nNOTE: purchases are paid from the linked Zap balance. Index credits are a legacy balance only a grandfathered set of users still hold — they are spent down first on airtime, data and bills, then Zap covers the rest, but they can no longer be topped up (there is no add-credits flow anymore). DO NOT mention Index credits at all when balance_kobo is 0 — that is the norm now, and reporting '₦0 Index credits' wrongly implies money is missing; just answer with the Zap balance (or the link-Zap nudge) and the free credit, if any. Only surface Index credits when balance_kobo > 0. Index credits are SEPARATE from both the Zap balance and the user's Chowdeck wallet. Always name each balance explicitly — 'Index credits' / 'Zap balance' — never just 'wallet'. If the user has no Zap linked, tell them to link Zap from the Index dashboard so their agent can pay. The Chowdeck wallet balance is surfaced by `order` during the food order preview phase. For Zap transaction history (not balance), use `get_recent_activity` with source='zap'.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {}
+   },
+   "annotations": {
+    "title": "Get wallet balance",
+    "readOnlyHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "get_recent_activity",
+   "description": "List and search recent activity. Two sources:\n- source='index' (default): the user's Index-credits activity — credits added (inflows like card funding or Zap top-ups) and spends (outflows like airtime purchases), merged into one chronological feed. Use for 'my history', 'what have I spent', 'last top-up'. The filter params below are ignored for this source.\n- source='zap': the user's linked Zap account transaction history (their own Zap money movements — debits, transfers, credits), read straight from Zap and filterable by direction and date. Requires a linked Zap; if not linked, the tool says so. Read-only, moves no money.\n\nANSWERING SPEND QUESTIONS (source='zap'): to answer 'how much did I spend on Zap yesterday / last week / in May / this month', set start_date and end_date to the range (YYYY-MM-DD, inclusive, in the user's local time — today is provided in the system context). When a date range is given the tool pages through Zap for you and aggregates the WHOLE window: read total_debit_naira (spend = money out) or total_credit_naira (money in) straight from the response — you do NOT need to paginate yourself. Optionally set type='debit' or type='credit' to filter which rows are listed (it does not change the totals). Only if totals_partial is true is the number incomplete (the history was deeper than the page budget); say so and offer to narrow the range.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "source": {
+      "type": "string",
+      "enum": [
+       "index",
+       "zap"
+      ],
+      "description": "Which account's activity to read. 'index' = Index credits (default). 'zap' = the linked Zap account's own transaction history."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Max entries to return. Default 10. Index caps at 50; Zap caps at 100. Use a higher value when aggregating spend over a date range.",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "type": {
+      "type": "string",
+      "enum": [
+       "debit",
+       "credit"
+      ],
+      "description": "Zap only. Filter by flow direction: 'debit' = money out (spend), 'credit' = money in. Omit for both."
+     },
+     "start_date": {
+      "type": "string",
+      "description": "Zap only. Inclusive start of the date range, ISO 8601 date (YYYY-MM-DD)."
+     },
+     "end_date": {
+      "type": "string",
+      "description": "Zap only. Inclusive end of the date range, ISO 8601 date (YYYY-MM-DD). Must be >= start_date."
+     },
+     "cursor": {
+      "type": "string",
+      "description": "Zap only. Opaque pagination cursor — pass back the next_cursor from a previous response to fetch the next page."
+     }
+    }
+   },
+   "annotations": {
+    "title": "Recent wallet activity",
+    "readOnlyHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "find_items",
+   "description": "Discover what's available at a merchant — search for specific items or browse the merchant's catalog. The universal discovery tool for the long-tail of merchants (anything not covered by `quick_buy`).\n\nTHREE MODES (for Chowdeck), branch based on what you pass:\n  • SEARCH (`query` set) — e.g. 'jollof rice', 'pizza', 'paracetamol'. Returns matching vendors and items near the user. Use for 'I want X'.\n  • VENDOR MENU (`vendor_id` set, no query) — returns the FULL menu for a specific restaurant, grouped by category. Use when the user wants to see everything a known vendor offers: 'what does Jay's have?', 'show me the full Item 7 menu', 'browse the Chicken Republic menu'. The vendor_id comes from a previous find_items response (vendor cards include it). DO NOT use search with the vendor's name to get their menu — search returns at most a handful of name-matched items, not the full menu.\n  • BROWSE NEARBY (neither set) — returns the merchant's curated nearby feed (~12 top restaurants sorted by distance, with open/closed status, rating, delivery price, ETA). Use for 'what's near me?', 'where can I order from?', 'show me options'.\n\nMERCHANT — defaults to chowdeck (currently the only searchable merchant). Use `browse_merchants` to discover other merchant_ids as they come online.\n\nRESPONSE SHAPE — TEXT ONLY:\n  Returns text cards (vendor + item + price + ETA) — no inline photos. The structured content includes a `catalog_url` link to a hosted page on `index.paystack.com` that renders the same results with photos.\n  After presenting the cards, ALWAYS add a brief one-line nudge telling the user they can ask to see photos — e.g. *'Want to see what they look like? Just say \"show me\" and I'll share a visual link.'* Phrase it casually and only once per response.\n  PHOTOS: if the user asks for photos, pictures, images, or says \"show me\", you MUST use the returned `catalog_url` / `photo_catalog_url`. Do not use web search, generic internet images, or invented image URLs. The catalog URL is the visual source of truth for the real Chowdeck result photos.\n\nRENDERING: reproduce the text cards as the tool returned them. Don't collapse into prose like 'Domino's offers pizzas from ₦3,400 to ₦10,680.' After the cards, add 1–2 sentences of context (closed vendors, recommendations) — but the cards themselves stay.\n\nADDRESS (Chowdeck): the tool prepends `📍 Delivering to <address>`. If the user has multiple saved addresses and didn't specify one, the tool returns `needs_address_choice: true` with the CURRENT address + a count of others (it does NOT dump every saved address — that's intentional, to keep their addresses out of the chat log unless they're asked for). If the user wants to switch, ask them to describe which one (a tag like 'home'/'office', an area like 'VI'/'GRA'/'Lekki', or a street name), then call again with `address_query` set to what they said. The tool returns the matching saved addresses; pick the id and call once more with `address_id` set.\n  LINKING: if Chowdeck is not linked, do not send the user to the dashboard. Ask for the phone number on their Chowdeck account, then call `connect_merchant` with merchant_id='chowdeck' and phone. The tool will send an OTP and tell you to ask the user for it.\n  If the user just asks 'what addresses do I have?' — tell them their current one (shown in the response) + how many others, and ask which one they're trying to use. Do not call again unless they describe one.\n\nINTENT HANDLING: when the user has a goal beyond a literal keyword — 'high protein', 'low carb', 'cheap and filling', 'kid-friendly', 'vegan' — translate the goal into your best keyword (e.g. 'high protein' → 'chicken' or 'suya'; 'vegan' → 'vegetables'; or call multiple times with different keywords). Surface only items that actually match the goal in your reply.\n\nChowdeck requires the user to have linked their account first (`connect_merchant` with merchant_id='chowdeck') and have at least one saved delivery address in their Chowdeck app. Chowdeck can be linked directly in this chat. Do not send the user to the Index dashboard. Ask for the phone number on their Chowdeck account, then call connect_merchant with merchant_id='chowdeck' and phone.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "What to search for, e.g. 'jollof rice', 'pizza', 'amala'. Omit for browse mode (nearby feed, no keyword filter)."
+     },
+     "merchant_id": {
+      "type": "string",
+      "description": "Which merchant to search. Defaults to 'chowdeck' (currently the only searchable merchant). Use browse_merchants to discover new IDs."
+     },
+     "vendor_id": {
+      "type": "number",
+      "description": "Chowdeck vendor id. Set this (without a query) to browse the vendor's full menu, grouped by category. Get vendor IDs from a previous find_items browse or search response. Use cases: 'what does Jay's have?' or 'show me the full Item 7 menu'."
+     },
+     "address_id": {
+      "type": "number",
+      "description": "Chowdeck address ID to deliver to. Omit to use the user's primary saved address."
+     },
+     "address_query": {
+      "type": "string",
+      "description": "Free-text search to narrow down which saved Chowdeck address to use, e.g. 'home', 'office', 'GRA', 'VI', 'Lekki', a street name. When the user wants to switch addresses but hasn't given you an id, pass what they said here and the tool returns the matching saved addresses. Privacy-preserving: the tool will not list every saved address — the user must describe what they want."
+     },
+     "limit": {
+      "type": "number",
+      "description": "Browse-mode only: cap on number of vendors returned. Default 12, max 24."
+     }
+    }
+   },
+   "annotations": {
+    "title": "Find items at a merchant",
+    "readOnlyHint": true,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "order",
+   "description": "Place an order at a commerce merchant — food and other deliveries. Airtime, data, and electricity use `quick_buy`; bank transfers use `request_transfer_approval`.\n\nFind the `merchant_id` from `browse_merchants` (or have the user name the merchant). The other fields are per-merchant — the merchant's `blurb` from `browse_merchants` describes what's needed.\n\nCHOWDECK (merchant_id='chowdeck') — food. Three-phase flow:\n  Phase 1 — needs_options (only for items with required choice groups like Size/Spice/Side): call with vendor_id + items but WITHOUT modifier_selections. Response carries status='needs_options' and items_needing_options[] listing each required group (with menu_group_id) and its options (with item_id). Show the choices to the user.\n  Phase 2 — needs_confirmation: call again with the same vendor_id + items + user's picks via modifier_selections on each item (one entry per required group), WITHOUT confirmed. Response carries status='needs_confirmation' with full breakdown: items total, delivery fee, grand total, current Chowdeck wallet balance, balance after. Show it.\n  Phase 3 — confirmed: after the user says yes, call again with the same args plus confirmed=true. If the Chowdeck wallet can cover the total, the wallet is debited inline and the order is placed with payment_status='paid'. If the wallet is short, the Chowdeck wallet is NOT used at all; the full order is created with Zap selected, then the tool debits the linked Zap account via Zap merchant payment. Response returns payment_route='zap_merchant_payment' and payment_status='completed' or 'pending'. For paid wallet orders, response also carries the delivery PIN, tracking URL, and a `repeat_prompt` field (also embedded in the text content) — a self-contained natural-language prompt the user can save and paste next time to repeat the order in one shot. Surface it with framing like 'save this for next time' so they know to copy it. Feel free to elaborate (e.g. that vendor/item IDs may rotate over time) but don't alter the prompt's structure — the user copies it raw.\n  Items WITHOUT required option groups skip Phase 1 straight to Phase 2.\n  ALWAYS refer to the Chowdeck wallet as 'Chowdeck wallet' in user-facing messages to distinguish it from the user's Index credits (separate balance shown by get_balance). Never combine Chowdeck wallet, Zap balance, and Index credits in user-facing math; one payment route must cover the full food order by itself.\n  ZAP PAYMENT: when the Chowdeck wallet is short, Phase 2's preview says the Chowdeck wallet will not be charged and the full order will be paid through Zap. On confirmed=true, the tool requires linked Zap with enough balance, creates the Chowdeck Zap payment session, then completes it by calling Zap. Treat made_payment=false from Chowdeck order creation as expected for this route.\n  FINAL AMOUNT CHANGES: if the confirmed order response has amount_change_direction='lower' or 'higher', always mention the preview total and the final charged amount. Do not compress this away.\n  ADDRESS: defaults to the user's current Chowdeck address. If they want to deliver somewhere else but didn't give an id, the tool will return a needs_address_choice response showing ONLY their current address + a count of others (the rest are not surfaced, by design — to keep their addresses out of the chat log). Ask the user to describe which address they want (a tag like 'home'/'office', an area like 'GRA'/'VI', a street keyword), then call again with `address_query` set to what they said. The tool returns matching saved addresses; pick the id and call once more with `address_id`.\n\nOTHER MERCHANTS: as the directory grows, each merchant's blurb will document its order shape. Pass through whatever fields the merchant expects.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "merchant_id": {
+      "type": "string",
+      "description": "Which merchant to order from. Use browse_merchants to discover IDs. Currently supported for execution: 'chowdeck'."
+     },
+     "vendor_id": {
+      "type": "number",
+      "description": "Chowdeck vendor ID. Required for merchant_id='chowdeck'."
+     },
+     "items": {
+      "type": "array",
+      "description": "Items to order. Required for merchant_id='chowdeck'. Each: { item_id, quantity, modifier_selections? }.",
+      "items": {
+       "type": "object"
+      }
+     },
+     "modifier_selections": {
+      "type": "array",
+      "description": "Chowdeck: per-item modifier choices, populated after the needs_options response.",
+      "items": {
+       "type": "object"
+      }
+     },
+     "address_id": {
+      "type": "number",
+      "description": "Chowdeck: deliver-to address ID. Omit for the user's primary."
+     },
+     "address_query": {
+      "type": "string",
+      "description": "Chowdeck: free-text search to pick a non-primary saved address by description ('home', 'office', 'GRA', 'VI', a street name). When the user wants to deliver somewhere other than their primary but didn't give an id, pass what they said here. Privacy: the tool won't list all saved addresses — the user must describe which one."
+     },
+     "vendor_note": {
+      "type": "string",
+      "description": "Chowdeck: note to the restaurant."
+     },
+     "delivery_note": {
+      "type": "string",
+      "description": "Chowdeck: note to the rider."
+     },
+     "confirmed": {
+      "type": "boolean",
+      "description": "Set true ONLY after the user has approved the totals shown in a previous needs_confirmation response. Defaults to false (returns a preview)."
+     }
+    },
+    "required": [
+     "merchant_id"
+    ]
+   },
+   "annotations": {
+    "title": "Order from a merchant",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false
+   }
+  },
+  {
+   "name": "track_order",
+   "description": "Look up the status of an order the user has placed. Use this when the user asks 'where's my food?', 'is my order on the way?', 'has my delivery arrived?', or similar tracking intent.\n\nReturns the order's current status, payment state, total, and (for delivery merchants) a tracking URL and delivery PIN. The exact fields depend on the merchant.\n\nToday only Chowdeck orders are queryable. As more merchants come online that support order tracking, this tool routes to each merchant's tracking endpoint based on merchant_id.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "merchant_id": {
+      "type": "string",
+      "description": "Which merchant the order is at. Currently: 'chowdeck'."
+     },
+     "order_id": {
+      "type": "string",
+      "description": "The order reference returned by `order`."
+     }
+    },
+    "required": [
+     "merchant_id",
+     "order_id"
+    ]
+   },
+   "annotations": {
+    "title": "Track an order",
+    "readOnlyHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  },
+  {
+   "name": "quick_buy",
+   "description": "One tool for the most common purchases on Index — airtime, data, and electricity. Branch on the `category` field; each branch needs different fields. (To send money to a bank account, use `request_transfer_approval`. To order food, use `order` with merchant_id='chowdeck'.)\n\nAIRTIME — category='airtime'. Required: network (MTN/AIRTEL/GLO/9MOBILE), phone, amount_naira (₦50–5000). Confirm network, phone, and amount with the user before calling.\n\nELECTRICITY — category='electricity'. Two-phase, like a transfer. Required: disco (the distribution company id, e.g. 'ikeja', 'eko', 'aedc'), meter_type ('prepaid' or 'postpaid'), meter_number, amount_naira (₦1,000–1,000,000). Phase 1 — call WITHOUT confirmed: the tool validates the meter with the disco and returns the registered customer name/address (when the disco provides it) plus the amount and balance-after. SHOW the resolved name and amount to the user and get an explicit go-ahead — a wrong meter number is unrecoverable. Phase 2 — call again with the SAME fields plus confirmed=true to charge. For prepaid meters the response carries the recharge token (also in the text); read it back to the user. Postpaid just settles the bill (no token).\n\nDATA — category='data'. Two-step. First call with category='data' + network + phone (omit bundle_code) → returns the bundle catalog for that network grouped by category (daily/weekly/monthly/long_term). Show options to the user. Second call with the chosen bundle_code → order placed.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "category": {
+      "type": "string",
+      "description": "Which kind of purchase. Determines which other fields are required.",
+      "enum": [
+       "airtime",
+       "data",
+       "electricity"
+      ]
+     },
+     "network": {
+      "type": "string",
+      "description": "Telecom network. Required for category='airtime' or 'data'.",
+      "enum": [
+       "MTN",
+       "AIRTEL",
+       "GLO",
+       "9MOBILE"
+      ]
+     },
+     "phone": {
+      "type": "string",
+      "description": "Phone number (e.g. 08012345678 or +2348012345678). Required for category='airtime' or 'data'."
+     },
+     "amount_naira": {
+      "type": "number",
+      "description": "Amount in NGN. Airtime: ₦50–5,000. Electricity: ₦1,000–1,000,000. Ignored for data — price comes from the chosen bundle. Exact bounds are enforced per category.",
+      "minimum": 50
+     },
+     "bundle_code": {
+      "type": "string",
+      "description": "Data bundle code. Only for category='data'. Omit on the first call to receive the available bundles, then call again with the user's chosen code."
+     },
+     "disco": {
+      "type": "string",
+      "description": "Electricity distribution company id. Required for category='electricity'. One of: ikeja, eko, phed, kano, eedc, aedc, ibedc, benin, abapower, jos, kaduna, yola.",
+      "enum": [
+       "ikeja",
+       "eko",
+       "phed",
+       "kano",
+       "eedc",
+       "aedc",
+       "ibedc",
+       "benin",
+       "abapower",
+       "jos",
+       "kaduna",
+       "yola"
+      ]
+     },
+     "meter_type": {
+      "type": "string",
+      "description": "Meter type. Required for category='electricity'. Prepaid meters return a recharge token; postpaid settles the bill.",
+      "enum": [
+       "prepaid",
+       "postpaid"
+      ]
+     },
+     "meter_number": {
+      "type": "string",
+      "description": "The electricity meter number. Required for category='electricity'."
+     },
+     "confirmed": {
+      "type": "boolean",
+      "description": "Set true ONLY after the user has approved the details shown in a previous needs_confirmation response. Used by category='electricity'. Defaults to false (returns a meter validation preview)."
+     }
+    },
+    "required": [
+     "category"
+    ]
+   },
+   "annotations": {
+    "title": "Quick buy — airtime, data, electricity",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false
+   }
+  },
+  {
+   "name": "find_beneficiaries",
+   "description": "Find recipients the user has already saved in Zap. Read-only: this tool never previews or sends money. Pass query to search by account name or account number; omit query to list all active saved beneficiaries. The response returns each beneficiary_code plus the account name, bank, and masked account number. After the user chooses one, pass its code to request_transfer_approval with amount_naira to preview the transfer.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "Optional name or account-number search. Omit to list all saved Zap beneficiaries."
+     }
+    },
+    "required": []
+   },
+   "annotations": {
+    "title": "Find saved Zap beneficiaries",
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true,
+    "moves_money": false
+   }
+  },
+  {
+   "name": "request_transfer_approval",
+   "description": "Request the user's approval for a bank transfer. The preview step MOVES NO MONEY: it resolves the recipient account and shows the user the amount and recipient. The gate that protects the user is YOU: show the resolved recipient and amount, get the user's explicit go-ahead, and only then call again with confirmed=true. On that confirmed call the transfer is handed to the user's Zap, which — depending on the user's Zap settings — either waits for them to approve it in the Zap app or completes automatically. So always get the user's clear confirmation in chat before you send with confirmed=true; don't rely on a second in-app prompt, some users have auto-approve on.\n\nThree steps:\n  1. Recipient — for a saved Zap recipient, use find_beneficiaries and pass the selected beneficiary_code. For a new/manual recipient, call with no bank info (or list_banks=true) to get a list of common banks plus the full ~80-bank list in structuredContent.banks_all. Ask the user which bank; don't guess from an abbreviation if you're not sure.\n  2. Preview — call with either beneficiary_code OR bank_code/bank_name + account_number, plus amount_naira (leave confirmed unset). The tool resolves the saved beneficiary or account holder (a free lookup, not a transfer) and returns a preview: recipient, amount, and Zap balance after. Read the resolved account name back to the user — it may differ from what they typed — and ask them to confirm.\n  3. Send to Zap — once the user confirms the preview, call again with ONLY confirmed=true and the approval_token from step 2 — no bank, account, or amount. The preview already stored those under the token; re-sending them is unnecessary and ignored. The tool hands the transfer to the user's Zap and returns immediately. The response tells you what to say next: if Zap is waiting on an in-app approval, tell the user to open Zap and approve; if it settled right away (e.g. they have auto-approve on), it's already on its way and there's nothing for them to tap.\n\nOptionally pass reason — the narration that lands on the recipient's bank statement. If the user hasn't said what it's for, ask ('what's it for?'); it's free polish. Money is sent from the user's linked Zap balance, so the user must have Zap linked; if not, point them to the Paystack Index dashboard to link it. Per-transfer cap ₦50,000 (the bank-picker response includes the live cap, so you can warn before the user commits to a too-large amount). Zap may add a small fee on top, drawn from the Zap balance. Most transfers settle within minutes — they show as 'processing' and flip to 'sent' once Zap confirms. Use get_recent_activity to check status.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "bank_code": {
+      "type": "string",
+      "description": "3-digit NIBSS bank code (e.g. '058' for GTBank). Prefer this over bank_name when you know the exact code."
+     },
+     "bank_name": {
+      "type": "string",
+      "description": "Bank name (e.g. 'GTBank', 'Access', 'Kuda'). We fuzzy-match against the bank list. If the match is ambiguous, the response returns the candidates and asks you to call back with bank_code."
+     },
+     "account_number": {
+      "type": "string",
+      "description": "10-digit Nigerian NUBAN."
+     },
+     "beneficiary_code": {
+      "type": "string",
+      "description": "Optional BEN_-prefixed code from find_beneficiaries. Use this instead of bank_code, bank_name, and account_number for a saved Zap recipient."
+     },
+     "amount_naira": {
+      "type": "number",
+      "description": "Amount to send, in NGN. Minimum ₦100. The per-transfer cap (₦50,000 by default) is enforced server-side and surfaced in the bank-picker response.",
+      "minimum": 100
+     },
+     "reason": {
+      "type": "string",
+      "description": "Optional. Narration sent to the recipient's bank statement. Max 100 chars."
+     },
+     "confirmed": {
+      "type": "boolean",
+      "description": "Set true ONLY after you've shown the user the resolved recipient, amount, and balance from a previous (confirmed-unset) preview AND they've told you to go ahead. When true, pass approval_token and nothing else — the bank, account, and amount come from the stored preview, not from this call. This hands the transfer to the user's Zap. Defaults to false (returns a preview)."
+     },
+     "approval_token": {
+      "type": "string",
+      "description": "Required when confirmed=true: the approval_token string from the preview response. It's the handle to the resolved transfer stored server-side, so the confirm call needs nothing else. Each token is single-use and expires 10 minutes after the preview; if it's lapsed, run the preview again to get a fresh one."
+     },
+     "list_banks": {
+      "type": "boolean",
+      "description": "Force return the bank catalog regardless of what other fields are set. Useful when the user wants to see options before committing."
+     }
+    },
+    "required": []
+   },
+   "annotations": {
+    "title": "Request transfer approval",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": true,
+    "moves_money": false
+   }
+  },
+  {
+   "name": "connect_merchant",
+   "description": "Link a merchant account so Index can transact on the user's behalf — works across the whole merchant directory (Chowdeck today; Zap and others coming).\n\nFind the merchant_id from browse_merchants. Only merchants with requires_link=true need this; airtime/data/bills don't. For Chowdeck, link directly here with this tool; do not send the user to the dashboard.\n\nFLOW for OTP merchants (e.g. chowdeck): call first with merchant_id + phone → user receives an OTP → call again with merchant_id + phone + otp. Always confirm the phone number with the user before sending the OTP.\n\nFLOW for device-flow merchants (e.g. zap when live): call with merchant_id → response includes a verification URL → user approves on their device → Index polls for completion in the background.\n\nReturns a clear message describing the next step (e.g. 'OTP sent, ask the user for it').",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "merchant_id": {
+      "type": "string",
+      "description": "The merchant to link. Use browse_merchants to discover IDs. Examples: 'chowdeck', 'zap'."
+     },
+     "phone": {
+      "type": "string",
+      "description": "User's phone (international format, e.g. +2348012345678). Required for OTP merchants on the first call."
+     },
+     "otp": {
+      "type": "string",
+      "description": "The OTP the user received. Pass alongside phone on the second call to complete the link."
+     }
+    },
+    "required": [
+     "merchant_id"
+    ]
+   },
+   "annotations": {
+    "title": "Link a merchant account",
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false
+   }
+  },
+  {
+   "name": "browse_merchants",
+   "description": "List the merchants Index can transact with — the curated directory of food, airtime, data, bills, transfers, and ecommerce merchants available. Use this when the user asks 'what can I do here', 'what merchants are supported', 'is X available', or before suggesting a long-tail merchant. Read-only.\n\nReturns merchants sorted by editorial weight (featured/popular first). Each entry carries: id (used with `order` for long-tail merchants), name, category (food / airtime / data / bills / transfers / ecommerce), status (live / beta / coming_soon — only live and beta are actually callable), a one-line description for the user, and a `blurb` written for AI assistants explaining when to choose this merchant.\n\nFilter by category to narrow results. Featured merchants (the ones surfaced via the `quick_buy` tool) are flagged with featured=true.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "category": {
+      "type": "string",
+      "description": "Optional. Restrict results to one category. Common values: food, airtime, data, bills, transfers, ecommerce."
+     },
+     "include_coming_soon": {
+      "type": "boolean",
+      "description": "Include merchants whose status is 'coming_soon' (visible but not yet callable). Default true — users typically want to know what's planned."
+     }
+    }
+   },
+   "annotations": {
+    "title": "Browse the merchant directory",
+    "readOnlyHint": true,
+    "idempotentHint": true,
+    "openWorldHint": false
+   }
+  }
+ ]
+}

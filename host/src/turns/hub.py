@@ -23,6 +23,7 @@ from .mcp_http import HubError, McpHttp, Server, owner_key
 ACCOUNT_META = "com.getlatentic.234/account"
 MEMORY_SERVER = "memory"
 WALLET_SERVER = "wallet"
+MERCHANTS_SERVER = "merchants"
 SEPARATOR = "__"
 MIME_TYPE = "text/html;profile=mcp-app"
 

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect an account</title>
+<style>{{ css|safe }}</style>
+</head>
+<body class="m-0 bg-transparent p-2 font-sans text-[0.9375rem] leading-snug text-ink">
+<main id="root" class="mx-auto max-w-sm"></main>
+<template id="t-card">
+  <article class="grid grid-cols-1 gap-4 rounded-card border border-line bg-raised p-5">
+    <div>
+      <h2 data-slot="title" class="m-0 text-base font-medium wrap-anywhere"></h2>
+      <p data-slot="lead" class="m-0 mt-1 text-sm text-ink-3 wrap-anywhere" hidden></p>
+    </div>
+    <p data-slot="status" role="status" class="m-0 flex items-center gap-2 rounded-control bg-sunken px-3 py-2.5 font-medium" hidden>
+      <svg data-slot="ok" class="size-5 shrink-0 text-ok" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="10" cy="10" r="8"/><path d="M6.5 10.5l2.5 2.5 4.5-5.5"/></svg>
+      <svg data-slot="off" class="size-5 shrink-0 text-ink-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><circle cx="10" cy="10" r="8"/><path d="M6.5 10h7"/></svg>
+      <span data-slot="status-text" class="min-w-0 wrap-anywhere"></span>
+    </p>
+    <div data-slot="fields" class="grid grid-cols-1 gap-2" hidden>
+      <label data-slot="field-label" for="entry" class="text-sm text-ink-3"></label>
+      <input id="entry" data-slot="entry" autocomplete="off" maxlength="24" class="field min-h-11 py-3 tabular-nums">
+    </div>
+    <div data-slot="actions" class="grid grid-cols-1 gap-2 empty:hidden"></div>
+    <p data-slot="notice" role="alert" class="m-0 text-sm font-medium text-bad" hidden></p>
+  </article>
+</template>
+<template id="t-button">
+  <button type="button" class="btn-primary"></button>
+</template>
+<template id="t-message">
+  <p role="alert" class="m-0 rounded-card bg-bad-soft p-4 text-sm font-medium text-bad"></p>
+</template>
+<script>{{ mcp_app_js|safe }}</script>
+<script>{{ connect_js|safe }}</script>
+</body>
+</html>

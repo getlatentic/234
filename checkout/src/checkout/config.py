@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from .bachs.settings import BachsSettings
+from .commerce.index.settings import IndexSettings
 from .errors import ConfigError
 from .memory.settings import MemorySettings
 from .paystack.api import PAYSTACK_API_URL
@@ -118,6 +119,8 @@ class Settings:
     free_text_merchants: bool = True
     """`create_payment_quote` may pay any merchant the person names in words. Allowed only while Paystack,
     VTpass and Bachs are simulated or in a sandbox (`FREE_TEXT_MERCHANTS`, docs/commerce.md, rule 2)."""
+    index: IndexSettings = field(default_factory=IndexSettings)
+    """Which Paystack Index a person's own account is connected to (`INDEX_MODE`, commerce/index/settings.py)."""
 
     @classmethod
     def from_env(cls, read: Read) -> Settings:
@@ -170,6 +173,7 @@ class Settings:
                 vtpass,
                 bachs,
             ),
+            index=IndexSettings.from_env(read),
             web_enabled=env.text("WEB_ENABLED") != "0",
             web_search=SearchSettings.from_env(read),
             web_deny=(*DEFAULT_DENY, *_domains(env.text("WEB_DENY"))),

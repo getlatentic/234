@@ -24,7 +24,7 @@ _STATUS_WORDS = {
 
 def status_words(merchant: Merchant) -> str:
     if merchant.requires_link:
-        return "needs the person to connect an account first, so it cannot be quoted yet"
+        return "needs the person to connect their account first (call connect_account), so it cannot be quoted yet"
     return _STATUS_WORDS[merchant.status]
 
 
