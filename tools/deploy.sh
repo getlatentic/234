@@ -446,7 +446,10 @@ smoke_test() {  # [ops-token]: the deploy's own, which lets the smoke test's fir
   check "connectors /health" "$(http_status "$CONNECTORS_URL/health")" 200
   check "connectors tools/list without the token" "$(http_status -X POST "$CONNECTORS_URL/paystack-pay/mcp" \
     -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
+  check "merchants tools/list without the token" "$(http_status -X POST "$CONNECTORS_URL/merchants/mcp" \
+    -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')" 401
   check "connectors /test routes are off" "$(http_status "$CONNECTORS_URL/test/summary")" 404
+  check "a simulated merchant cannot be told its answer from outside" "$(http_status -X POST "$CONNECTORS_URL/test/merchant-order/qt-00000000000000000000?outcome=failed")" 404
   check "connectors refuse a wallet correction without the operators' token" "$(http_status -X POST "$CONNECTORS_URL/ops/wallet/adjust")" 404
   check "connectors refuse a Paystack webhook without Paystack's signature" "$(http_status -X POST "$CONNECTORS_URL/hooks/paystack" \
     -H 'content-type: application/json' -d '{"event":"charge.success","data":{"reference":"x"}}')" 401

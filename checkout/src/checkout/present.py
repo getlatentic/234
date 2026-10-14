@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .clock import Clock
+from .commerce.quote_details import basket_view
 from .food.tracking import ORDER_STEPS, tracking_of
 from .ledger import Budget, Quote
 from .mask import group_phone, mask_account
@@ -114,6 +115,7 @@ SIMULATED_RULES = (
     "Simulated: any Nigerian mobile number is delivered. 201000000000 stays pending; 100000000000 fails."
 )
 FOOD_NOTE = "The menu, prices and delivery updates are invented."
+BASKET_NOTE = "Simulated merchant: the shop, its prices and its delivery are invented."
 OTP_INSTRUCTIONS = "Enter the one-time code Paystack sent."
 
 
@@ -158,6 +160,8 @@ def _details_view(quote: Quote) -> dict[str, Any]:
                 "subtotal": format_naira(d["subtotalKobo"]),
                 "deliveryFee": format_naira(d["deliveryFeeKobo"]),
             }
+        case "basket":
+            return basket_view(quote)
         case _:
             return {"kind": "payment"}
 
@@ -165,6 +169,8 @@ def _details_view(quote: Quote) -> dict[str, Any]:
 def _mode_note(quote: Quote, modes: Modes) -> str | None:
     if quote.kind == "food":
         return FOOD_NOTE
+    if quote.kind == "basket":
+        return BASKET_NOTE
     if quote.kind not in ("airtime", "data") or not modes.vtpass:
         return None
     return SIMULATED_RULES if modes.vtpass == "simulated" else SANDBOX_RULES

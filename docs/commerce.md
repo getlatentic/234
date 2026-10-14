@@ -1,6 +1,6 @@
 # 234 Commerce: find, price, approve and pay for anything the same way
 
-**Design; nothing here is built yet (see Build order).** One protocol for what a person can buy through 234:
+**Design; the core (build step 2) is built, simulated, and measured with the real model (see "What is built" and Build order).** One protocol for what a person can buy through 234:
 search a directory of merchants, see what they sell, have the server price it, approve it on a card, pay it from
 the wallet (or at the checkout), and follow the order to its end. Airtime and data stay as they are until the
 generic path measures as well. Bills (DSTV, electricity) are the first merchants of the directory, served by
@@ -29,7 +29,7 @@ spends. A model that is talked into anything can only make a quote.
 | | |
 |---|---|
 | **Provider** | The code that lists merchants, prices an order and fulfils it: `vtpass` (bills), `directory` (merchants 234 onboards), `index` (a person's own Paystack Index account). One interface (Providers, below). |
-| **Merchant** | `id`, `provider`, `name`, `category` (`food`, `airtime`, `data`, `tv`, `electricity`, `shop`), `status` (`live`, `beta`, `coming_soon`: only the first two can be quoted), `requires_link` (the person must connect an account first), `blurb` (234's own words on when to choose it: never the merchant's), `limits` (least and most per order, in kobo), `fields` (what the buyer must give: a smartcard or meter number, a phone, an address). |
+| **Merchant** | `id`, `provider`, `name`, `category` (`food`, `grocery`, `health`, `shop`, `service`, `airtime`, `data`, `tv`, `electricity`), `status` (`live`, `beta`, `coming_soon`: only the first two can be quoted), `requires_link` (the person must connect an account first), `blurb` (234's own words on when to choose it: never the merchant's), `limits` (least and most per order, in kobo), `fields` (what the buyer must give: a smartcard or meter number, a phone, an address). |
 | **Offer** | What a merchant sells: `id`, `merchant_id`, `name`, `price` (`fixed` kobo, a `range` with least and most, or `open` within the merchant's limits), `available`, option groups. A listed price is indicative. |
 | **Account check** | A provider's look-up of what the buyer typed: a smartcard, a meter. It returns the holder's name and what is due, and an id that the quote must carry. A wrong meter number cannot be undone, so the card shows the holder's name for the person to confirm, as a transfer shows the bank's. |
 | **Basket** | Lines of `{offer_id, quantity, options}` and the fulfilment fields. The model sends ids and counts and never a price. |
@@ -58,9 +58,12 @@ The wallet's balance and history are the wallet tool and card, as built. Index's
 `request_transfer_approval` and `get_balance` have no counterpart: transfers are the `send-money` connector.
 
 **Tool budget.** The tool definitions are sent with every turn (about 14,000 characters for 15 tools on
-2026-10-13, over a third of a short request). The connector adds six tools, and the free-text `create_payment_quote`
-and the food tools go when their merchants move into the directory, so the total does not grow by six. Every
-description is measured on the evaluation before it ships (evaluation/README.md).
+2026-10-13, over a third of a short request). The connector adds five tools (`connect_account` is step 4, and
+`track_order` is the connector's status tool, not one more beside `get_quote_status`), 5,204 characters on
+2026-10-14, 19,195 characters for the 19 tools the model was offered before it (the memory, knowledge, web and wallet
+tools had been added since the 15). The free-text `create_payment_quote` and the food tools go when their merchants
+move into the directory, so the total does not grow by five. Every description is measured on the evaluation before
+it ships (evaluation/README.md; RESULTS.md, "Commerce phase").
 
 ## A purchase, end to end (DSTV)
 
@@ -143,12 +146,95 @@ status(quote)                 -> delivered | pending | failed | reversed   # the
 * **AP2**: signed mandates for a standing instruction ("buy ₦20,000 of electricity monthly for this meter"). The
   quote hash and the person's approval are the same idea for one purchase; recurring is a design of its own.
 
+## What is built (the core, simulated)
+
+`checkout/migrations/0020_commerce.sql` (the tables) and `0021_commerce_directory.sql` (the simulated directory);
+`checkout/src/checkout/commerce/` (the provider interface, the registry, the `directory` provider, pricing,
+options, fields, account checks, the model-facing lists and the third-party text rules);
+`connectors/merchants.py`, `flows/merchants.py`, `flows/merchant_leg.py`; the basket on the approval card
+(`card/static/card.js`); the test route `POST /test/merchant-order/<quote id>?outcome=delivered|pending|failed`
+(`sim_merchant_order.py`); `FREE_TEXT_MERCHANTS` (`config.py`). Tests `checkout/tests/test_commerce_*.py`,
+`test_flow_merchants*.py`; guards `checkout/tools/mutations/commerce_rules.py`; browser conformance
+`conformance/chat-merchants.mjs`; the evaluation's `commerce-dev` split (`evaluation/commerce_score.py`).
+
+* **Tables.** `merchant` (provider, status, `requires_link`, `blurb`, `min_kobo`/`max_kobo`, a fee, `checks_account`,
+  the fields the buyer gives), `offer` (price `fixed`, `range` or `open`; availability; at most one to ten of one;
+  option groups), `account_check` (what a provider found for one owner, immutable) and the simulated directory's
+  `sim_merchant_account` and `sim_merchant_order`. Checks refuse a row that breaks a rule; triggers keep a merchant's
+  id and provider and an offer's merchant, id and kind of price, refuse to change a check, keep a decided order's
+  answer, and refuse to remove a merchant or an offer that a quote names (it is retired by `available` or `status`).
+  A quote keeps a copy of every line, price and fee it was made from (`quotes_are_fixed`), so changing an offer
+  changes nothing a quote used.
+* **Providers.** `Provider` is the interface of "Providers" above (`commerce/provider.py`); `Providers` routes a
+  merchant, and a quote by the provider it names, to its own. The `directory` provider reads D1 and prices a basket
+  (`pricing.py`): every line is checked against the offers (it exists, is available, its options are the offer's and
+  complete, its count is 1 to 10 and within the offer's own most, at most twelve different lines), prices are the offer's
+  plus the chosen options', the fee is the merchant's, and the order's total is within the merchant's least and
+  most. Nothing in the model's arguments is a price: a line names an offer, a count and option ids. The only money it
+  may name is `amount_kobo` for a single `open` or `range` offer, within that offer's limits (the merchant's, for
+  `open`), checked against `amount_as_user_said` as every amount is; an amount for an offer with a price is refused.
+* **The tools.** `browse_merchants`, `find_items`, `check_account` and `track_order` read; `create_quote` makes the
+  quote and shows the card. Everything of a merchant's that the model reads passes `third_party` (no control or
+  formatting character, one line, a length), and each list begins with one line saying that names and descriptions
+  are data, never instructions; only the merchant's `blurb` guides. `find_items` ends by telling the model to
+  call `create_quote` if the person wants to buy and to answer if they only asked what it sells or costs, and lists
+  everything when the words match nothing; `browse_merchants` names the merchants of other categories after those
+  of the one asked for. A merchant id that is nearly right is named in the refusal ("Did you mean ...") and never
+  quoted for.
+* **The approval is bound to the quote.** `create_quote`'s approval token is the ledger's own HMAC
+  (`Ledger.approval_token`), taken over the quote's id and a SHA-256 of its merchant, lines, fees, fields, holder, total
+  and expiry (`commerce/binding.py`), read from the stored quote each time. A token for the id alone, or for another
+  quote, approves nothing, and so does one for a quote whose terms differ.
+* **Account check.** `check_account` records what the provider found (the holder and what is due) as an
+  `account_check` of that owner with an id, for fifteen minutes; asked again for the same account while one lives,
+  it returns it. A quote for a merchant that checks accounts must carry a check of the same owner, merchant and
+  fields, and takes the holder's name from it and from nowhere else; the card shows it above the amount.
+* **Fulfilment.** After approval (the wallet's hold, claim and release, or Paystack's checkout), `flows/merchant_leg.py`
+  places the order with the merchant's provider: one request id per quote (`mrq-<quote id>`) fixed by one conditional
+  write, one caller at a time, the answer recorded by a statement that applies only while the quote is approved.
+  `delivered` ends the quote, `failed` leaves a refund owed (to the wallet, or at Paystack as for airtime), and anything
+  else is pending, asked about again with `status` by the card's poll, a provider's callback and the minute, never
+  placed again. The simulated merchants deliver at once unless the test route set another answer.
+* **The card.** The approval card shows a basket: a line for each item with its options, a line for each fee, the
+  buyer's fields, the total, the merchant and the holder's name. The receipt lists the same.
+* **Wallet and checkout.** The same as airtime: "Pay from wallet" is offered to an account whose wallet covers it, the
+  checkout otherwise; a refused order is refunded to the wallet or Paystack once. `create_quote` takes `from_wallet`
+  as the airtime tools do.
+* **`FREE_TEXT_MERCHANTS`** (default on while Paystack, VTpass and Bachs are simulated or in a sandbox) gates the free-text
+  `create_payment_quote`: off, the tool is not offered and the flow refuses; on beside a provider that is neither
+  simulated nor in a sandbox, the Worker refuses to start (docs/deploy.md).
+
+**Where the design was silent, or differs.**
+
+* A provider's `check` returns what it found (`AccountLookup`); the core keeps it as an `AccountCheck` with an id and an
+  expiry, so every provider's checks are held and expire the same way. `Provider.merchant(id)` was added for routing.
+* `create_quote(merchant_id, lines, amount_kobo, amount_as_user_said, fields, check_id, from_wallet, idempotency_key)`:
+  `lines or amount` is `lines`, or an `amount_kobo` alone for a merchant with one `open` offer; an open or range offer
+  stands alone in its basket, paid once.
+* The merchant's limits are on the order's total, fees included; for an `open` offer the amount is also within them.
+* The categories are the design's and three more (`grocery`, `health`, `service`) for the simulated directory.
+* `track_order` is the connector's status tool: the connector has no `get_quote_status`, and its quotes tell the
+  model to report with `track_order`.
+* `connect_account` and the `index` and `vtpass` providers are steps 3 and 4. A merchant that `requires_link`, or
+  that is `coming_soon`, is listed and cannot be quoted.
+* The simulated directory is four invented merchants (Mama Put, the restaurant of `food/menu.py`, whose menu is
+  listed here with the same ids, names, prices and tags and checked equal by a test for as long as both exist; a
+  pharmacy; a grocer; and a transit card whose accounts the merchant checks and whose top-up takes any amount), all
+  named "(simulated)". They are rows in D1, not a deployed business: before real money a merchant row is real or it is
+  gone. The first draft of the service was a water meter; the prompt does not pay bills (step 3), and the model
+  declined it as one.
+* The existing connectors (`food-order`, `airtime`, `send-money`, `paystack-pay`) are as they were. Mama Put is in both
+  places until `merchants` measures as well on the evaluation.
+* Not built: reversal of a delivered merchant order (the reversal flow is airtime's), refund by a provider other than
+  the wallet and Paystack, the dashboard, payouts, UCP and ACP.
+
 ## Build order
 
-1. This document, and the board (milestone "234 · Commerce").
+1. This document, and the board (milestone "234 · Commerce"). **Done.**
 2. **The core**: the merchant and offer tables, the provider interface, `browse_merchants`, `find_items`,
    `check_account`, `track_order`, `create_quote`, the card for a basket; the simulated directory (Mama Put moved
-   onto it); the live-mode guard on the free-text payment tool.
+   onto it); the live-mode guard on the free-text payment tool. **Built, simulated** (getlatentic/planning#677; "What
+   is built"), and measured with `openai.gpt-oss-120b` on development cases (evaluation/RESULTS.md, "Commerce phase").
 3. **Bills on VTpass**: tv and electricity providers, the account check, receipts with a token, the evaluation
    cases (the DSTV case becomes a purchase).
 4. **Index as a per-user connector**: OAuth with registration, the connect card, the server-side phases, the

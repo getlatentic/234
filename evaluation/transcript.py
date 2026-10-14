@@ -14,6 +14,8 @@ from typing import Any
 
 from turns.sources import SOURCE_SERVERS
 
+READ_IN_FULL = SOURCE_SERVERS | {"merchants"}
+"""The connectors whose whole answer a record keeps: what a reply may be grounded in."""
 REPEATED_PREFIX = "Not made again: "
 RESULT_CHARS = 600
 IGNORED = {"text", "card_state", "card_message", "card_context"}
@@ -45,7 +47,7 @@ def _call(payload: dict[str, Any]) -> dict[str, Any]:
         "is_error": bool(payload["is_error"]),
         "result": result[:RESULT_CHARS],
         "repeated": result.startswith(REPEATED_PREFIX),
-        **({"read": result} if payload["server"] in SOURCE_SERVERS else {}),
+        **({"read": result} if payload["server"] in READ_IN_FULL else {}),
     }
 
 

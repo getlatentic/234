@@ -87,7 +87,7 @@ export CHECKOUT_URL=http://localhost:8900 HOST_URL=http://localhost:8901 MODEL_U
 inside checkout 300 uv run pytest -m worker -q
 limit 300 node "$root/conformance/connectors-ts-client.mjs"
 limit 300 node "$root/conformance/memory-ts-client.mjs"
-for connector in paystack-pay send-money airtime food-order memory; do
+for connector in paystack-pay send-money airtime food-order merchants memory; do
   replay=()
   [ -f "$root/ready/fixtures/$connector.json" ] && replay=(--fixture "$root/ready/fixtures/$connector.json")
   limit 120 node "$root/ready/cli.mjs" "$CHECKOUT_URL/$connector/mcp" ${replay[@]+"${replay[@]}"}
@@ -135,11 +135,12 @@ PORT_BASE=8960 TURNSTILE=1 timeout --kill-after=10 600 "$root/tools/up.sh" || { 
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8960 node "$root/conformance/bot-check.mjs"
 PORT_BASE=8960 "$root/tools/down.sh" quiet
 
-echo "== stack with sign-in against the Firebase Auth emulator on ports 8980-8999: what 234 remembers, the wallet, PACT Delegated"
+echo "== stack with sign-in against the Firebase Auth emulator on ports 8980-8999: what 234 remembers, the wallet, merchants, PACT Delegated"
 PORT_BASE=8980 AUTH=1 PACT=1 VISITOR_CAP=0 timeout --kill-after=10 600 "$root/tools/up.sh" || { echo "!! the sign-in stack did not come up"; exit 1; }
 limit 900 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-auth.mjs"
 limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-memory.mjs"
 limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-wallet.mjs"
+limit 600 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-merchants.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-shell.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/chat-sidebar.mjs"
 limit 300 env -u HOST_URL -u CHECKOUT_URL -u MODEL_URL PORT_BASE=8980 node "$root/conformance/mcp-oauth.mjs"

@@ -414,12 +414,13 @@ const InlineCheckout = (() => {
       case "airtime":
       case "data": return d.phone;
       case "food": return `${q.phase === "succeeded" ? "Delivered" : "Deliver"} to ${d.area}`;
+      case "basket": return d.holder ? `Account holder: ${d.holder}` : "";
       default: return q.merchantRef ? `Order ${q.merchantRef}` : "";
     }
   };
   const orderOf = (q) =>
     [whoOf(q), q.details.kind === "data" ? q.details.plan : "", subOf(q), q.amount.display].filter(Boolean).join(", ");
-  const whatOf = (q) => (q.details.kind === "data" ? q.details.plan : q.details.kind === "airtime" || q.details.kind === "food" ? "" : q.description);
+  const whatOf = (q) => (q.details.kind === "data" ? q.details.plan : ["airtime", "food", "basket"].includes(q.details.kind) ? "" : q.description);
 
   function rows(pairs) {
     const list = fromTemplate("t-rows");
@@ -441,7 +442,13 @@ const InlineCheckout = (() => {
     return list;
   }
 
-  const basket = (q) => rows([...q.details.lines.map((l) => [`${l.quantity} × ${l.name}`, l.total]), ["Delivery", q.details.deliveryFee]]);
+  const chosen = (l) => (l.options?.length ? ` (${l.options.join(", ")})` : "");
+  const basket = (q) => {
+    const d = q.details;
+    const items = d.lines.map((l) => [`${l.quantity} × ${l.name}${chosen(l)}`, l.total]);
+    if (d.kind === "food") return rows([...items, ["Delivery", d.deliveryFee]]);
+    return rows([...items, ...d.fees.map((f) => [f.label, f.amount]), ...d.fields.map((f) => [f.label, f.value])]);
+  };
 
   function tracker(q) {
     const list = fromTemplate("t-tracker");
@@ -466,7 +473,7 @@ const InlineCheckout = (() => {
   }
 
   // What the amount, recipient and plan already say is left out of the receipt.
-  const SHOWN_ABOVE = ["Amount", "Mode", "For", "Merchant", "To", "Bank", "Account", "Network", "Number", "Plan", "Total", "Delivered to"];
+  const SHOWN_ABOVE = ["Amount", "Mode", "For", "Merchant", "To", "Bank", "Account", "Network", "Number", "Plan", "Total", "Delivered to", "Account holder"];
   const receipt = (q) => rows(q.receipt.lines.filter((l) => !SHOWN_ABOVE.includes(l.label)).map((l) => [l.label, l.value]));
 
   const otpNote = (hint) => (hint ?? "").split(/(?<=\.)\s+/).filter((sentence) => !/^Enter\b/.test(sentence)).join(" ");
@@ -519,13 +526,13 @@ const InlineCheckout = (() => {
     setText(card, "what", whatOf(q));
     const sub = slot(card, "sub");
     setText(card, "sub", subOf(q));
-    if (q.details.kind === "airtime" || q.details.kind === "data") {
+    if (["airtime", "data"].includes(q.details.kind) || (q.details.kind === "basket" && q.details.holder)) {
       sub.classList.remove(...PLAIN_SUB);
       sub.classList.add(...PHONE_SUB);
     }
     showStatus(card, q);
     const body = slot(card, "body");
-    if (q.details.kind === "food" && ["awaiting_approval", "awaiting_checkout"].includes(q.phase)) body.append(basket(q));
+    if (["food", "basket"].includes(q.details.kind) && ["awaiting_approval", "awaiting_checkout"].includes(q.phase)) body.append(basket(q));
     if (q.tracking) body.append(tracker(q));
     if (q.receipt) body.append(receipt(q));
     const controls = actions(q);

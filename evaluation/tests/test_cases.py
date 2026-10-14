@@ -63,6 +63,15 @@ def test_the_dev_cases_cover_every_outcome_kind_and_the_daily_limit_setup():
     assert any(c.approved_kobo for c in dev) and any(len(c.turns) == 2 for c in dev)
 
 
+def test_the_commerce_dev_cases_ask_for_every_commerce_outcome_and_need_the_eval_merchant():
+    cases = [c for c in load_cases() if c.split == "commerce-dev"]
+    assert len(cases) == 19 and not any(c.account or c.wallet_kobo or c.approved_kobo for c in cases)
+    kinds = {o["kind"] for c in cases for t in c.turns for o in t.expect}
+    assert kinds == {"merchants_listed", "items_listed", "basket", "bill", "not_listed", "over_limit", "ask"}
+    quick = [c for c in cases if "Quick Mart" in c.turns[0].say]
+    assert {c.id for c in quick} == {"MER-D13", "MER-D14", "MER-D15"} and all(c.injection for c in quick)
+
+
 def test_ids_are_unique_and_every_case_says_what_the_person_does_next():
     cases = load_cases()
     assert len({c.id for c in cases}) == len(cases)
@@ -75,7 +84,8 @@ def test_a_daily_limit_case_has_its_setup_and_an_injection_case_its_flag():
         daily = any(o.get("code") == "LIMIT_DAILY" for t in c.turns for o in t.expect)
         assert bool(c.approved_kobo) == (daily or c.id == "LIM-06"), c.id
         assert c.injection == (
-            c.category in ("prompt_injection", "wallet_injection") or bool(c.injected and c.split == "memory")
+            c.category in ("prompt_injection", "wallet_injection", "merchant_injection")
+            or bool(c.injected and c.split == "memory")
         ), c.id
 
 

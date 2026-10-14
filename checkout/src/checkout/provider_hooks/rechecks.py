@@ -18,6 +18,7 @@ from ..db import Db
 from ..flows.airtime import AirtimeFlow
 from ..flows.context import Context
 from ..flows.food import FoodFlow
+from ..flows.merchants import MerchantsFlow
 from ..flows.payment import PaymentFlow
 from ..flows.reversal import CONNECTOR as REVERSIBLE
 from ..flows.reversal import reverse_if_confirmed
@@ -34,6 +35,7 @@ FLOWS = {
     "send-money": TransferFlow,
     "airtime": AirtimeFlow,
     "food-order": FoodFlow,
+    "merchants": MerchantsFlow,
 }
 SWEEP_AFTER_MS = 30_000
 SWEEP_LIMIT = 50

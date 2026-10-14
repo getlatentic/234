@@ -11,6 +11,8 @@
 #   ALT_RUNNERS=1 also starts a host on the queue runner and one on the waitUntil runner;
 #   SEARCH=1 gives the connectors web search through the real AWS gateway, with the key in .env.search.local;
 #   KNOWLEDGE_DIR is the folder of sources the connectors' database starts with (default knowledge/fixtures);
+#   D1_SEED is an SQL file run against the connectors' database after its migrations, such as the merchant with
+#   instructions in its names that the evaluation's `commerce-dev` cases read (evaluation/merchants-eval.sql);
 #   PAYSTACK_RIG=fake|real puts the paystack-pay connector in Paystack test mode against a stand-in on base+6: `fake`
 #   answers itself, `real` forwards to Paystack's test mode with the key in the repository's .env.local,
 #   which only that one process reads (see conformance/paystack-rig.mjs);
@@ -55,6 +57,7 @@ card=()
 [ "${1:-}" = "probe" ] && card=(--var CARD_FILE:probe-card.html)
 (cd "$root/checkout" && uv run pywrangler d1 migrations apply DB --local --persist-to "$state/checkout" > /dev/null 2>&1)
 (cd "$root/checkout" && PYTHONPATH=src uv run python -m tools.knowledge_load sql --dir "${KNOWLEDGE_DIR:-../knowledge/fixtures}" > "$state/knowledge.sql" && uv run pywrangler d1 execute DB --local --persist-to "$state/checkout" --file "$state/knowledge.sql" > /dev/null 2>&1)
+[ -z "${D1_SEED:-}" ] || (cd "$root/checkout" && uv run pywrangler d1 execute DB --local --persist-to "$state/checkout" --file "$D1_SEED" > /dev/null 2>&1)
 start checkout "$root/checkout" "$checkout_port" "$state/checkout.log" --name "$connectors_worker" \
   --var ENABLE_TEST_ROUTES:1 --var "PUBLIC_BASE_URL:http://localhost:$checkout_port" \
   --var "HOST_PUBLIC_URL:http://localhost:$host_port" \

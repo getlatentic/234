@@ -20,7 +20,7 @@ from .wallet.settings import WalletSettings
 from .web.reader import DEFAULT_DENY
 from .web.settings import SearchSettings
 
-CONNECTORS = ("paystack-pay", "send-money", "airtime", "food-order")
+CONNECTORS = ("paystack-pay", "send-money", "airtime", "food-order", "merchants")
 MEMORY_CONNECTOR = "memory"
 WALLET_CONNECTOR = "wallet"
 ACCOUNT_CONNECTORS = frozenset({MEMORY_CONNECTOR, WALLET_CONNECTOR})
@@ -30,6 +30,7 @@ CONNECTOR_MODE_VARIABLES = {
     "send-money": "SEND_MONEY_MODE",
     "airtime": "AIRTIME_MODE",
     "food-order": "FOOD_ORDER_MODE",
+    "merchants": "MERCHANTS_MODE",
 }
 # The plain PAYSTACK_SECRET_KEY name is never used, but is checked so a live key kept there is refused too.
 _LIVE_KEY_HOLDERS = ("PAYSTACK_TEST_SECRET_KEY", "PAYSTACK_SECRET_KEY")
@@ -114,6 +115,9 @@ class Settings:
     """Web search through an AgentCore Gateway (web/settings.py); none, and the web connector only fetches."""
     web_deny: tuple[str, ...] = DEFAULT_DENY
     """Sites the web tool refuses, with subdomains (`WEB_DENY`, comma-separated, added to the default)."""
+    free_text_merchants: bool = True
+    """`create_payment_quote` may pay any merchant the person names in words. Allowed only while Paystack,
+    VTpass and Bachs are simulated or in a sandbox (`FREE_TEXT_MERCHANTS`, docs/commerce.md, rule 2)."""
 
     @classmethod
     def from_env(cls, read: Read) -> Settings:
@@ -122,6 +126,7 @@ class Settings:
         if secret is None:
             raise ConfigError("APPROVAL_SECRET is not set")
         base = cls(approval_secret=secret)
+        paystack, vtpass, bachs = _paystack_from(env), _vtpass_from(env), BachsSettings.from_env(read)
         per_payment = env.positive_int("PER_PAYMENT_LIMIT_KOBO", base.per_payment_limit_kobo)
         daily = env.positive_int("DAILY_LIMIT_KOBO", base.daily_limit_kobo)
         if per_payment > daily:
@@ -138,8 +143,8 @@ class Settings:
             checkout_window_seconds=env.positive_int("CHECKOUT_WINDOW_SECONDS", base.checkout_window_seconds),
             public_base_url=env.text("PUBLIC_BASE_URL") or base.public_base_url,
             payer_email=env.text("PAYER_EMAIL") or base.payer_email,
-            paystack=_paystack_from(env),
-            vtpass=_vtpass_from(env),
+            paystack=paystack,
+            vtpass=vtpass,
             simulator=_simulator_from(env),
             card_file=env.text("CARD_FILE") or base.card_file,
             alt_cards=alt_cards(env.text("ALT_CARDS")),
@@ -158,7 +163,13 @@ class Settings:
             host_public_url=_origin_from(env, "HOST_PUBLIC_URL"),
             memory=MemorySettings.from_env(read),
             wallet=WalletSettings.from_env(read),
-            bachs=BachsSettings.from_env(read),
+            bachs=bachs,
+            free_text_merchants=free_text_merchants_from(
+                env.flag("FREE_TEXT_MERCHANTS") if env.text("FREE_TEXT_MERCHANTS") else None,
+                paystack,
+                vtpass,
+                bachs,
+            ),
             web_enabled=env.text("WEB_ENABLED") != "0",
             web_search=SearchSettings.from_env(read),
             web_deny=(*DEFAULT_DENY, *_domains(env.text("WEB_DENY"))),
@@ -329,6 +340,25 @@ def _vtpass_from(env: _Env) -> VtpassSettings:
             "from a VTpass sandbox account."
         )
     return VtpassSettings(mode, credentials if mode == "sandbox" else None, env.flag("VTPASS_DEBUG"))
+
+
+SAFE_MODES = ("simulated", "sandbox", "test")
+
+
+def free_text_merchants_from(
+    asked: bool | None, paystack: PaystackSettings, vtpass: VtpassSettings, bachs: BachsSettings
+) -> bool:
+    """A payment to a merchant named only in words is allowed while no provider is live: on by default there,
+    and asked for beside a provider that is neither simulated nor in a sandbox it is refused (unasked, it is
+    off). The live modes are refused where they are read, so this holds for any mode added after them."""
+    safe = paystack.mode in SAFE_MODES and vtpass.mode in SAFE_MODES and bachs.mode in SAFE_MODES
+    wanted = safe if asked is None else asked
+    if wanted and not safe:
+        raise ConfigError(
+            "FREE_TEXT_MERCHANTS is on, but a provider is neither simulated nor in a sandbox. A payment to a "
+            "merchant named only in words could reach nobody; turn it off, or use the directory's merchants."
+        )
+    return wanted
 
 
 def _simulator_from(env: _Env) -> SimulatorSettings:

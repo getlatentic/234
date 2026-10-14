@@ -52,7 +52,12 @@
     "SEND_MONEY_MODE": "simulated",
     "AIRTIME_MODE": "simulated",
     "FOOD_ORDER_MODE": "simulated",
+    "MERCHANTS_MODE": "simulated",
     "VTPASS_MODE": "simulated",
+    // create_payment_quote may pay a merchant named only in words, which is harmless while every provider is
+    // simulated. The Worker refuses it on beside any provider that is not simulated or in a sandbox
+    // (docs/commerce.md, rule 2; docs/deploy.md).
+    "FREE_TEXT_MERCHANTS": "1",
     // The tools answer only to a caller that holds MCP_ACCESS_TOKEN; without it the Worker does not start.
     "REQUIRE_MCP_TOKEN": "1",
     // Every tool call must say whose it is (the host sends the visitor's id): the daily limit is each

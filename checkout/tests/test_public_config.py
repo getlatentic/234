@@ -68,6 +68,10 @@ def test_a_live_key_stops_the_worker_at_startup():
         load(PAYSTACK_SECRET_KEY=fake_key("live"))
 
 
+def test_the_public_deployment_allows_payments_to_merchants_named_in_words_only_while_simulated():
+    assert public_vars()["FREE_TEXT_MERCHANTS"] == "1" and load().free_text_merchants is True
+
+
 def test_the_test_routes_are_off():
     assert load().enable_test_routes is False
 

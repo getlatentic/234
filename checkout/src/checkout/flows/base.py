@@ -25,6 +25,8 @@ def _masked_target(quote: Quote) -> dict[str, Any]:
             return {"phone_masked": mask_phone(d["phone"]), "network": d["network"]}
         case "food":
             return {"area": d["area"], "items": sum(line["quantity"] for line in d["lines"])}
+        case "basket":
+            return {"merchant_id": d["merchantId"], "items": sum(line["quantity"] for line in d["lines"])}
         case _:
             return {}
 
@@ -59,7 +61,15 @@ class CardFlow(ABC):
             amount_kobo=quote.amount_kobo,
             **_masked_target(quote),
         )
-        return QuoteIssued(await self.present(quote), self.ctx.ledger.approval_token(quote.id), replayed)
+        return QuoteIssued(await self.present(quote), self.approval_token_of(quote), replayed)
+
+    def approval_token_of(self, quote: Quote) -> str:
+        """The token only the card is given: the ledger's, over the quote's id. A flow whose approval is bound
+        to more than the id says so here and in `token_is_valid`."""
+        return self.ctx.ledger.approval_token(quote.id)
+
+    async def token_is_valid(self, quote_id: str, token: str) -> bool:
+        return self.ctx.ledger.check_approval_token(quote_id, token)
 
     async def authorise_approval(
         self, quote_id: str, token: str, displayed_amount_kobo: Kobo, wallet: WalletSpending | None = None
@@ -67,7 +77,7 @@ class CardFlow(ABC):
         """The token proves the call came from the card the person was looking at, and the displayed
         amount proves the card and the server agree on it. With `wallet`, the wallet pays for the approval."""
         ledger, audit = self.ctx.ledger, self.ctx.audit
-        if not ledger.check_approval_token(quote_id, token):
+        if not await self.token_is_valid(quote_id, token):
             audit.log("approval.denied", quote=quote_id, why="token")
             raise DomainError(
                 "APPROVAL_DENIED",
@@ -111,7 +121,7 @@ class CardFlow(ABC):
 
     async def decline(self, quote_id: str, token: str) -> dict[str, Any]:
         ledger = self.ctx.ledger
-        if not ledger.check_approval_token(quote_id, token):
+        if not await self.token_is_valid(quote_id, token):
             self.ctx.audit.log("approval.denied", quote=quote_id, why="token")
             raise DomainError("APPROVAL_DENIED", "Only the approval card can decline a quote.")
         quote = await ledger.require(quote_id, self.connector)

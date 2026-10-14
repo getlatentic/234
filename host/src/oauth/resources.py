@@ -13,6 +13,7 @@ WHAT_IT_CAN_DO = {
     "send-money": "It can make bank transfer quotes. You approve every transfer.",
     "airtime": "It can make airtime and data quotes. You approve every purchase.",
     "food-order": "It can show menus and make food order quotes. You approve every order.",
+    "merchants": "It can look up shops and services and make purchase quotes. You approve every purchase.",
     MEMORY_SERVER: "It can read and change what 234 remembers for you.",
 }
 
@@ -21,6 +22,7 @@ NAMES = {
     "send-money": "Transfers",
     "airtime": "Airtime and data",
     "food-order": "Food",
+    "merchants": "Shops and services",
     MEMORY_SERVER: "Memory",
 }
 

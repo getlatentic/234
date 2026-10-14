@@ -3,6 +3,7 @@
 
 from typing import Any
 
+from ..errors import DomainError
 from ..ledger import NewQuote, request_hash
 from ..money import Kobo
 from .base import CardFlow
@@ -25,6 +26,11 @@ class PaymentFlow(CardFlow):
         idempotency_key: str,
     ) -> QuoteIssued:
         async def work():
+            if not self.ctx.free_text_merchants:
+                raise DomainError(
+                    "FREE_TEXT_MERCHANTS_OFF",
+                    "A merchant cannot be paid by name here. Use a merchant from browse_merchants.",
+                )
             assert_idempotency_key(idempotency_key)
             text = clean_text(description, "description", 140)
             name = clean_text(merchant, "merchant", 60)

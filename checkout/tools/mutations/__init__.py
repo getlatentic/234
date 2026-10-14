@@ -10,6 +10,7 @@ focus, the sandbox as the browser enforces it) are checked by the browser confor
 from tools.mutations import (
     account_rules,
     airtime_rules,
+    commerce_rules,
     compaction_rules,
     config_rules,
     connected_rules,
@@ -98,4 +99,5 @@ MUTATIONS: list[Mutation] = [
     *wallet_ops_rules.MUTATIONS,
     *reconciliation_rules.MUTATIONS,
     *refund_rules.MUTATIONS,
+    *commerce_rules.MUTATIONS,
 ]

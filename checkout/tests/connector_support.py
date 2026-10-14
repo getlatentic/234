@@ -10,12 +10,19 @@ MODEL_TOOLS = {
     "send-money": ["create_transfer_quote"],
     "airtime": ["create_airtime_quote", "create_data_quote", "list_data_plans"],
     "food-order": ["search_menu", "build_basket", "create_food_quote"],
+    "merchants": ["browse_merchants", "find_items", "check_account", "create_quote", "track_order"],
 }
+STATUS_TOOLS = {"merchants": "track_order"}
+"""A connector's own status tool, where it is not `get_quote_status`."""
 CARD_TOOLS = ["approve_quote", "verify_quote", "decline_quote"]
 MENU_URI = "ui://food-order/menu.html"
 EXTRA_APP_TOOLS = {"send-money": ["submit_otp"], "food-order": ["order_from_menu"]}
 EXTRA_VIEWS = {"food-order": [MENU_URI]}
 CONNECTORS = list(MODEL_TOOLS)
+
+
+def status_tool(connector: str) -> str:
+    return STATUS_TOOLS.get(connector, "get_quote_status")
 
 
 def key(prefix: str) -> str:
