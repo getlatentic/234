@@ -11,7 +11,7 @@
     "@tailwindcss/cli": "^4.3.3",
     "ajv": "^8.20.0",
     "esbuild": "^0.28.2",
-    "playwright": "^1.63.0",
+    "playwright": "^1.64.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "wrangler": "^4.141.0",
