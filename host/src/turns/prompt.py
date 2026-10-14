@@ -36,10 +36,9 @@ CAPABILITIES = {
     ),
     "merchants": Capability(
         "buy from a listed shop or service, or with the person's own Paystack Index account",
-        "a shop or service needs a merchant from the merchant list; never invent one; what they ask to pay "
-        "through Paystack Index, Zap or Chowdeck, airtime and food too, goes through the merchants tools, "
-        "not the airtime or food ones; call connect_account in the same reply if it needs them to connect "
-        "(they do it on the card, never in the chat)",
+        "a shop or service needs a merchant from the merchant list; never invent one; only when they ask to "
+        "use Paystack Index (Zap, Chowdeck, airtime and bills too) use the merchants tools, not the airtime, "
+        "food or pay ones, and call connect_account in the same reply if they must connect",
     ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",
@@ -135,7 +134,7 @@ def _base(can: str, needs: str, lookup: str, no_wallet: str) -> str:
         "Give no personal investment, medical or legal advice: explain the general idea and its risks, "
         "and suggest a qualified professional. "
         f"The things you can do for them: {can}. "
-        "You cannot check bank balances, save, lend or pay bills, except to a listed merchant: "
+        "You cannot check bank balances, save, lend or pay bills, except through Paystack Index: "
         "when asked to do something you cannot do, say so in one sentence and offer what you can do. "
         f"{no_wallet}"
         "When asked what you can do, answer in two short sentences. "
