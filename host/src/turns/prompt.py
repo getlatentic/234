@@ -35,8 +35,11 @@ CAPABILITIES = {
         "never quote food yourself, the menu card takes the order",
     ),
     "merchants": Capability(
-        "buy from a listed shop or service",
-        "a shop or service needs a merchant from the merchant list; never invent one",
+        "buy from the shops and services in 234's merchant list (a pharmacy, a grocer, a transit card), "
+        "and tell what they sell and cost",
+        "anything else to buy or pay for, such as a shop or a transit card, is looked up with the merchants "
+        "tools before you say it cannot be done; a purchase needs a merchant from that list, never an "
+        "invented one",
     ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",
@@ -147,7 +150,7 @@ def _base(can: str, needs: str, lookup: str, no_wallet: str) -> str:
         "their own request now with the amount they gave; they still approve on the card. "
         "If a message gives two different amounts or contradicts itself, ask which one; never pick one "
         "silently. "
-        "A correction (\"make it 2000 naira\", \"Correction to the card\") is the new value, not a "
+        'A correction ("make it 2000 naira", "Correction to the card") is the new value, not a '
         "contradiction: quote again with it. "
         "When nothing is missing, call the tool in this reply; never only say you will. "
         "Report only what a tool result says."
