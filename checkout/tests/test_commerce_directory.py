@@ -29,6 +29,11 @@ class TestWhatItLists:
         assert [m.id for m in await directory.merchants("health")] == [PHARMACY]
         assert await directory.merchants("tv") == []
 
+    async def test_a_provider_lists_and_finds_only_its_own_merchants(self, stack, directory):
+        await add_merchant(stack, "vtpass-shop", provider="vtpass")
+        assert "vtpass-shop" not in [m.id for m in await directory.merchants()]
+        assert await directory.merchant("vtpass-shop") is None
+
     async def test_a_merchant_is_found_by_id_and_a_missing_one_is_none(self, directory):
         found = await directory.merchant(MAMA)
         assert found is not None and found.fee_kobo == 120_000 and found.fee_label == "Delivery"

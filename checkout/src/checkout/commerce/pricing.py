@@ -68,11 +68,6 @@ def _priced(merchant: Merchant, offer: Offer, line: BasketLine, amount: Kobo | N
         raise DomainError("INVALID_INPUT", f"At most {offer.max_quantity} of {offer.name}.")
     picked = chosen(offer, line.options)
     if offer.price_kind == "fixed":
-        if amount is not None:
-            raise DomainError(
-                "AMOUNT_NOT_ACCEPTED",
-                f"{offer.name} has a fixed price; do not pass an amount. Pass the offer and a quantity.",
-            )
         unit = (offer.price_kobo or 0) + sum(choice.delta_kobo for choice in picked)
     else:
         if line.quantity != 1:

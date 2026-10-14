@@ -69,9 +69,9 @@ class MerchantsFlow(CardFlow):
         return await self.make_quote(work)
 
     async def _priced(self, merchant: Merchant, basket: Basket, check_id: str | None) -> Totals:
-        check = (
-            await self.checks.require(check_id, merchant, basket.fields) if merchant.checks_account else None
-        )
+        check = None
+        if merchant.checks_account:
+            check = await self.checks.require(check_id, merchant, basket.fields)
         return await self.providers.of(merchant).price(merchant, basket, check)
 
     async def approve(

@@ -6,7 +6,11 @@ quote's expiry either wins or leaves the wallet as it was; the merchant is order
 import asyncio
 
 from checkout.commerce.directory import DirectoryProvider
-from tests.commerce_support import approval, as_account, fund, meal, stored
+from checkout.commerce.model import Outcome
+from checkout.flows import merchant_leg
+from checkout.owner import acting_for
+from tests.commerce_support import answer, approval, approved_and_paid, as_account, fund, meal, stored
+from tests.commerce_support import quote as plain_quote
 from tests.connector_support import quote_of
 from tests.support import ALICE
 from tests.wallet_support import entries, journal_of
@@ -133,3 +137,54 @@ class TestOneOrder:
         again = await as_account(stack, "verify_quote", quote_id=quote_id)
         assert quote_of(again)["phase"] == "succeeded" and len(await entries(stack, "refund")) == 0
         assert await stack.count("sim_merchant_order") == 1
+
+    async def test_an_order_is_asked_about_by_one_caller_at_a_time(self, stack, monkeypatch):
+        asked = []
+        real = DirectoryProvider.status
+
+        async def counting(self, quote):
+            asked.append(quote.id)
+            return await real(self, quote)
+
+        monkeypatch.setattr(DirectoryProvider, "status", counting)
+        await fund(stack, 5_000_000, ALICE)
+        quote = await made(stack)
+        quote_id = quote_of(quote)["id"]
+        await answer(stack, quote_id, "pending")
+        await as_account(stack, "approve_quote", **approval(quote, funding="wallet"))
+        with acting_for(ALICE):
+            assert await stack.ledger.acquire_step(quote_id, merchant_leg.STEP_STALE_MS)
+        held = quote_of(await as_account(stack, "verify_quote", quote_id=quote_id))
+        assert held["phase"] == "processing" and asked == []
+        stack.clock.advance(merchant_leg.STEP_STALE_MS / 1000 + 1)
+        await as_account(stack, "verify_quote", quote_id=quote_id)
+        assert asked == [quote_id]
+
+    async def test_a_delivered_answer_arriving_after_a_refusal_changes_nothing(self, stack):
+        quote = await plain_quote(stack)
+        quote_id = quote_of(quote)["id"]
+        await answer(stack, quote_id, "failed")
+        await approved_and_paid(stack, quote)
+        ctx = stack.app.contexts["merchants"]
+        owed = await ctx.ledger.get(quote_id)
+        assert owed.state == "refund_due"
+        late = await merchant_leg._record(
+            ctx, owed, owed.progress["fulfilment"], Outcome("delivered", "LATE")
+        )
+        assert late.state == "refund_due"
+
+    async def test_an_answer_arriving_after_the_quote_moved_on_changes_nothing(self, stack):
+        await fund(stack, 5_000_000, ALICE)
+        quote = await made(stack)
+        quote_id = quote_of(quote)["id"]
+        await as_account(stack, "approve_quote", **approval(quote, funding="wallet"))
+        ctx = stack.app.contexts["merchants"]
+        with acting_for(ALICE):
+            settled = await ctx.ledger.get(quote_id)
+            before = settled.progress["fulfilment"]
+            late_failure = await merchant_leg._record(ctx, settled, before, Outcome("failed", "TOO LATE"))
+            late_pending = await merchant_leg._record(ctx, settled, before, Outcome("pending", "LATE"))
+            after = await ctx.ledger.get(quote_id)
+        assert late_failure.state == late_pending.state == "settled"
+        assert after.progress["fulfilment"] == before and "failureReason" not in after.progress
+        assert await entries(stack, "refund") == []
