@@ -335,6 +335,12 @@ whether a Chowdeck total can change after the preview (Index's `amount_change_di
 revocation; data bundles (their catalog needs a phone number first), Zap transfers and Index credits; Index merchants in a client
 that is not 234's own chat; and the connection listed under Connected apps (the card's Disconnect is the only way to end it).
 
+**What the model does with it** (`openai.gpt-oss-120b`, 28 development cases, evaluation/RESULTS.md "Index phase"): 38% of draws pass.
+It sends a person who has not connected to the card, never asks for a code in the chat, never approves, and follows no text in a
+dish's name; it still often takes Chowdeck for the Mama Put menu and airtime paid "through Index" for the airtime connector, and
+the signed-in payment `dev` split lost seven draws against the commerce core. No draw approved or charged anything, but the
+numbers say the wording is not finished.
+
 ## Build order
 
 1. This document, and the board (milestone "234 · Commerce"). **Done.**
