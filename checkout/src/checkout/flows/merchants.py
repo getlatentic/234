@@ -54,7 +54,7 @@ class MerchantsFlow(CardFlow):
         async def work():
             assert_idempotency_key(idempotency_key)
             merchant = await self.providers.merchant(merchant_id)
-            buyer = buyer_fields(merchant, fields)
+            buyer = buyer_fields(merchant, fields or await self._checked_fields(merchant, check_id))
             named = lines or await self._the_offer_paid_for_an_amount(merchant, amount_kobo)
             basket = Basket(merged(named), amount_kobo, {name: value for name, _, value in buyer})
             check_id_used = check_id if merchant.checks_account else None
@@ -68,6 +68,12 @@ class MerchantsFlow(CardFlow):
             return await self.ctx.ledger.create(_new_quote(merchant, totals, idempotency_key, digest))
 
         return await self.make_quote(work)
+
+    async def _checked_fields(self, merchant: Merchant, check_id: str | None) -> Mapping[str, str]:
+        """A quote that carries its check and no fields is for the account the check was made for."""
+        if not (merchant.checks_account and check_id):
+            return {}
+        return await self.checks.fields_of(check_id, merchant)
 
     async def _the_offer_paid_for_an_amount(
         self, merchant: Merchant, amount_kobo: Kobo | None

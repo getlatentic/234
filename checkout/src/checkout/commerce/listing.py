@@ -28,9 +28,19 @@ def status_words(merchant: Merchant) -> str:
     return _STATUS_WORDS[merchant.status]
 
 
+def _needs(merchant: Merchant) -> str:
+    """The fields a buyer gives, by their names, so a model that never lists the offers still passes them."""
+    names = [f.name for f in merchant.fields if f.required]
+    if not names:
+        return ""
+    checked = ", after check_account" if merchant.checks_account else ""
+    return f" Needs {', '.join(names)}{checked}."
+
+
 def merchant_line(merchant: Merchant) -> str:
     return (
-        f"{merchant.id} | {merchant.name} | {merchant.category} | {status_words(merchant)} | {merchant.blurb}"
+        f"{merchant.id} | {merchant.name} | {merchant.category} | {status_words(merchant)} | "
+        f"{merchant.blurb}{_needs(merchant)}"
     )
 
 

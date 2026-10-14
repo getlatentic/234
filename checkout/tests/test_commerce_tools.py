@@ -116,6 +116,12 @@ class TestBrowsing:
         assert "coming soon, so it cannot be quoted yet" in soon
         assert "connect an account first, so it cannot be quoted yet" in linked
 
+    async def test_a_line_names_the_fields_the_buyer_gives_and_the_check_that_comes_first(self, stack):
+        lines = (await read(stack, "browse_merchants")).splitlines()
+        by_id = {line.split(" | ")[0]: line for line in lines}
+        assert by_id[WATER].endswith("Needs card_number, after check_account.")
+        assert by_id[MAMA].endswith("Needs area.")
+
     async def test_nothing_is_priced_or_spent_by_reading(self, stack):
         for tool, arguments in (("browse_merchants", {}), ("find_items", {"merchant_id": MAMA})):
             await read(stack, tool, **arguments)

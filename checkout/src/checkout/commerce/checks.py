@@ -80,6 +80,16 @@ class AccountChecks:
             check_id, merchant.id, holder, found.due_kobo, dict(fields), now, now + CHECK_TTL_MS
         )
 
+    async def fields_of(self, check_id: str, merchant: Merchant) -> dict[str, str]:
+        """What this owner's check `check_id` at `merchant` was made for; none when there is no such check."""
+        row = await self._db.row(
+            "SELECT * FROM account_check WHERE id = ? AND owner = ? AND merchant_id = ?",
+            check_id,
+            self._owner(),
+            merchant.id,
+        )
+        return dict(_check_of(row).fields) if row else {}
+
     async def require(
         self, check_id: str | None, merchant: Merchant, fields: Mapping[str, str]
     ) -> AccountCheck:
