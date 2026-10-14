@@ -237,8 +237,8 @@ class TestAQuoteNeedsAMerchantOfTheDirectory:
     async def test_a_listed_merchant_becomes_one_the_server_priced(self, stack):
         made = await quote(stack)
         assert text_of(made).startswith(
-            "Nothing is ordered or paid until the person approves it on the card: say the quote is ready for them, "
-            "never that the order was sent."
+            "Nothing is ordered or paid until the person approves it on the card: say the quote is "
+            "ready for them, never that the order was sent."
         )
         view = quote_of(made)
         assert view["amount"]["kobo"] == MEAL_KOBO and view["details"]["kind"] == "basket"
