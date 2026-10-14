@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The simulated Index's state in D1 (migrations/0022_index.sql, `sim_index_*`): the Index accounts people
+"""The simulated Index's state in D1 (migrations/0023_index.sql, `sim_index_*`): the Index accounts people
 sign in as, the clients registered, the authorization codes and tokens it issued, every tool call it served
 (with whether the call carried `confirmed`, which tests read to show that nothing charged before an approval),
 the orders it placed, and a few settings the test routes turn."""

@@ -2,6 +2,7 @@
 """The cases: loaded from `cases.jsonl` and checked for shape, so a typo fails a test, not a run."""
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ SPLITS = (
     "dev-3",
     "commerce-dev",
     "index-dev",
+    "bills-dev",
 )
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
@@ -56,16 +58,24 @@ OUTCOME_KINDS = {
     "bill": {"tool", "args", "offer_id", "fields"},
     "over_limit": {"tool", "args", "limit"},
     "connect_card": {"merchant"},
-    "account_refused": {"mention"},
+    "index_account_refused": {"mention"},
+    "account_refused": {"merchant_id"},
 }
 NOTE_KEYS = {
     "recipient": {"ref", "kind", "title", "account_number", "bank"},
     "preference": {"ref", "kind", "title", "hook", "body"},
     "fact": {"ref", "kind", "title", "hook", "body"},
 }
+FREE_TEXT_TOOL = "create_payment_quote"
 MAX_MESSAGE = 500
 WALLET_CAP_KOBO = 20_000_000
 TOPUP_MIN_KOBO = 10_000
+
+
+def free_text_on() -> bool:
+    """Whether the stack offers the free-text payment tool: the variable the stack was started with
+    (`FREE_TEXT_MERCHANTS`, on unless it says 0, false, off or no), as `CONNECTORS` names the host's."""
+    return os.environ.get("FREE_TEXT_MERCHANTS", "1").strip().lower() not in ("0", "false", "off", "no")
 
 
 class CaseError(ValueError):
@@ -105,6 +115,14 @@ class Case:
     """Paystack Index before the first turn: `{"connected": true}` has the account sign in at the simulated
     Index, `"chowdeck": true` has it link Chowdeck too; `{"connected": false}` leaves it not connected. The
     draw is made as an account of its own."""
+
+    @property
+    def needs_free_text(self) -> bool:
+        """The case expects a payment to a merchant named only in words (`create_payment_quote`), which a
+        stack with `FREE_TEXT_MERCHANTS` off does not offer; or the case uses up part of the daily allowance
+        first, which the harness does with that tool (`approve_spend` in run.py)."""
+        asked = any(o.get("tool") == FREE_TEXT_TOOL for t in self.turns for o in t.expect)
+        return asked or bool(self.approved_kobo)
 
 
 def _outcome(case_id: str, outcome: dict[str, Any]) -> dict[str, Any]:

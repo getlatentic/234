@@ -79,9 +79,20 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
   beside a provider that is neither simulated nor in a sandbox, the Worker refuses to start (`config.py`,
   `free_text_merchants_from`; `test_config.py`): live modes are refused where they are read today, so this holds for
   any mode that is added. A quote to a merchant is made only for an id the directory lists.
+- **The merchant directory is a switch of the host, off by default.** `MERCHANTS` (host variable, `"0"` in the public
+  template) keeps `merchants` among the connectors the model is offered only when it is `1`, `true`, `on` or `yes`,
+  whatever `CONNECTORS` lists. Move to the directory in one step: `MERCHANTS=1` on the host, `FREE_TEXT_MERCHANTS=0` on the
+  connectors, and `paystack-pay` out of `CONNECTORS`. With both the directory and the free-text payment on, a payment to a
+  business named in words is sent to the directory and declined (docs/commerce.md, "Which deployment offers the
+  directory"). `tools/up.sh` turns `MERCHANTS` on for a local stack (`MERCHANTS=0` to leave it off).
   A Paystack test key or VTpass credentials set by mistake change nothing, and a live key (`sk_live_`) or
   `VTPASS_MODE=live` stops the connectors at startup. These rules are tests (`checkout/tests/test_public_config.py`,
   `test_config.py`), which `tools/deploy.sh` runs before every deploy. Never put a Paystack or VTpass key on these Workers.
+- **Bills have a fee setting and no default fee.** `BILLS_SERVICE_FEE_KOBO` (whole kobo, default `0`) adds a "Service
+  fee" line to a television or electricity quote; it is the owner's decision (docs/commerce.md, "Open before real
+  money"). The television and electricity merchants are offered only while VTpass is simulated or in its sandbox; the
+  simulated ones accept the sandbox's documented smartcard `1212121212` and meters `1111111111111` (prepaid) and
+  `1010101010101` (postpaid), and `201000000000` stays pending and `100000000000` fails after the account check.
 - **The simulated VTpass delivers to any valid Nigerian mobile number**, so a visitor who pays with their own
   number gets a receipt (nothing reaches the phone). `201000000000` stays pending and `100000000000` fails, to
   show those cards. The real VTpass sandbox does not work like this: the connectors' own tests cover what the real sandbox does differently.

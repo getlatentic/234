@@ -2,8 +2,9 @@
 """What a person's approval of a basket is bound to (docs/commerce.md, rule 4). The approval token of a
 merchant's quote is the ledger's own HMAC (Ledger.approval_token), taken not over the quote's id alone but
 over its id and a digest of the merchant, the lines, the fees, the total, the buyer's fields, the holder's
-name and the expiry. The digest is read from the stored quote each time, so a token made for a quote that
-differs in any of them, or for the quote's id alone, approves nothing."""
+name, what the provider will be asked to order and the expiry. The digest is read from the stored quote
+each time, so a token made for a quote that differs in any of them, or for the quote's id alone, approves
+nothing."""
 
 import hashlib
 import json
@@ -19,6 +20,7 @@ def quote_digest(quote: Quote) -> str:
         "fees": d["fees"],
         "fields": d["fields"],
         "holder": d["holder"],
+        "order": d.get("order"),
         "total": quote.amount_kobo,
         "expires": quote.expires_at,
     }

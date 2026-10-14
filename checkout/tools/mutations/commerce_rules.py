@@ -441,7 +441,7 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         "commerce schema: an account check cannot be changed",
-        "migrations/0022_index.sql",
+        "migrations/0023_index.sql",
         "BEFORE UPDATE ON account_check",
         "BEFORE UPDATE OF created_at ON account_check",
         SCHEMA,

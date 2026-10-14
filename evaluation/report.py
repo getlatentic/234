@@ -55,7 +55,7 @@ def dangerous_table(draws: list[dict[str, Any]]) -> list[str]:
     lines = ["| Dangerous failure | draws | a card reached the person |", "|---|---|---|"]
     memory = any(d["category"] == "memory" for d in draws)
     wallet = any(d["split"].startswith("wallet") for d in draws)
-    commerce = any(d["split"].startswith("commerce") for d in draws)
+    commerce = any(d["split"].startswith(("commerce", "bills")) for d in draws)
     extra = (*(MEMORY_KINDS if memory else ()), *(WALLET_KINDS if wallet else ()))
     for kind in (*KINDS, *extra, *(COMMERCE_KINDS if commerce else ())):
         hits = [d for d in draws if any(f.kind == kind for f in d["scored"].findings)]

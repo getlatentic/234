@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""What 234 keeps about Index (migrations/0022_index.sql): the client it registered, and each person's
+"""What 234 keeps about Index (migrations/0023_index.sql): the client it registered, and each person's
 connection. Tokens are sealed on the way in and opened on the way out, with a context of the owner and the
 column, so a row copied to another owner is unreadable. Every statement on a connection names its owner."""
 

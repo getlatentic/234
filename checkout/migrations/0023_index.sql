@@ -137,11 +137,12 @@ CREATE TABLE account_check_new (
   holder_name TEXT NOT NULL CHECK (length(holder_name) BETWEEN 1 AND 120),
   due_kobo INTEGER CHECK (due_kobo IS NULL OR (typeof(due_kobo) = 'integer' AND due_kobo >= 0)),
   created_at INTEGER NOT NULL,
-  expires_at INTEGER NOT NULL CHECK (expires_at > created_at)
+  expires_at INTEGER NOT NULL CHECK (expires_at > created_at),
+  detail TEXT NOT NULL DEFAULT '{}'
 );
 
-INSERT INTO account_check_new (id, owner, merchant_id, fields, holder_name, due_kobo, created_at, expires_at)
-SELECT id, owner, merchant_id, fields, holder_name, due_kobo, created_at, expires_at FROM account_check;
+INSERT INTO account_check_new (id, owner, merchant_id, fields, holder_name, due_kobo, created_at, expires_at, detail)
+SELECT id, owner, merchant_id, fields, holder_name, due_kobo, created_at, expires_at, detail FROM account_check;
 
 DROP TABLE account_check;
 ALTER TABLE account_check_new RENAME TO account_check;

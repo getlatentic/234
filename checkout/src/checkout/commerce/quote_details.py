@@ -37,6 +37,7 @@ def details_of(merchant: Merchant, totals: Totals) -> dict[str, Any]:
         "holder": totals.holder_name,
         "checkId": totals.check_id,
         **_external_details(totals),
+        **({"order": dict(totals.order)} if totals.order else {}),
     }
 
 

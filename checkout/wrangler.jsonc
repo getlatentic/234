@@ -56,6 +56,7 @@
   //   index.paystack.com; default https://index.mcp.paystack.africa/mcp), INDEX_CAPS_KOBO (JSON, 234's cap per order
   //   below Index's bounds, by airtime, electricity and food). Live also needs HOST_PUBLIC_URL to be https: Index
   //   sends the person back to the chat host's /connect/index/callback.
+  //   BILLS_SERVICE_FEE_KOBO (whole kobo, default 0: the fee line on a television or electricity quote).
   //   FREE_TEXT_MERCHANTS (default on while every provider is simulated or in a sandbox; the Worker refuses
   //   it on beside any other, and the free-text create_payment_quote tool is offered only while it is on).
   //   HOST_PUBLIC_URL is the checkout page's way back to the chat and the origin of the host's event callbacks;

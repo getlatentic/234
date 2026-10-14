@@ -24,6 +24,16 @@ from .api import (
     VtpassError,
     VtpassOutcome,
 )
+from .bills import (
+    BillAccount,
+    BillCheck,
+    BillOrder,
+    Bouquet,
+    account_from,
+    bouquets_from,
+    pay_body,
+    verify_body,
+)
 from .interpret import interpret_vtpass, no_confirmation
 
 VTPASS_SANDBOX_URL = "https://sandbox.vtpass.com/api"
@@ -185,6 +195,19 @@ class VtpassClient:
         except ValidationError:
             return AccessCheck(False, reason="VTpass did not return a wallet balance.")
         return AccessCheck(True, balance_kobo=_kobo_of(str(parsed.contents.balance)))
+
+    async def verify_bill(self, check: BillCheck) -> BillAccount:
+        reply = await self._request("POST", "/merchant-verify", verify_body(check))
+        if reply is None or reply.status in (401, 403):
+            raise VtpassError("VTpass could not be asked to verify the account.")
+        return account_from(_json(reply.body))
+
+    async def buy_bill(self, order: BillOrder) -> VtpassOutcome:
+        return await self._outcome("/pay", pay_body(order))
+
+    async def bouquets(self, service_id: str) -> list[Bouquet]:
+        reply = await self._request("GET", f"/service-variations?serviceID={quote(service_id, safe='')}")
+        return bouquets_from(_json(reply.body) if reply else None)
 
     async def data_plans(self, network: Network) -> list[DataPlan]:
         reply = await self._request(

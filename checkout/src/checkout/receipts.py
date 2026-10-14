@@ -85,25 +85,36 @@ def _food(quote: Quote, mode: str) -> tuple[str, list[Line]]:
     ]
 
 
+BILL_TITLES = {"tv": "Subscription paid", "electricity": "Electricity paid"}
+
+
+def _given(quote: Quote) -> list[Line]:
+    """What a delivered bill gave the buyer (a token, a voucher, the units) and how long it lasts."""
+    d = quote.details
+    months = (d.get("order") or {}).get("months")
+    valid: list[Line] = [("Valid for", f"{months} month{'s' if months != 1 else ''}")] if months else []
+    return [
+        *valid,
+        *[(label, value) for label, value in (quote.progress.get("fulfilment") or {}).get("receipt", [])],
+    ]
+
+
 def _basket(quote: Quote, mode: str) -> tuple[str, list[Line]]:
     d = quote.details
-    return "Order delivered", [
+    title = (
+        BILL_TITLES.get(d["category"], "Order delivered") if d["provider"] == "vtpass" else "Order delivered"
+    )
+    return title, [
         *receipt_lines(quote),
         *[(field["label"], field["value"]) for field in d["fields"]],
+        *_given(quote),
         ("Account holder", d["holder"]),
         *funding_lines(quote),
-        *_placed_lines(quote),
         ("Paid", _paid_at(quote)),
         ("Payment reference", quote.progress.get("paystackReference")),
         ("Merchant request", (quote.progress.get("fulfilment") or {}).get("requestId")),
         ("Mode", mode),
     ]
-
-
-def _placed_lines(quote: Quote) -> list[Line]:
-    """What the provider gave back with the order: a prepaid token, a delivery PIN."""
-    kept = (quote.progress.get("fulfilment") or {}).get("lines") or []
-    return [(label, value) for label, value in kept]
 
 
 _BUILDERS = {

@@ -59,8 +59,8 @@ class CreateTransferQuote(Strict):
         Field(
             min_length=1,
             max_length=80,
-            description='The amount exactly as the person said or wrote it, for example "25k". '
-            "It is checked against amount_kobo.",
+            description='The amount exactly as the person said it, for example "25k". Checked against '
+            "amount_kobo.",
         ),
     ]
     narration: Annotated[

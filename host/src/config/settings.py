@@ -14,6 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from accounts.keys import GOOGLE_KEYS_URL
 from config import runtime
 from turns.settings import Settings as TurnSettings
+from turns.settings import with_directory
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_DIR = BASE_DIR.parent
@@ -129,7 +130,9 @@ LOGGING = {
 # --- The connectors the host talks to, and what only the host may know -----
 
 CHECKOUT_MCP_URL = runtime.get("CHECKOUT_MCP_URL", "http://localhost:8787")
-CONNECTORS = runtime.get_list("CONNECTORS", ",".join(TurnSettings.connectors))
+CONNECTORS = with_directory(
+    runtime.get_list("CONNECTORS", ",".join(TurnSettings.connectors)), runtime.get("MERCHANTS")
+)
 PUBLIC_BASE_URL = runtime.get("PUBLIC_BASE_URL", "http://localhost:8790").rstrip("/")
 OPS_TOKEN = runtime.get("OPS_TOKEN", "")
 # PACT (pact/): the personal agents this host accepts, as a JSON list of {issuer, jwks_uri, enabled}; the one

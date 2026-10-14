@@ -7,8 +7,8 @@ due; the core keeps that as an `AccountCheck` with an id (checks.py), so every p
 expire the same way. And `merchant` looks one up by id, which the registry needs to route a quote."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 from ..ledger import Quote
 from ..money import Kobo
@@ -21,6 +21,8 @@ class AccountLookup:
 
     holder_name: str
     due_kobo: Kobo | None = None
+    detail: Mapping[str, Any] = field(default_factory=dict)
+    """Facts to show (`facts`, label and value pairs) and what the provider priced from, as JSON values."""
 
 
 class Provider(Protocol):
@@ -40,8 +42,13 @@ class Provider(Protocol):
         """The authoritative totals. Raises a refusal for a basket the merchant cannot take."""
         ...
 
+    def request_id(self, quote: Quote, now: int) -> str:
+        """The id the provider knows the order by, fixed once per quote."""
+        ...
+
     async def fulfil(self, quote: Quote) -> Outcome:
-        """Places the order of a paid quote. Idempotent by the quote: asked twice, it places one."""
+        """Places the order of a paid quote under the request id in `quote.progress["fulfilment"]`.
+        Idempotent by the quote: asked twice, it places one."""
         ...
 
     async def status(self, quote: Quote) -> Outcome:

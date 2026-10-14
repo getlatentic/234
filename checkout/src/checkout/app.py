@@ -19,6 +19,7 @@ from .commerce.checks import AccountChecks
 from .commerce.directory import DirectoryProvider
 from .commerce.index.build import build_index
 from .commerce.registry import Providers
+from .commerce.vtpass_provider import bill_providers
 from .config import CONNECTORS, Settings
 from .connectors import airtime, food_order, merchants, pay, send_money
 from .connectors import knowledge as knowledge_connector
@@ -163,20 +164,24 @@ def build_contexts(
     wallet = WalletSpending(journal, db, clock)
     refunds = RefundRequests(audit)
     index = build_index(settings, db, clock, audit, ledger, transport)
-    providers = Providers(DirectoryProvider(db, clock), index.provider)
+    bills_api, bills_mode = _vtpass_for(settings, db, clock, audit, transport)
+    providers = Providers(
+        DirectoryProvider(db, clock),
+        index.provider,
+        *bill_providers(db, bills_api, bills_mode, settings.bills_service_fee_kobo),
+    )
     checks = AccountChecks(db, clock, ledger.owner)
     contexts: dict[str, Context] = {}
     for connector in CONNECTORS:
         paystack, paystack_mode = _paystack_for(settings, db, connector, transport)
-        vtpass, vtpass_mode = (
-            _vtpass_for(settings, db, clock, audit, transport) if connector == "airtime" else (None, None)
-        )
+        vtpass, vtpass_mode = (bills_api, bills_mode) if connector == "airtime" else (None, None)
         reason = (
             PAYOUTS_REASON
             if connector == "send-money" and paystack_mode == "simulated" and settings.paystack.secret_key
             else None
         )
-        modes = Modes(paystack_mode, vtpass_mode, MERCHANT_LABELS.get(connector), reason)
+        shown_vtpass = bills_mode if connector == "merchants" else vtpass_mode
+        modes = Modes(paystack_mode, shown_vtpass, MERCHANT_LABELS.get(connector), reason)
         contexts[connector] = Context(
             ledger=ledger,
             paystack=paystack,

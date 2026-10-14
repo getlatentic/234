@@ -83,7 +83,7 @@ async def _tracked(session: IndexSession, order: str) -> Outcome:
 
 async def follow(session: IndexSession, quote: Quote, sent_at: int, now: int) -> Outcome:
     """Where the order stands; `sent_at` is when the charging call was sent."""
-    kept = (quote.progress.get("fulfilment") or {}).get("lines") or []
+    kept = (quote.progress.get("fulfilment") or {}).get("receipt") or []
     order = dict((label, value) for label, value in kept).get(ORDER)
     if quote.details["index"]["kind"] == "food" and order:
         return await _tracked(session, order)

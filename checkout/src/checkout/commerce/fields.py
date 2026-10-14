@@ -47,28 +47,47 @@ def _read(spec: FieldSpec, value: str) -> str:
             return _text(spec, cleaned)
 
 
-def buyer_fields(merchant: Merchant, given: Mapping[str, str]) -> tuple[tuple[str, str, str], ...]:
-    """The fields as (name, label, value) in the merchant's order, each valid, none unknown."""
+def carried_fields(merchant: Merchant, given: Mapping[str, str]) -> dict[str, str]:
+    """The fields a person gave beside the account's own (a phone), read as a quote reads them, so that a
+    quote made with the check need not ask again. A value that is not valid is left out for the quote to ask
+    for."""
+    named = {spec.name for spec in merchant.check_fields}
+    others = tuple(spec for spec in merchant.fields if spec.name not in named and spec.name in given)
+    if not others:
+        return {}
+    try:
+        wanted = {spec.name: given[spec.name] for spec in others}
+        return {name: value for name, _, value in buyer_fields(merchant, wanted, others)}
+    except DomainError:
+        return {}
+
+
+def buyer_fields(
+    merchant: Merchant, given: Mapping[str, str], specs: tuple[FieldSpec, ...] | None = None
+) -> tuple[tuple[str, str, str], ...]:
+    """The fields as (name, label, value) in the merchant's order, each valid, none unknown. `specs` are the
+    fields asked for when that is fewer than all of them (an account check)."""
+    specs = merchant.fields if specs is None else specs
     if len(given) > MAX_FIELDS:
         raise DomainError("FIELD_INVALID", f"At most {MAX_FIELDS} fields.")
-    known = {spec.name: spec for spec in merchant.fields}
+    known = {spec.name: spec for spec in specs}
     unknown = sorted(set(given) - set(known))
     if unknown:
-        asked = ", ".join(spec.name for spec in merchant.fields) or "nothing"
+        asked = ", ".join(spec.name for spec in specs) or "nothing"
         raise DomainError(
             "FIELD_INVALID", f'{merchant.name} does not take "{unknown[0]}". It asks for: {asked}.'
         )
     read: list[tuple[str, str, str]] = []
-    for spec in merchant.fields:
+    for spec in specs:
         value = given.get(spec.name)
         if value is None or not str(value).strip():
             if spec.required:
                 options = f", one of {', '.join(spec.options)}" if spec.options else ""
                 raise DomainError(
                     "FIELD_REQUIRED",
-                    f"{merchant.name} needs {spec.label} ({spec.name}{options}): pass it in fields from "
-                    "what the person said, even in passing (a meter they called prepaid is prepaid); ask "
-                    "for it only if they gave none.",
+                    f"{merchant.name} needs {spec.label} ({spec.name}{options}): pass it from what the "
+                    "person said, even in passing (a meter they called prepaid is prepaid), as fields "
+                    f'{{"{spec.name}": "..."}}; ask for it only if they gave none.',
                 )
             continue
         read.append((spec.name, spec.label, _read(spec, str(value))))

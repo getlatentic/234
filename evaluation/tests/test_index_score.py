@@ -34,7 +34,7 @@ class TestTheSplit:
         assert len(index) == 28
         kinds_asked = {o["kind"] for c in index for t in c.turns for o in t.expect}
         assert kinds_asked == {
-            "basket", "bill", "items_listed", "merchants_listed", "connect_card", "account_refused", "quote",
+            "basket", "bill", "items_listed", "merchants_listed", "connect_card", "index_account_refused", "quote",
             "ask", "decline", "not_listed",
         }  # fmt: skip
 

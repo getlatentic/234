@@ -131,7 +131,7 @@ def script() -> list[str]:
 @pytest.fixture
 def chat_rig(chat, sql, clock):
     hub, model = QuoteHub(), RoutedModel(Conversationalist())
-    return Rig(chat, sql, clock, model, hub, context_window_tokens=4400, keep_recent_tokens=500), hub
+    return Rig(chat, sql, clock, model, hub, context_window_tokens=4600, keep_recent_tokens=500), hub
 
 
 QUOTES = 15

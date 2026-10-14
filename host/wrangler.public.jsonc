@@ -65,6 +65,10 @@
     "CHECKOUT_MCP_BINDING": "CHECKOUT_MCP",
     "CHECKOUT_MCP_URL": "https://@CONNECTORS_WORKER@.internal",
     "CONNECTORS": "paystack-pay,send-money,airtime,food-order,merchants,memory,knowledge,web,wallet",
+    // The merchant directory (docs/commerce.md) is offered only with "1". Off here because this deployment keeps the
+    // free-text payment on (FREE_TEXT_MERCHANTS on the connectors), which the directory's prompt disturbs: turn both
+    // around together, and leave paystack-pay out of CONNECTORS (docs/deploy.md).
+    "MERCHANTS": "0",
     // Model spend: calls and tokens per day for everyone and for each visitor or account. A call can be long, so
     // the tokens are what bound the cost (docs/deploy.md).
     "MODEL_CALLS_PER_DAY": "300",

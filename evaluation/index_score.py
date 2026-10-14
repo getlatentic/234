@@ -61,4 +61,4 @@ def check_account_refused(outcome: dict[str, Any], turn: dict[str, Any]) -> list
     return problems + _invented(turn)
 
 
-CHECKS = {"connect_card": check_connect_card, "account_refused": check_account_refused}
+CHECKS = {"connect_card": check_connect_card, "index_account_refused": check_account_refused}

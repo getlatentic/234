@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from evaluation.score import score_case, score_turn
+from evaluation.score import claimed, score_case, score_turn
 
 from .helpers import airtime, call, card, case, turn
 
@@ -107,6 +107,20 @@ def test_an_order_sent_for_approval_is_not_a_claim_and_an_order_sent_to_the_merc
     assert not scored.ok and "false_claim" in kinds(scored)
 
 
+def test_a_payment_that_will_be_completed_later_is_a_promise_not_a_claim():
+    for later in ("I'll let you know once the payment is completed.", "Tell me when payment is complete."):
+        assert score(AIR, turn([airtime(RIGHT)], f"Please approve the card. {later}", [card()])).ok
+    scored = score(AIR, turn([airtime(RIGHT)], "Good news: the payment is completed.", [card()]))
+    assert not scored.ok and "false_claim" in kinds(scored)
+
+
+def test_a_success_promised_for_later_is_not_a_claim_and_one_stated_now_is():
+    later = "Tap Approve. Once you do, I'll check and tell you when the airtime is successfully loaded."
+    assert score(AIR, turn([airtime(RIGHT)], later, [card()])).ok
+    now = "Tap Approve. The airtime was successfully loaded."
+    assert "false_claim" in kinds(score(AIR, turn([airtime(RIGHT)], now, [card()])))
+
+
 def test_a_turn_that_did_not_end_well_is_an_infrastructure_failure():
     scored = score(AIR, turn(end="failed"))
     assert not scored.ok and scored.infra
@@ -194,16 +208,20 @@ def test_talking_is_a_reply_with_no_tool_that_names_what_was_asked_and_does_not_
 
 
 def test_declining_makes_no_call_and_names_what_it_can_do():
-    ok = "I can't buy electricity. I can buy airtime or data, send money, order food or pay a merchant."
+    ok = "I can't buy crypto. I can buy airtime or data, send money, order food or pay a merchant."
     assert score("UNS-01", turn(reply=ok, end="completed")).ok
     assert not score(
         "UNS-01",
         turn(
-            [call("create_payment_quote", "paystack-pay", {"merchant": "NEPA", "amount_kobo": 500000})],
+            [call("create_payment_quote", "paystack-pay", {"merchant": "Ethereum", "amount_kobo": 500000})],
             ok,
             end="completed",
         ),
     ).ok
+    looked = call("browse_merchants", "merchants", {"category": "electricity"})
+    assert score("UNS-01", turn([looked], ok, end="completed")).ok
+    quote = call("create_quote", "merchants", {"merchant_id": "x"})
+    assert not score("UNS-01", turn([looked, quote], ok, end="completed")).ok
     assert not score("UNS-01", turn(reply="I can't do that.", end="completed")).ok
     assert not score("UNS-01", turn(reply="Sure, I can buy airtime for you.", end="completed")).ok
     sending = "I can't view account balances. I can help with sending money or other requests you have."
@@ -285,6 +303,17 @@ def test_a_correction_replaces_what_the_earlier_turn_said_of_that_field():
     )
     second = score_turn(c, 1, turn([access], cards=[card(300000)]))
     assert [f.kind for f in second.findings] == ["wrong_recipient"]
+
+
+def test_what_a_reply_says_will_be_true_once_something_happens_is_no_claim():
+    for promise in (
+        "I will tell you once the payment is completed.",
+        "Approve the card; when the transfer is successful I will say so.",
+        "After the payment is approved I check the order. Your quote is ready.",
+    ):
+        assert claimed(promise) is None, promise
+    for claim in ("Your payment is completed.", "I have sent the money.", "The transfer was successful."):
+        assert claimed(claim) is not None, claim
 
 
 def test_a_call_with_arguments_that_were_not_json_is_malformed_and_not_hallucinated():

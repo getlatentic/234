@@ -115,7 +115,7 @@ class TestTheTool:
         assert await refused(WATER, "99999999") == "ACCOUNT_NOT_FOUND"
         assert await refused(WATER, "12") == "FIELD_INVALID"
         assert await refused(MAMA, "") == "CHECK_NOT_NEEDED"
-        assert await refused("dstv", "") == "MERCHANT_NOT_FOUND"
+        assert await refused("shoprite", "") == "MERCHANT_NOT_FOUND"
 
     async def test_a_quote_for_a_checked_merchant_takes_the_holder_from_the_check_and_nowhere_else(
         self, stack
@@ -124,6 +124,18 @@ class TestTheTool:
         details = made["structuredContent"]["quote"]["details"]
         assert details["holder"] == "ADEBAYO OLUWASEUN FOLA"
         assert "holder" not in made["structuredContent"]["quote"]["details"]["fields"]
+
+    async def test_a_quote_that_leaves_the_fields_out_is_for_the_account_its_check_was_made_for(self, stack):
+        check_id = await checked(stack)
+        made = await stack.call("merchants", "create_quote", **{**water_bill(check_id), "fields": {}})
+        details = made["structuredContent"]["quote"]["details"]
+        assert details["holder"] == "ADEBAYO OLUWASEUN FOLA"
+        assert [f["value"] for f in details["fields"]] == ["10012345"]
+        bare = {**water_bill(check_id), "fields": {}}
+        other = await stack.call_as(BOB, "merchants", "create_quote", **bare)
+        assert text_of(other).startswith("FIELD_REQUIRED")
+        no_check = await stack.call("merchants", "create_quote", **{**water_bill(None), "fields": {}})
+        assert text_of(no_check).startswith("FIELD_REQUIRED")
 
     async def test_the_quote_tool_has_no_way_to_name_a_holder(self, stack):
         listed = (await stack.mcp("merchants", "tools/list"))["result"]["tools"]

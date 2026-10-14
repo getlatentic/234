@@ -73,7 +73,7 @@ class TestStatusWords:
         purchase = Purchase("food", "order", {}, two_phase=True)
         reply = ToolReply("", {"status": "confirmed", "payment_status": "pending", "order_id": "o1"}, False)
         outcome = placed(purchase, reply)
-        assert outcome.status == "pending" and ("Order", "o1") in outcome.receipt_lines
+        assert outcome.status == "pending" and ("Order", "o1") in outcome.receipt
 
     def test_an_error_is_a_failure_in_indexs_words_on_one_line(self):
         purchase = Purchase("airtime", "quick_buy", {}, two_phase=False)
@@ -89,13 +89,13 @@ class TestStatusWords:
         outcome = placed(
             purchase, ToolReply("Done. Token: 1234 5678 9012 3456 7890", {"status": "success"}, False)
         )
-        assert ("Prepaid token", "1234 5678 9012 3456 7890") in outcome.receipt_lines
+        assert ("Prepaid token", "1234 5678 9012 3456 7890") in outcome.receipt
 
     def test_a_postpaid_meter_has_no_token_line(self):
         purchase = Purchase("electricity", "quick_buy", {"meter_type": "postpaid"}, two_phase=True)
         assert not [
             k
-            for k, _ in placed(purchase, ToolReply("", {"status": "success"}, False)).receipt_lines
+            for k, _ in placed(purchase, ToolReply("", {"status": "success"}, False)).receipt
             if k == "Prepaid token"
         ]
 

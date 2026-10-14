@@ -214,11 +214,16 @@ class TestADeployedLedgerTakesTheMigrations:
         for migration in ordered[at:]:
             db.migrate(migration)
         assert (await db.row("SELECT COUNT(*) AS n FROM quotes"))["n"] == 1
-        assert (await db.row("SELECT COUNT(*) AS n FROM merchant"))["n"] == 4
+        assert (await db.row("SELECT COUNT(*) AS n FROM merchant WHERE provider = 'directory'"))["n"] == 4
+        assert (await db.row("SELECT COUNT(*) AS n FROM merchant WHERE provider = 'vtpass'"))["n"] == 16
         assert (await db.row("SELECT COUNT(*) AS n FROM offer"))["n"] == 26
         assert (await db.row("SELECT created_at FROM merchant WHERE id = ?", MAMA))["created_at"] == NOW
 
-    def test_the_two_migrations_are_the_next_free_numbers(self):
+    def test_the_three_migrations_are_the_next_free_numbers(self):
         names = [m.name for m in all_migrations()]
-        assert names[names.index(COMMERCE) :][:2] == [COMMERCE, "0021_commerce_directory.sql"]
+        assert names[names.index(COMMERCE) :][:3] == [
+            COMMERCE,
+            "0021_commerce_directory.sql",
+            "0022_commerce_bills.sql",
+        ]
         assert [n[:4] for n in names] == [f"{i:04d}" for i in range(1, len(names) + 1)]

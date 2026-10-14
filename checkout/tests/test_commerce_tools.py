@@ -99,8 +99,8 @@ class TestBrowsing:
         )
 
     async def test_a_category_with_no_merchant_says_so_and_still_names_every_merchant(self, stack):
-        text = await read(stack, "browse_merchants", category="tv")
-        assert "No merchants are listed in tv." in text and "id | name | category | status" not in text
+        text = await read(stack, "browse_merchants", category="shop")
+        assert "No merchants are listed in shop." in text and "id | name | category | status" not in text
         assert all(merchant_id in text for merchant_id in (PHARMACY, MAMA, GROCER, WATER))
 
     async def test_an_unknown_category_is_not_a_category(self, stack):
@@ -115,6 +115,12 @@ class TestBrowsing:
         linked = next(line for line in text.splitlines() if line.startswith("linked |"))
         assert "coming soon, so it cannot be quoted yet" in soon
         assert "connect their account first (call connect_account), so it cannot be quoted yet" in linked
+
+    async def test_a_line_names_the_fields_the_buyer_gives_and_the_check_that_comes_first(self, stack):
+        lines = (await read(stack, "browse_merchants")).splitlines()
+        by_id = {line.split(" | ")[0]: line for line in lines}
+        assert by_id[WATER].endswith("Needs card_number, after check_account.")
+        assert by_id[MAMA].endswith("Needs area.")
 
     async def test_nothing_is_priced_or_spent_by_reading(self, stack):
         for tool, arguments in (("browse_merchants", {}), ("find_items", {"merchant_id": MAMA})):
@@ -136,8 +142,10 @@ class TestFindingItems:
         assert "beef-suya" in text and "jollof" not in text
         one = await read(stack, "find_items", merchant_id=MAMA, offer_id="zobo")
         assert "zobo | Zobo, 500ml | ₦800" in one and "chapman" not in one
-        assert one.splitlines()[-1].startswith("To buy, call create_quote with the merchant_id")
-        assert "if the person only asked what it sells or costs, answer that." in one
+        assert one.splitlines()[-1].startswith(
+            "If the person only asked what it sells or costs, answer that."
+        )
+        assert "call create_quote now with the merchant_id" in one
 
     async def test_words_that_match_nothing_give_the_whole_list_so_a_spelling_does_not_hide_an_item(
         self, stack
@@ -174,7 +182,7 @@ class TestFindingItems:
         assert text.count("\nextra-") == 14 and "more: narrow with a query" in text
 
     async def test_a_merchant_that_is_not_in_the_directory_is_refused(self, stack):
-        text = await read(stack, "find_items", merchant_id="dstv")
+        text = await read(stack, "find_items", merchant_id="shoprite")
         assert text.startswith("MERCHANT_NOT_FOUND") and "browse_merchants" in text
 
 
@@ -223,13 +231,15 @@ class TestAMerchantIdTheModelGotWrong:
         assert text.startswith("MERCHANT_NOT_FOUND") and "Did you mean ikeja-fresh-grocer?" in text
         made = await stack.call("merchants", "create_quote", **meal(merchant_id="mama-put-yabaa"))
         assert "Did you mean mama-put-yaba?" in text_of(made) and await stack.count("quotes") == 0
+        assert "call again with the merchant_id mama-put-yaba" in text_of(made)
+        assert "cannot pay it yet" not in text_of(made)
 
     async def test_a_name_that_is_not_near_any_merchant_gets_no_suggestion(self, stack):
-        assert "Did you mean" not in await read(stack, "find_items", merchant_id="dstv")
+        assert "Did you mean" not in await read(stack, "find_items", merchant_id="shoprite")
 
 
 class TestAQuoteNeedsAMerchantOfTheDirectory:
-    @pytest.mark.parametrize("merchant_id", ["dstv", "DSTV", "Mama Put", "mama-put", "", "x" * 41])
+    @pytest.mark.parametrize("merchant_id", ["shoprite", "DSTV", "Mama Put", "mama-put", "", "x" * 41])
     async def test_a_merchant_that_is_not_listed_never_becomes_a_quote(self, stack, merchant_id):
         result = await stack.call("merchants", "create_quote", **meal(merchant_id=merchant_id))
         assert result["isError"] is True and await stack.count("quotes") == 0

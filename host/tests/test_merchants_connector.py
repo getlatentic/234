@@ -3,23 +3,35 @@
 described in its prompt, reachable by an outside agent with the payments scope, and named on a Brand's
 card."""
 
-from django.conf import settings
-
 from oauth import resources
 from pact.brands import Brand
 from pact.card import document
 from turns.permissions import PAYMENTS, scopes_of
 from turns.prompt import CAPABILITIES, system_prompt
-from turns.settings import Settings
+from turns.settings import Settings, with_directory
 
 
 def test_the_model_is_offered_the_connector_with_the_others_and_told_what_it_is_for():
-    assert "merchants" in Settings.connectors and "merchants" in settings.CONNECTORS
+    assert "merchants" in Settings.connectors
     prompt = system_prompt(Settings.connectors)
     assert CAPABILITIES["merchants"].does in prompt and CAPABILITIES["merchants"].needs in prompt
     assert "merchants" not in system_prompt(("airtime",)) and "browse_merchants" not in system_prompt(
         ("airtime",)
     )
+
+
+def test_the_directory_is_offered_only_when_merchants_is_switched_on():
+    listed = "paystack-pay,merchants,airtime"
+
+    def offered(flag):
+        return Settings.from_env({"CONNECTORS": listed, "MERCHANTS": flag}.get).connectors
+
+    for off in (None, "", "0", "no", "off"):
+        assert offered(off) == ("paystack-pay", "airtime")
+    for on in ("1", "true", "ON", " yes "):
+        assert offered(on) == ("paystack-pay", "merchants", "airtime")
+    assert "merchants" not in Settings.from_env(lambda name: None).connectors
+    assert with_directory(["merchants"], "1") == ("merchants",)
 
 
 def test_an_outside_agent_reaches_it_with_the_payments_scope_and_is_told_it_is_asked_to_approve():

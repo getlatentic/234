@@ -33,6 +33,12 @@ QUOTE_CLAIM = re.compile(
     rf"|\b(?:here is|here{_APOS}s)\s+(?:your|the)\s+quote\b|\b(?:tap|press)\s+approve\b",
     re.I,
 )
+CHECK_THE_NUMBER = re.compile(
+    r"\b(?:check|double-check|verify|confirm|correct|re-?enter|re-?type|"
+    r"not (?:found|recognised|recognized|valid)|invalid|wrong|incorrect|"
+    rf"can{_APOS}?t find|could ?n{_APOS}?t (?:find|verify)|doesn{_APOS}?t (?:exist|match))\b",
+    re.I,
+)
 STATES_LIMIT = re.compile(r"\b(?:limit|maximum|at most|minimum|at least|between|cannot exceed|up to)\b", re.I)
 THOUSANDS = re.compile(r"\b(\d+)\s?k\b", re.I)
 
@@ -145,9 +151,29 @@ def basket_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     )
 
 
+def _fields_with_the_checks(turn: dict[str, Any], given: dict[str, Any]) -> dict[str, Any]:
+    """The quote's fields, and under them the fields of the check it carries: the server reads a checked
+    account from its check, so a quote need not repeat what was given to `check_account`."""
+    ours = [
+        c
+        for c in calls_to(turn, "check_account")
+        if not c["is_error"] and given.get("check_id") and given["check_id"] in read_of(c)
+    ]
+    carried = ours[0]["arguments"].get("fields") or {} if ours else {}
+    return {**carried, **(given.get("fields") or {})}
+
+
+def _the_open_offer(outcome: dict[str, Any], given: dict[str, Any]) -> list[dict[str, Any]]:
+    """An amount without lines is `create_quote`'s way of naming a merchant's one offer paid for any amount
+    (docs/commerce.md): the line the outcome asks for, when the call names an amount."""
+    wanted = outcome["offer_id"] if isinstance(outcome["offer_id"], list) else [outcome["offer_id"]]
+    return [{"offer_id": wanted[0], "quantity": 1}] if given.get("amount_kobo") else []
+
+
 def bill_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
     """A bill for a checked account: the account was checked first, the quote carries that check, and its
-    one line is the offer asked for (a bill has the merchant's one offer, so leaving `lines` out is that line)."""
+    one line is the offer asked for (left out, with an amount, it is the merchant's one offer paid for any
+    amount)."""
     calls = calls_to(turn, "create_quote")
     if not calls:
         return []
@@ -160,13 +186,37 @@ def bill_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
         if given.get("check_id") in checked and checked
         else [f"check_id is {given.get('check_id')!r}, not one check_account gave"]
     )
-    want = [{"offer_id": outcome["offer_id"], "quantity": 1}]
+    sent = given.get("lines") or _the_open_offer(outcome, given)
+    wanted = outcome["offer_id"] if isinstance(outcome["offer_id"], list) else [outcome["offer_id"]]
+    first = sent[0].get("offer_id") if sent else None
+    want = [{"offer_id": first if first in wanted else wanted[0], "quantity": 1}]
     return (
         problems
-        + _line_problems(want, given.get("lines") or want)
-        + _field_problems(outcome["fields"], given.get("fields") or {})
+        + _line_problems(want, sent)
+        + _field_problems(outcome["fields"], _fields_with_the_checks(turn, given))
         + _reply_problems(turn)
     )
+
+
+def check_account_refused(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
+    """A smartcard or meter VTpass does not know: `check_account` for the merchant was refused as not found,
+    no quote was made (the main scorer's `_unquoted` says so) and no card shown, and the reply tells the
+    person to check the number."""
+    checks = [
+        c
+        for c in calls_to(turn, "check_account")
+        if c["arguments"].get("merchant_id") == outcome["merchant_id"]
+    ]
+    problems = [] if checks else [f"check_account was not called for {outcome['merchant_id']}"]
+    if checks and not any(c["is_error"] and read_of(c).startswith("ACCOUNT_NOT_FOUND") for c in checks):
+        problems.append("the account check was not refused as not found")
+    if turn["cards"]:
+        problems.append("a card was shown")
+    if not CHECK_THE_NUMBER.search(turn["reply"]):
+        problems.append("the reply does not tell the person to check the number")
+    if claim := QUOTE_CLAIM.search(turn["reply"]):
+        problems.append(f"the reply says a quote was made: {claim[0]!r}")
+    return problems + _invented(turn)
 
 
 def over_limit_problems(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:

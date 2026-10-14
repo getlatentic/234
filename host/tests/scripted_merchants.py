@@ -5,7 +5,8 @@ descriptions would. Used by fake_model.py.
 "shops" lists the merchants; "shops: <category>" lists one category. "items: <merchant>" lists what a merchant
 sells. "shop: <merchant> | <offer>[:<count>[:<option>+<option>]], ... | <field>=<value>; ..." makes a quote
 for those offers. "transit top-up <number> ₦<amount>" checks the account first and, once the holder is known,
-makes the quote with the check. "track <quote id>" asks where an order stands.
+makes the quote with the check. "bill: ..." pays a television or electricity bill (below).
+"track <quote id>" asks where an order stands.
 
 "connect index: <merchant>" opens the card on which the person connects their Paystack Index account for
 that merchant; "index airtime ₦<amount> to <number>" and "index food: <offer>[:<count>]" make a quote
@@ -67,6 +68,49 @@ def _water_quote(ask: re.Match, check_id: str) -> dict[str, Any]:
     )
 
 
+BILL = re.compile(
+    r"^bill: (?P<merchant>[a-z-]+) (?P<number>\d+) (?P<kind>renew|prepaid|postpaid) (?P<phone>\d+)"
+    r"(?: ₦(?P<amount>[\d,]+))?$",
+    re.I,
+)
+
+
+def _bill_fields(ask: re.Match) -> dict[str, str]:
+    if ask["kind"] == "renew":
+        return {"smartcard": ask["number"], "phone": ask["phone"]}
+    return {"meter_number": ask["number"], "meter_type": ask["kind"].lower(), "phone": ask["phone"]}
+
+
+def bill_check(ask: re.Match) -> dict[str, Any]:
+    return {
+        "tool": f"{SERVER}check_account",
+        "arguments": {"merchant_id": ask["merchant"], "fields": _bill_fields(ask)},
+    }
+
+
+def bill_quote(ask: re.Match, check_id: str) -> dict[str, Any]:
+    arguments: dict[str, Any] = {
+        "merchant_id": ask["merchant"],
+        "fields": _bill_fields(ask),
+        "check_id": check_id,
+    }
+    if ask["kind"] == "renew":
+        arguments["lines"] = [{"offer_id": "renew"}]
+    else:
+        naira = int(re.sub(r"\D", "", ask["amount"]))
+        arguments |= {"lines": [{"offer_id": "electricity"}], "amount_kobo": naira * 100}
+        arguments["amount_as_user_said"] = f"₦{naira}"
+    return {"tool": f"{SERVER}create_quote", "arguments": arguments}
+
+
+def asked_bill(messages: list[dict[str, Any]]) -> re.Match | None:
+    for message in reversed(messages):
+        content = message.get("content")
+        if message["role"] == "user" and isinstance(content, str) and (found := BILL.match(content.strip())):
+            return found
+    return None
+
+
 def _asked_water(messages: list[dict[str, Any]]) -> re.Match | None:
     for message in reversed(messages):
         if message["role"] == "user" and (found := WATER.match(_content(message).strip())):
@@ -75,8 +119,11 @@ def _asked_water(messages: list[dict[str, Any]]) -> re.Match | None:
 
 
 def _after_a_tool(content: str, messages: list[dict[str, Any]]) -> dict[str, Any] | None:
-    if (check := CHECK_ID.search(content)) and (ask := _asked_water(messages)):
-        return _water_quote(ask, check["id"])
+    if check := CHECK_ID.search(content):
+        if bill := asked_bill(messages):
+            return bill_quote(bill, check["id"])
+        if ask := _asked_water(messages):
+            return _water_quote(ask, check["id"])
     if content.startswith(NOTICE):
         return {"text": "These are the merchants and offers 234 lists."}
     return None
@@ -93,6 +140,8 @@ def _from_the_person(text: str) -> dict[str, Any] | None:
     if found := SHOP.match(text):
         lines = [_line(part) for part in found["lines"].split(",")]
         return _quote(found["merchant"], lines, _fields(found["fields"]))
+    if found := BILL.match(text):
+        return bill_check(found)
     if found := WATER.match(text):
         return {
             "tool": f"{SERVER}check_account",

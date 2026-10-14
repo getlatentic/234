@@ -5,6 +5,7 @@ The shape is `QuoteView` of the TypeScript demo (src/contract/quote-view.ts), ke
 built card reads this server's results unchanged.
 """
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -86,8 +87,16 @@ def _waiting_message(quote: Quote, phase: str) -> str | None:
     return None
 
 
+def _delivered_message(quote: Quote) -> str | None:
+    """What a delivered bill gave the buyer, in words: the token, the units, the voucher."""
+    given = (quote.progress.get("fulfilment") or {}).get("receipt") or []
+    return "Delivered. " + "; ".join(f"{label}: {value}" for label, value in given) if given else None
+
+
 def _ended_message(quote: Quote, phase: str) -> str | None:
     progress = quote.progress
+    if phase == "succeeded":
+        return _delivered_message(quote)
     if phase == "failed":
         reason = progress.get("failureReason") or progress.get("gatewayResponse")
         return f"{reason or 'Payment failed.'} Nothing was charged."
@@ -119,6 +128,8 @@ SIMULATED_RULES = (
 )
 FOOD_NOTE = "The menu, prices and delivery updates are invented."
 BASKET_NOTE = "Simulated merchant: the shop, its prices and its delivery are invented."
+BILL_SIMULATED_NOTE = "Simulated VTpass: no bill is paid and any token or voucher is invented."
+BILL_SANDBOX_NOTE = "VTpass sandbox: no real bill is paid and no token or voucher works."
 OTP_INSTRUCTIONS = "Enter the one-time code Paystack sent."
 
 
@@ -169,9 +180,20 @@ def _details_view(quote: Quote) -> dict[str, Any]:
             return {"kind": "payment"}
 
 
+def _is_bill(quote: Quote) -> bool:
+    return quote.kind == "basket" and quote.details.get("provider") == "vtpass"
+
+
+def _modes_of(quote: Quote, modes: Modes) -> Modes:
+    """A bill is VTpass's and no shop's; a shop's order is no VTpass's."""
+    return replace(modes, merchant=None) if _is_bill(quote) else replace(modes, vtpass=None)
+
+
 def _mode_note(quote: Quote, modes: Modes) -> str | None:
     if quote.kind == "food":
         return FOOD_NOTE
+    if _is_bill(quote):
+        return BILL_SIMULATED_NOTE if modes.vtpass == "simulated" else BILL_SANDBOX_NOTE
     if quote.kind == "basket":
         return None if is_external(quote) else BASKET_NOTE
     if quote.kind not in ("airtime", "data") or not modes.vtpass:
@@ -197,7 +219,7 @@ def present_quote(
     quote: Quote, budget: Budget, modes: Modes, clock: Clock, food_step_seconds: int = 15
 ) -> dict[str, Any]:
     phase = phase_of(quote)
-    mode = external_mode(quote) or describe_mode(modes)
+    mode = external_mode(quote) or describe_mode(_modes_of(quote, modes) if quote.kind == "basket" else modes)
     tracking = tracking_of(quote.state, quote.kind, quote.progress, clock.now(), food_step_seconds * 1000)
     return {
         "id": quote.id,

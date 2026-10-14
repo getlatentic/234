@@ -97,4 +97,4 @@ async def price(
     after = kobo_in(flat(reply.data), "balance_after")
     shown = tuple((s.name, s.label, basket.fields[s.name]) for s in merchant.fields)
     external = funding if after is None else replace(funding, balance_after_kobo=after)
-    return Totals(lines, (), shown, check.holder_name, check.id, external)
+    return Totals(lines, (), shown, check.holder_name, check.id, external=external)

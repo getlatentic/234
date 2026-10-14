@@ -156,6 +156,9 @@ class IndexProvider:
             case _:
                 return await self._asking(lambda p: kind_food.price(p, merchant, basket))
 
+    def request_id(self, quote: Quote, now: int) -> str:
+        return f"mrq-{quote.id}"
+
     async def fulfil(self, quote: Quote) -> Outcome:
         return await self._fulfilment.fulfil(quote)
 

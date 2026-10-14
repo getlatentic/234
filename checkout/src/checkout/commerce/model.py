@@ -4,7 +4,7 @@ the server works out. Prices are integer kobo, and only a provider makes a `Tota
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from ..money import Kobo
 
@@ -22,8 +22,10 @@ CATEGORIES: tuple[str, ...] = (
 QUOTABLE_STATUSES = ("live", "beta")
 MAX_LINES = 12
 MAX_QUANTITY = 10
+NO_MAXIMUM_KOBO: Kobo = 10**13
+"""A merchant's `max_kobo` when it states no most of its own; the person's limits still apply."""
 
-PriceKind = Literal["fixed", "range", "open"]
+PriceKind = Literal["fixed", "range", "open", "renewal"]
 FieldKind = Literal["text", "digits", "choice"]
 OutcomeStatus = Literal["delivered", "pending", "failed", "reversed"]
 
@@ -39,6 +41,8 @@ class FieldSpec:
     options: tuple[str, ...] = ()
     least: int = 1
     most: int = 120
+    account: bool = False
+    """Part of what names the account an account check looks up (a meter number, not a phone)."""
 
 
 @dataclass(frozen=True)
@@ -60,6 +64,15 @@ class Merchant:
     @property
     def quotable(self) -> bool:
         return self.status in QUOTABLE_STATUSES and not self.requires_link
+
+    @property
+    def check_fields(self) -> tuple[FieldSpec, ...]:
+        """The fields an account check takes: those that name the account, else all of them."""
+        return tuple(spec for spec in self.fields if spec.account) or self.fields
+
+    @property
+    def has_maximum(self) -> bool:
+        return self.max_kobo < NO_MAXIMUM_KOBO
 
 
 @dataclass(frozen=True)
@@ -121,6 +134,8 @@ class AccountCheck:
     fields: Mapping[str, str]
     created_at: int
     expires_at: int
+    detail: Mapping[str, Any] = field(default_factory=dict)
+    """What the provider found beyond the holder: facts to show, and the limits and amounts it priced from."""
 
 
 @dataclass(frozen=True)
@@ -164,6 +179,8 @@ class Totals:
     """The buyer's fields as (name, label, value), in the merchant's order."""
     holder_name: str | None = None
     check_id: str | None = None
+    order: Mapping[str, Any] = field(default_factory=dict)
+    """What the provider needs to place the order later, fixed with the quote (a smartcard, a meter type)."""
     external: ExternalFunding | None = None
 
     @property
@@ -181,5 +198,7 @@ class Outcome:
 
     status: OutcomeStatus
     description: str
-    receipt_lines: tuple[tuple[str, str], ...] = ()
-    """What the receipt shows besides the order: a prepaid token, a delivery PIN (label, value)."""
+    receipt: tuple[tuple[str, str], ...] = ()
+    """What an order gives the buyer besides the order: a token, a voucher, the units, a delivery PIN."""
+    unknown_request: bool = False
+    """The provider says it never saw the request, so the order may be placed again."""
