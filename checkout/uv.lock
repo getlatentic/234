@@ -144,7 +144,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff", specifier = ">=0.16" },
     { name = "workers-py", specifier = ">=1.17.4" },
-    { name = "workers-runtime-sdk", specifier = ">=1.9.0" },
+    { name = "workers-runtime-sdk", specifier = ">=1.9.3" },
 ]
 
 [[package]]
@@ -892,9 +892,9 @@ wheels = [
 
 [[package]]
 name = "workers-runtime-sdk"
-version = "1.9.1"
+version = "1.9.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cf/b8/95f418ba4104e1664d84bb2332a3490a7ce66bd24a3ee6a7b0ccded76642/workers_runtime_sdk-1.9.1.tar.gz", hash = "sha256:f814425ec7ea93ac325d20f24808f59999ddd7d53cd5086ffe074d38cfa27a15", size = 140660, upload-time = "2026-09-29T03:30:20.278Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c9/26/2616d75278d21004c0ea11d104f8f81c5ad94a9aeb6d2f4bf129419d47a5/workers_runtime_sdk-1.9.3.tar.gz", hash = "sha256:f2c043fb8a0385a9e3a2ec80d2f4ac4a742af4f5e69652e4df55714e29deaa2e", size = 143213, upload-time = "2026-10-06T04:01:19.461Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/a9/b2d288c73728ccd9f50b8f0020c2fdd0b2f3f0d0d8efde56f2b2e64529d5/workers_runtime_sdk-1.9.1-py3-none-any.whl", hash = "sha256:1cb71387b2d67ac59ab84ab4d3151dea2205fb5ce22a08d0a0dda5cda34b5f2b", size = 38588, upload-time = "2026-09-29T03:30:18.756Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/06/9472faa56bf7f3925d1128fda0532a9ec8adf3291a6003a4cf9c9d7972d0/workers_runtime_sdk-1.9.3-py3-none-any.whl", hash = "sha256:b3982ef01b824703258bbdd2c65980b8acc64f9dc5797f6b193eaf4f0808860f", size = 39541, upload-time = "2026-10-06T04:01:16.427Z" },
 ]
