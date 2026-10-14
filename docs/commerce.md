@@ -1,6 +1,6 @@
 # 234 Commerce: find, price, approve and pay for anything the same way
 
-**Design; the core (build step 2) is built, simulated, and measured with the real model (see "What is built" and Build order).** One protocol for what a person can buy through 234:
+**Design; the core (build step 2) and bills on VTpass (step 3) are built, simulated, and measured with the real model (see "What is built", "Bills on VTpass" and Build order).** One protocol for what a person can buy through 234:
 search a directory of merchants, see what they sell, have the server price it, approve it on a card, pay it from
 the wallet (or at the checkout), and follow the order to its end. Airtime and data stay as they are until the
 generic path measures as well. Bills (DSTV, electricity) are the first merchants of the directory, served by
@@ -92,7 +92,7 @@ fulfil(quote)                 -> delivered | pending | failed   # idempotent by 
 status(quote)                 -> delivered | pending | failed | reversed   # the requery
 ```
 
-* **`vtpass`**: `tv` (DSTV, GOtv, StarTimes) and `electricity` (the distribution companies), later water,
+* **`vtpass`**: `tv` (DSTV, GOtv, StarTimes, Showmax) and `electricity` (the twelve distribution companies), later water,
   internet, exam pins. The offers are VTpass's `service-variations` (bouquets and prices; electricity is `open`
   between its least and most). `check` is `merchant-verify` (`020` is confirmed). `fulfil` is `pay` with the
   quote's request id; `status` is `requery`. It reuses what airtime has: the unsigned callback as a hint, the
@@ -215,7 +215,7 @@ options, fields, account checks, the model-facing lists and the third-party text
 * The categories are the design's and three more (`grocery`, `health`, `service`) for the simulated directory.
 * `track_order` is the connector's status tool: the connector has no `get_quote_status`, and its quotes tell the
   model to report with `track_order`.
-* `connect_account` and the `index` and `vtpass` providers are steps 3 and 4. A merchant that `requires_link`, or
+* `connect_account` and the `index` provider are step 4; the `vtpass` provider is step 3 (below). A merchant that `requires_link`, or
   that is `coming_soon`, is listed and cannot be quoted.
 * The simulated directory is four invented merchants (Mama Put, the restaurant of `food/menu.py`, whose menu is
   listed here with the same ids, names, prices and tags and checked equal by a test for as long as both exist; a
@@ -225,8 +225,81 @@ options, fields, account checks, the model-facing lists and the third-party text
   declined it as one.
 * The existing connectors (`food-order`, `airtime`, `send-money`, `paystack-pay`) are as they were. Mama Put is in both
   places until `merchants` measures as well on the evaluation.
-* Not built: reversal of a delivered merchant order (the reversal flow is airtime's), refund by a provider other than
+* Not built: reversal of a delivered order of a provider other than `vtpass` (bills extend the reversal flow), refund by a provider other than
   the wallet and Paystack, the dashboard, payouts, UCP and ACP.
+
+## Bills on VTpass (built, simulated)
+
+`checkout/migrations/0022_commerce_bills.sql` (sixteen merchants, `account_check.detail`, two columns of the simulated
+VTpass's orders); `checkout/src/checkout/commerce/vtpass_provider.py`, `vtpass_offers.py`, `vtpass_check.py`,
+`vtpass_price.py`; `checkout/src/checkout/vtpass/bills.py`, `receipt.py`, `sim_bills.py`; `flows/reversal.py` for bills.
+Tests `checkout/tests/test_bills_*.py`, `test_flow_bills*.py`, `test_vtpass_bills*.py`; guards
+`checkout/tools/mutations/bills_rules.py`; browser conformance `conformance/chat-bills.mjs`; the evaluation's `bills-dev`
+split (evaluation/RESULTS.md, "Bills phase").
+
+* **Merchants.** The VTpass serviceIDs are the merchant ids: `dstv`, `gotv`, `startimes`, `showmax` (category `tv`) and
+  `ikeja-electric`, `eko-electric`, `kano-electric`, `portharcourt-electric`, `jos-electric`, `ibadan-electric`,
+  `kaduna-electric`, `abuja-electric`, `enugu-electric`, `benin-electric`, `aba-electric`, `yola-electric`
+  (category `electricity`), as the documentation of each (read 2026-10-14) gives them. They are rows of `merchant` with
+  `provider = 'vtpass'`; the provider is offered only while VTpass is simulated or in its sandbox (`bill_providers`),
+  so in any other mode they are not listed and cannot be quoted. A merchant's `max_kobo` is `10^13`, which means it
+  states no most (`NO_MAXIMUM_KOBO`): VTpass publishes none.
+* **Offers are not rows.** A television merchant's bouquets and their prices are read from VTpass's `service-variations`
+  each time (`fixed`); DStv and GOtv also sell `renew`, a price of kind `renewal` that is the account check's renewal
+  amount. Electricity is one `open` offer, `electricity`. The model names an offer and, for electricity, an amount.
+* **The account check** is `merchant-verify` (a smartcard; a meter and its `prepaid` or `postpaid` type). It returns the
+  holder and, when VTpass gives them, the address, the arrears, the due date, the current bouquet, the renewal amount, the
+  least and the most; every one of those but the holder is optional, because the documentation's own sample lacks what its
+  prose promises. `WrongBillersCode`, an `error`, `Can_Vend` false, or no holder refuse the number: it is never quoted.
+  The core keeps the facts and the amounts to price from in the check's `detail` (JSON; the check stays immutable).
+  The phone given with the check is kept there too (`carried`), and a quote with a `check_id` takes the checked
+  account's fields from the check, so the model need not type them twice.
+* **Pricing** (`vtpass_price.py`). A bouquet costs VTpass's list price; a DStv/GOtv change is shown as "Change to ...";
+  a renewal costs the check's renewal amount and is refused (`RENEWAL_UNKNOWN`) when VTpass gave none, and refuses an
+  amount from the model; electricity costs the person's amount, within the least and most of the meter's check
+  (`AMOUNT_OUT_OF_LIMITS`), and no most is assumed when VTpass states none, so the person's own per-payment and daily
+  limits are what stop a large amount. One subscription or purchase per quote. The phone is written nationally
+  (`+234...` becomes `0...`). The check's address, status, current bouquet, due date and arrears are fields of the quote,
+  so the card shows them and the approval is bound to them; what the provider will order is in `details.order`, which is
+  in the digest too.
+* **Fulfilment.** `pay` under a request id the Lagos minute then the quote (`VtpassProvider.request_id`, fixed once per
+  quote by the merchant leg), a renewal sent as `subscription_type: renew` at the check's amount with no bouquet, a change
+  with the bouquet's `variation_code`, a meter's type as `variation_code`; `status` is `requery`. Outcomes are the
+  existing three; pending (also an unexpected reply, no reply, a timeout) is never failed; a request VTpass says it never
+  saw (`015`) is ordered again under the same id. VTpass is ordered the bill alone, never the service fee.
+* **Receipts.** An electricity prepaid token, its units and tariff (`token` or `purchased_code`, `units`, `tariff`), a
+  Showmax voucher, are kept with the order's answer, shown on the card (the token in the reference style), put in the
+  tool's reply ("Delivered. Token: 1234 5678 ...") and in `track_order`. A postpaid payment settles with no token; a
+  DStv or GOtv subscription says "Valid for 1 month". The token is not written to the audit log.
+* **Reversal after delivery** (`reversed`, `040`) extends `flows/reversal.py` to a `merchants` quote of the `vtpass`
+  provider: the callback is a hint, the provider's `status` must answer reversed, a wallet payment comes back once in the
+  same batch, a checkout payment owes a Paystack refund. A refused or reversed order before delivery is a `refund_due`
+  quote, as for any merchant.
+* **Money.** The wallet pays the total; 234 pays VTpass from its own VTpass balance (the reconciliation counts it as
+  for airtime). `BILLS_SERVICE_FEE_KOBO` (default 0, a whole number of kobo) adds a "Service fee" line of its own to the
+  card and the total when above zero; it is the owner's decision and none is assumed. VTpass's commission is not
+  passed on or kept in any figure shown.
+* **The simulated VTpass** (`vtpass/sim_bills.py`) answers the documented sandbox scenarios by the smartcard or meter:
+  smartcard 1212121212 and meters 1111111111111 (prepaid) and 1010101010101 (postpaid) succeed, 201000000000 is pending,
+  500000000000 answers unexpectedly, 400000000000 does not answer, 300000000000 times out, any other number fails. It
+  differs from the sandbox in two ways: the trigger numbers and 100000000000 (a number that verifies and then fails) are
+  accepted by the account check so each outcome can be shown through a quote, and Showmax delivers to any valid mobile
+  number. A later reversal is simulated by the existing `POST /test/vtpass-reverse/<request id>`.
+* **Wording the model needed** (measured in evaluation/RESULTS.md): the prompt now says TV and electricity bills are
+  paid through the merchant list and names no tool; `find_items` ends with what to call next, with the answer-only
+  case first (the model stopped after "Let me create the quote" when the order was the other way round); a named
+  bouquet is a change and none a renewal; the electricity blurbs say to choose the company only when the person names it
+  or its area, and not to assume prepaid or postpaid; `create_payment_quote` no longer says electricity and TV are not
+  merchants; a refused id with a near match says to call again with it; the per-payment refusal says not to suggest
+  splitting the payment.
+
+**Decisions.**
+
+* The service fee is a setting, not a column: one number for all bills until the owner chooses a margin per product.
+* A renewal is a quote of its own offer (`renew`) and not an `amount`, so the card shows which of the two it is.
+* An amount that VTpass states no most for is limited by the person's own limits only; no ceiling of ours is invented.
+* A sandbox run needs the documented sandbox numbers as smartcards and meters; the substitution that airtime does for a
+  phone number has no counterpart, because a wrong meter is refused by the check before anyone pays.
 
 ## Build order
 
@@ -236,7 +309,8 @@ options, fields, account checks, the model-facing lists and the third-party text
    onto it); the live-mode guard on the free-text payment tool. **Built, simulated** (getlatentic/planning#677; "What
    is built"), and measured with `openai.gpt-oss-120b` on development cases (evaluation/RESULTS.md, "Commerce phase").
 3. **Bills on VTpass**: tv and electricity providers, the account check, receipts with a token, the evaluation
-   cases (the DSTV case becomes a purchase).
+   cases (the DSTV case becomes a purchase). **Built, simulated** (getlatentic/planning#678; "Bills on VTpass"), and
+   measured with `openai.gpt-oss-120b` on development cases (evaluation/RESULTS.md, "Bills phase").
 4. **Index as a per-user connector**: OAuth with registration, the connect card, the server-side phases, the
    evaluation.
 5. **Directory merchants and payouts**: the dashboard, fulfilment, split payments (owner decisions first).
@@ -246,7 +320,7 @@ options, fields, account checks, the model-facing lists and the third-party text
 ## Open before real money
 
 * **The first real directory merchant**, and who handles its refunds and disputes.
-* **Margin on bills**, and whether the card says so.
+* **Margin on bills**, and whether the card says so. `BILLS_SERVICE_FEE_KOBO` shows it as its own line when set; the figure is the owner's.
 * **How a platform may hold Index connections**: the per-user OAuth route is open; one account for many people
   needs Paystack's answer (the Terms do not cover it).
 * **Caps**: which Index and VTpass limits apply to 234's accounts; one small purchase of each shows it.

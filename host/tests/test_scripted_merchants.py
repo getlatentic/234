@@ -43,3 +43,23 @@ def test_it_says_nothing_when_the_connector_is_not_offered_or_the_sentence_is_no
     assert asked("shops", OTHER_TOOLS) is None
     assert asked("my wallet") is None
     assert asked("track qt-" + "a" * 20)["arguments"] == {"quote_id": "qt-" + "a" * 20}
+
+
+def test_a_bill_checks_the_account_and_then_makes_the_quote_with_the_check_and_its_fields():
+    renew = "bill: dstv 1212121212 renew 08031234567"
+    assert asked(renew) == {
+        "tool": "merchants__check_account",
+        "arguments": {"merchant_id": "dstv", "fields": {"smartcard": "1212121212", "phone": "08031234567"}},
+    }
+    told = {"role": "tool", "content": "Account found. check_id: ck-" + "1" * 20}
+    call = merchants.answer([{"role": "user", "content": renew}, told], TOOLS)
+    assert call["arguments"]["lines"] == [{"offer_id": "renew"}] and "amount_kobo" not in call["arguments"]
+
+
+def test_electricity_names_the_meter_type_and_the_amount():
+    power = "bill: ikeja-electric 1111111111111 prepaid 08031234567 ₦5,000"
+    fields = asked(power)["arguments"]["fields"]
+    assert fields == {"meter_number": "1111111111111", "meter_type": "prepaid", "phone": "08031234567"}
+    told = {"role": "tool", "content": "check_id: ck-" + "2" * 20}
+    call = merchants.answer([{"role": "user", "content": power}, told], TOOLS)["arguments"]
+    assert call["amount_kobo"] == 500_000 and call["lines"] == [{"offer_id": "electricity"}]

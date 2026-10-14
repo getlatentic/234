@@ -67,7 +67,7 @@ MUTATIONS: list[Mutation] = [
     bills(
         "the account check keeps what the quote prices from",
         f"{SRC}/commerce/checks.py",
-        "        detail = canonical(found.detail)",
+        "        detail = canonical(stored)",
         '        detail = "{}"',
         QUOTES,
     ),
@@ -190,6 +190,27 @@ MUTATIONS: list[Mutation] = [
         'row["state"] == "settled" and row["connector"] in REVERSIBLE',
         'row["state"] == "settled" and row["connector"] == "airtime"',
         FLOW,
+    ),
+    bills(
+        "a quote for a checked account takes the account from its check",
+        f"{SRC}/flows/merchants.py",
+        "checked = await self.checks.fields_of(check_id) if merchant.checks_account else {}",
+        "checked = {}",
+        QUOTES,
+    ),
+    bills(
+        "only the owner's own check lends its fields",
+        f"{COMMERCE}/checks.py",
+        '"SELECT fields, detail FROM account_check WHERE id = ? AND owner = ?"',
+        '"SELECT fields, detail FROM account_check WHERE id = ? AND ? IS NOT NULL"',
+        QUOTES,
+    ),
+    bills(
+        "the phone given with a check is kept for the quote",
+        f"{SRC}/connectors/merchants.py",
+        "checks.record(merchant, fields, found, carried_fields(merchant, args.fields))",
+        "checks.record(merchant, fields, found, {})",
+        QUOTES,
     ),
     bills(
         "a service fee is a whole number of kobo",
