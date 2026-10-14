@@ -89,5 +89,7 @@ def test_no_card_may_use_a_browser_feature_and_the_paystack_switch_is_left_on():
     assert variables.get("INLINE_PAYSTACK", "1") == "1"
 
 
-def test_the_public_deployment_offers_every_connector_the_product_has():
-    assert settings().connectors == Settings(mcp_url="").connectors
+def test_the_public_deployment_offers_every_connector_the_product_has_but_the_merchant_directory():
+    every = Settings(mcp_url="").connectors
+    assert public_config()["vars"]["MERCHANTS"] == "0"
+    assert settings().connectors == tuple(name for name in every if name != "merchants")

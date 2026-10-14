@@ -27,6 +27,7 @@
 #   conformance/pact-reach.mjs starts on base+12 to base+14 (docs/pact.md);
 #   FREE_TEXT_MERCHANTS=0|1 sets the connectors' variable of that name (default on locally; 0 is the production setting:
 #   the free-text create_payment_quote is not offered, docs/commerce.md);
+#   MERCHANTS=0 leaves the merchant directory out of what the host offers (the host's own default is off, a local stack turns it on);
 #   HOST_CONNECTORS (comma-separated) is the connectors the host offers instead of all of them (turns/settings.py),
 #   as for an evaluation's control run without one;
 #   REAL_MODEL=1 uses the model in LLM_BASE_URL, LLM_MODEL and (through host/.dev.vars.real) LLM_API_KEY
