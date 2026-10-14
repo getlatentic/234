@@ -163,8 +163,8 @@ MUTATIONS: list[Mutation] = [
     Mutation(
         "commerce words: the list of offers the model reads says the names are data",
         f"{COMMERCE}/listing.py",
-        "    lines = [NOTICE, head,",
-        "    lines = [head,",
+        "    lines = [NOTICE, *none, head,",
+        "    lines = [*none, head,",
         TEXT,
     ),
     Mutation(
