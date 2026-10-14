@@ -71,11 +71,18 @@ def basket_view(quote: Quote) -> dict[str, Any]:
     }
 
 
+def _chosen(line: dict[str, Any]) -> str:
+    return f" ({', '.join(line['options'])})" if line["options"] else ""
+
+
 def receipt_lines(quote: Quote) -> list[tuple[str, str]]:
     """The items and fees of a delivered order, as a receipt reads them."""
     d = quote.details
     items = [
-        (f"{line['quantity']} {TIMES} {line['name']}", format_naira(line["unitKobo"] * line["quantity"]))
+        (
+            f"{line['quantity']} {TIMES} {line['name']}{_chosen(line)}",
+            format_naira(line["unitKobo"] * line["quantity"]),
+        )
         for line in d["lines"]
     ]
     fees = [(fee["label"], format_naira(fee["kobo"])) for fee in d["fees"]]
