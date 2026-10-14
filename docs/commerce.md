@@ -211,6 +211,12 @@ options, fields, account checks, the model-facing lists and the third-party text
 * `create_quote(merchant_id, lines, amount_kobo, amount_as_user_said, fields, check_id, from_wallet, idempotency_key)`:
   `lines or amount` is `lines`, or an `amount_kobo` alone for a merchant with one `open` offer; an open or range offer
   stands alone in its basket, paid once.
+* A quote that carries a `check_id` and no `fields` is for the account that check was made for (the check holds its
+  fields, and is the owner's, the merchant's and immutable); with `fields` they must still match the check.
+  `browse_merchants` ends a merchant's line with the fields its buyer gives and says when `check_account` comes first
+  ("Needs card_number, after check_account."), and a missing field is refused with the shape to pass it. Without
+  these a model that never listed the offers called `check_account` with no fields, then asked the person for the card
+  number they had typed.
 * The merchant's limits are on the order's total, fees included; for an `open` offer the amount is also within them.
 * The categories are the design's and three more (`grocery`, `health`, `service`) for the simulated directory.
 * `track_order` is the connector's status tool: the connector has no `get_quote_status`, and its quotes tell the
@@ -227,6 +233,30 @@ options, fields, account checks, the model-facing lists and the third-party text
   places until `merchants` measures as well on the evaluation.
 * Not built: reversal of a delivered merchant order (the reversal flow is airtime's), refund by a provider other than
   the wallet and Paystack, the dashboard, payouts, UCP and ACP.
+
+## Which deployment offers the directory
+
+The host offers `merchants` only where `MERCHANTS` says so (`1`, `true`, `on` or `yes`; `host/src/turns/settings.py`,
+`with_directory`). **Default: off**, in the code and in the public template (`host/wrangler.public.jsonc`), which still lists
+the connector in `CONNECTORS`; a local stack (`tools/up.sh`) turns it on. The reason is a measured conflict
+(evaluation/RESULTS.md, "Commerce phase, second part"):
+
+* **Directory on, free-text payment off** (`MERCHANTS=1`, `FREE_TEXT_MERCHANTS=0`, `paystack-pay` left out of `CONNECTORS`):
+  the intended production setting. On the cases that do not pay a merchant named in words it passes as the old
+  connectors do (every split within the spread of two runs of the same code), and it adds what the directory is for.
+* **Directory on, free-text payment on**: the model is told to look in the merchant list before it says a business is not
+  offered, so "Pay ₦2,200 to Ada Stores" now goes to the directory and is declined: 6 of 15 and 5 of 15 draws of the dev
+  cases that pay a named business pass, and 8 of 15 of the wallet ones, against 15 of 15 without the directory.
+* **Directory off, free-text payment on**: the product as it was before #677. The public deployment keeps this while its
+  starter ("Pay ₦2,500 to Ada Stores") and the scripted model's `pay <amount> to <merchant>` intent are the free-text
+  path.
+
+So the two are switched together: a deployment that moves to the directory sets `MERCHANTS=1` and
+`FREE_TEXT_MERCHANTS=0` and drops `paystack-pay` from `CONNECTORS` (docs/deploy.md). Before that, the starter and the
+cases that pay a named business change: a directory merchant takes the place of "Ada Stores" (a transit top-up with a card
+number, or a basket), and the scripted model keeps its `pay` intent for the free-text stack only. The evaluation skips the
+cases that need the free-text tool when `FREE_TEXT_MERCHANTS` is `0` in its environment (`Case.needs_free_text`:
+`create_payment_quote` expected, or an allowance used up first, which the harness does with that tool).
 
 ## Build order
 

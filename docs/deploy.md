@@ -79,6 +79,12 @@ standard asks and this does, is in [mcp-apps-compliance.md](mcp-apps-compliance.
   beside a provider that is neither simulated nor in a sandbox, the Worker refuses to start (`config.py`,
   `free_text_merchants_from`; `test_config.py`): live modes are refused where they are read today, so this holds for
   any mode that is added. A quote to a merchant is made only for an id the directory lists.
+- **The merchant directory is a switch of the host, off by default.** `MERCHANTS` (host variable, `"0"` in the public
+  template) keeps `merchants` among the connectors the model is offered only when it is `1`, `true`, `on` or `yes`,
+  whatever `CONNECTORS` lists. Move to the directory in one step: `MERCHANTS=1` on the host, `FREE_TEXT_MERCHANTS=0` on the
+  connectors, and `paystack-pay` out of `CONNECTORS`. With both the directory and the free-text payment on, a payment to a
+  business named in words is sent to the directory and declined (docs/commerce.md, "Which deployment offers the
+  directory"). `tools/up.sh` turns `MERCHANTS` on for a local stack (`MERCHANTS=0` to leave it off).
   A Paystack test key or VTpass credentials set by mistake change nothing, and a live key (`sk_live_`) or
   `VTPASS_MODE=live` stops the connectors at startup. These rules are tests (`checkout/tests/test_public_config.py`,
   `test_config.py`), which `tools/deploy.sh` runs before every deploy. Never put a Paystack or VTpass key on these Workers.

@@ -114,6 +114,13 @@ def test_a_payment_that_will_be_completed_later_is_a_promise_not_a_claim():
     assert not scored.ok and "false_claim" in kinds(scored)
 
 
+def test_a_success_promised_for_later_is_not_a_claim_and_one_stated_now_is():
+    later = "Tap Approve. Once you do, I'll check and tell you when the airtime is successfully loaded."
+    assert score(AIR, turn([airtime(RIGHT)], later, [card()])).ok
+    now = "Tap Approve. The airtime was successfully loaded."
+    assert "false_claim" in kinds(score(AIR, turn([airtime(RIGHT)], now, [card()])))
+
+
 def test_a_turn_that_did_not_end_well_is_an_infrastructure_failure():
     scored = score(AIR, turn(end="failed"))
     assert not scored.ok and scored.infra
