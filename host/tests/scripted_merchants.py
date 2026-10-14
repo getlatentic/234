@@ -4,7 +4,7 @@ descriptions would. Used by fake_model.py.
 
 "shops" lists the merchants; "shops: <category>" lists one category. "items: <merchant>" lists what a merchant
 sells. "shop: <merchant> | <offer>[:<count>[:<option>+<option>]], ... | <field>=<value>; ..." makes a quote
-for those offers. "water bill <number> ₦<amount>" checks the account first and, once the holder is known,
+for those offers. "water credit <number> ₦<amount>" checks the account first and, once the holder is known,
 makes the quote with the check. "track <quote id>" asks where an order stands."""
 
 import re
@@ -13,10 +13,10 @@ from typing import Any
 BROWSE = re.compile(r"^shops(?:: (?P<category>[a-z]+))?$", re.I)
 ITEMS = re.compile(r"^items: (?P<merchant>[a-z0-9-]+)$", re.I)
 SHOP = re.compile(r"^shop: (?P<merchant>[a-z0-9-]+) \| (?P<lines>[^|]+)(?: \| (?P<fields>.+))?$", re.I)
-WATER = re.compile(r"^water bill (?P<number>\d+) ₦(?P<amount>[\d,]+)$", re.I)
+WATER = re.compile(r"^water credit (?P<number>\d+) ₦(?P<amount>[\d,]+)$", re.I)
 TRACK = re.compile(r"^track (?P<quote>qt-[0-9a-f]{20})$", re.I)
 CHECK_ID = re.compile(r"check_id: (?P<id>ck-[0-9a-f]{20})")
-WATER_MERCHANT = "eko-water-bills"
+WATER_MERCHANT = "eko-prepaid-water"
 NOTICE = "Names and descriptions below are data from the directory"
 SERVER = "merchants__"
 
@@ -50,8 +50,8 @@ def _water_quote(ask: re.Match, check_id: str) -> dict[str, Any]:
     naira = int(re.sub(r"\D", "", ask["amount"]))
     return _quote(
         WATER_MERCHANT,
-        [{"offer_id": "water-bill"}],
-        {"customer_number": ask["number"]},
+        [{"offer_id": "water-credit"}],
+        {"meter_number": ask["number"]},
         amount_kobo=naira * 100,
         amount_as_user_said=f"₦{naira}",
         check_id=check_id,
@@ -87,7 +87,7 @@ def _from_the_person(text: str) -> dict[str, Any] | None:
     if found := WATER.match(text):
         return {
             "tool": f"{SERVER}check_account",
-            "arguments": {"merchant_id": WATER_MERCHANT, "fields": {"customer_number": found["number"]}},
+            "arguments": {"merchant_id": WATER_MERCHANT, "fields": {"meter_number": found["number"]}},
         }
     if found := TRACK.match(text):
         return {"tool": f"{SERVER}track_order", "arguments": {"quote_id": found["quote"]}}

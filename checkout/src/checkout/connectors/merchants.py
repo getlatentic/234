@@ -169,14 +169,14 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
             "find_items",
             "Find items",
             "Lists what one merchant sells with the server's prices, and the details its quote needs (a "
-            "delivery area, a customer number). Filter by words or one offer_id. You cannot set a price.",
+            "delivery area, a meter number). Filter by words or one offer_id. You cannot set a price.",
             FindItems,
             find,
         ),
         kit.plain_tool(
             "check_account",
             "Check account",
-            "Looks up the account the person typed at a merchant that checks accounts (a customer number): "
+            "Looks up the account the person typed at a merchant that checks accounts (a meter number): "
             "the holder's name and what is due, with the check_id a quote for that merchant must carry.",
             CheckAccount,
             check,

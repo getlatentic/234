@@ -21,10 +21,10 @@ INSERT INTO merchant (id, name, category, status, blurb, min_kobo, max_kobo, fee
  200000, 5000000, 'Delivery', 150000, 0,
  '[{"name":"area","label":"Delivery area","kind":"choice","required":true,"options":["Ikeja GRA","Maryland","Yaba"]}]',
  1791936000000, 1791936000000),
-('eko-water-bills', 'Eko Water Bills (simulated)', 'service', 'beta',
- 'An invented water service. The customer number is checked first and the holder''s name is shown for the person to confirm. The person says how much to pay.',
+('eko-prepaid-water', 'Eko Prepaid Water (simulated)', 'service', 'beta',
+ 'An invented prepaid water vendor. The meter number is checked first and the holder''s name is shown for the person to confirm. The person says how much credit to buy.',
  50000, 5000000, 'Fee', 0, 1,
- '[{"name":"customer_number","label":"Customer number","kind":"digits","required":true,"min":8,"max":10}]',
+ '[{"name":"meter_number","label":"Meter number","kind":"digits","required":true,"min":8,"max":10}]',
  1791936000000, 1791936000000);
 
 INSERT INTO offer (merchant_id, id, name, description, tags, price_kind, price_kobo, min_kobo, max_kobo, available,
@@ -56,11 +56,11 @@ INSERT INTO offer (merchant_id, id, name, description, tags, price_kind, price_k
  4, 1791936000000, 1791936000000),
 ('ikeja-fresh-grocer', 'plantain-bunch', 'Plantain, a bunch', 'Ripe or unripe', 'plantain dodo', 'fixed', 200000, NULL, NULL, 1, 5, '[]', 5, 1791936000000, 1791936000000),
 ('ikeja-fresh-grocer', 'palm-oil-1l', 'Palm oil, 1 litre', 'Bottled', 'oil palm cooking', 'fixed', 320000, NULL, NULL, 1, 5, '[]', 6, 1791936000000, 1791936000000),
-('eko-water-bills', 'water-bill', 'Water bill payment', 'Any amount toward the customer''s bill', 'water bill utility', 'open', NULL, NULL, NULL, 1, 1, '[]', 1, 1791936000000, 1791936000000),
-('eko-water-bills', 'prepaid-credit', 'Prepaid water credit', 'Credit for a prepaid customer', 'water prepaid credit utility', 'range', NULL, 100000, 2000000, 1, 1, '[]', 2, 1791936000000, 1791936000000),
-('eko-water-bills', 'reconnection', 'Reconnection fee', 'After a disconnection for non-payment', 'water reconnection utility', 'fixed', 750000, NULL, NULL, 1, 1, '[]', 3, 1791936000000, 1791936000000);
+('eko-prepaid-water', 'water-credit', 'Prepaid water credit top-up', 'Any amount of water credit for the customer''s meter', 'water credit prepaid utility', 'open', NULL, NULL, NULL, 1, 1, '[]', 1, 1791936000000, 1791936000000),
+('eko-prepaid-water', 'tanker-booking', 'Water tanker booking deposit', 'Book a tanker with a deposit', 'water tanker booking deposit utility', 'range', NULL, 100000, 2000000, 1, 1, '[]', 2, 1791936000000, 1791936000000),
+('eko-prepaid-water', 'meter-reconnection', 'Meter reconnection fee', 'After a disconnection of the meter', 'water reconnection utility', 'fixed', 750000, NULL, NULL, 1, 1, '[]', 3, 1791936000000, 1791936000000);
 
 INSERT INTO sim_merchant_account (merchant_id, reference, holder_name, due_kobo) VALUES
-('eko-water-bills', '10012345', 'ADEBAYO OLUWASEUN FOLA', 1250000),
-('eko-water-bills', '10067890', 'CHINWE NNEKA OKAFOR', 0),
-('eko-water-bills', '10099999', 'MALLAM ABUBAKAR SANI', 480000);
+('eko-prepaid-water', '10012345', 'ADEBAYO OLUWASEUN FOLA', 1250000),
+('eko-prepaid-water', '10067890', 'CHINWE NNEKA OKAFOR', 0),
+('eko-prepaid-water', '10099999', 'MALLAM ABUBAKAR SANI', 480000);

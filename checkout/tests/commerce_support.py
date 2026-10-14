@@ -14,7 +14,7 @@ from tests.wallet_card_support import call
 
 CONNECTOR = "merchants"
 MAMA = "mama-put-yaba"
-WATER = "eko-water-bills"
+WATER = "eko-prepaid-water"
 PHARMACY = "lagosmed-pharmacy"
 GROCER = "ikeja-fresh-grocer"
 NOW = 1_791_936_000_000
@@ -40,13 +40,13 @@ MEAL_KOBO = 1_100_000
 
 
 def water_bill(check_id: str | None, **over: Any) -> dict[str, Any]:
-    """A water bill of 5,000 naira to a checked account."""
+    """A water credit of 5,000 naira to a checked account."""
     return {
         "merchant_id": WATER,
-        "lines": [{"offer_id": "water-bill"}],
+        "lines": [{"offer_id": "water-credit"}],
         "amount_kobo": 500_000,
         "amount_as_user_said": "5000",
-        "fields": {"customer_number": "10012345"},
+        "fields": {"meter_number": "10012345"},
         "check_id": check_id,
         "idempotency_key": new_key(),
         **over,
@@ -62,9 +62,7 @@ async def quote(stack: Stack, owner: str | None = None, **over: Any) -> dict[str
 
 async def checked(stack: Stack, number: str = "10012345") -> str:
     """The check_id of a water account the simulated Eko Water knows."""
-    result = await stack.call(
-        CONNECTOR, "check_account", merchant_id=WATER, fields={"customer_number": number}
-    )
+    result = await stack.call(CONNECTOR, "check_account", merchant_id=WATER, fields={"meter_number": number})
     assert "isError" not in result, result["content"][0]["text"]
     return result["structuredContent"]["check_id"]
 
