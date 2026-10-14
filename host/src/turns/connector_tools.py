@@ -11,6 +11,7 @@ UI_KEY = "ui"
 LEGACY_URI_KEY = "ui/resourceUri"
 MODEL_HIDDEN = "x-model-hidden"
 MODEL_REQUIRED = "x-model-required"
+VALIDATION_ONLY = frozenset({"maxLength", "minLength", "maxItems", "maxProperties", "exclusiveMinimum"})
 
 
 def visibility_of(tool: dict[str, Any]) -> list[str]:
@@ -30,11 +31,30 @@ def read_only(tool: dict[str, Any]) -> bool:
     return (tool.get("annotations") or {}).get("readOnlyHint") is True
 
 
+def lean(schema: Any) -> Any:
+    """The schema without the keywords that only the connector's own validation uses (lengths, counts, a
+    positive minimum, `additionalProperties: false`): the connector still refuses what breaks them, and the
+    model is not charged for them on every round. A property map is walked by its values, never its names."""
+    if isinstance(schema, list):
+        return [lean(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    return {
+        key: {name: lean(spec) for name, spec in value.items()} if key == "properties" else lean(value)
+        for key, value in schema.items()
+        if key not in VALIDATION_ONLY and not (key == "additionalProperties" and value is False)
+    }
+
+
 def model_schema(tool: dict[str, Any]) -> dict[str, Any]:
     """The schema the model is shown: the connector's, without `$schema`, without the idempotency key (the
     host supplies it, see idempotency.py) and without a property the connector marks `x-model-hidden`; a
-    property named in the schema's `x-model-required` is required of the model though not of other clients.
-    The connector's own schema is not changed."""
+    property named in the schema's `x-model-required` is required of the model though not of other clients;
+    and `lean`. The connector's own schema is not changed."""
+    return lean(_shown(tool))
+
+
+def _shown(tool: dict[str, Any]) -> dict[str, Any]:
     schema = {k: v for k, v in tool["inputSchema"].items() if k not in ("$schema", MODEL_REQUIRED)}
     properties = schema.get("properties")
     if properties is None:

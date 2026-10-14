@@ -59,7 +59,7 @@ def offered(tools: list[dict], name: str) -> dict:
 async def test_the_schema_the_model_is_shown_lacks_the_key_in_its_properties_and_in_required(hub):
     schema = offered(await hub.model_tools(), "create_quote")
     assert set(schema["properties"]) == {"amount"} and schema["required"] == ["amount"]
-    assert schema["additionalProperties"] is False and "$schema" not in schema
+    assert "additionalProperties" not in schema and "$schema" not in schema
 
 
 async def test_no_model_facing_schema_carries_the_key_anywhere(hub):
@@ -151,3 +151,42 @@ async def test_a_property_the_connector_hides_is_not_shown_and_one_it_requires_o
         "account_number",
         "idempotency_key",
     ]
+
+
+async def test_the_model_is_not_shown_the_keywords_only_the_connectors_validation_uses():
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "maxLength": {"type": "string", "minLength": 2, "maxLength": 9, "description": "kept"},
+            "amount": {"type": "integer", "exclusiveMinimum": 0, "minimum": 1},
+            "fields": {"type": "object", "additionalProperties": {"type": "string"}, "maxProperties": 8},
+            "lines": {
+                "type": "array",
+                "maxItems": 12,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {"id": {"enum": ["a"]}},
+                },
+            },
+        },
+        "required": ["amount"],
+    }
+    tools = [{"name": "t", "description": "d", "inputSchema": schema, "_meta": MODEL}]
+    hub = Hub({"s": "http://s/mcp"}, httpx.AsyncClient(transport=httpx.MockTransport(_listing(tools))))
+    shown = offered(await hub.model_tools(), "t")
+    assert shown == {
+        "type": "object",
+        "properties": {
+            "maxLength": {"type": "string", "description": "kept"},
+            "amount": {"type": "integer", "minimum": 1},
+            "fields": {"type": "object", "additionalProperties": {"type": "string"}},
+            "lines": {
+                "type": "array",
+                "items": {"type": "object", "properties": {"id": {"enum": ["a"]}}},
+            },
+        },
+        "required": ["amount"],
+    }
+    assert schema["additionalProperties"] is False and schema["properties"]["lines"]["maxItems"] == 12
