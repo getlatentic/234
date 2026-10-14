@@ -12,6 +12,9 @@ The knowledge splits (`knowledge` for development, `knowledge-held-out` for the 
 corpus of knowledge/eval: start that stack with
 `KNOWLEDGE_DIR=../knowledge/eval tools/real-model.sh` (gate.py holds the release gate).
 
+The `index-dev` split connects some of its accounts to the simulated Paystack Index first (`index_setup.py`),
+so it needs the same stack with `AUTH=1`.
+
 The memory split signs people in: start that stack with `AUTH=1 VISITOR_CAP=0 tools/real-model.sh` and
 run with `--split memory`. The wallet splits (`wallet`, `wallet-held-out`) do too, each draw as a new account
 whose wallet is funded first, on the stack started with `KNOWLEDGE_DIR=../knowledge/eval` as well (one case
@@ -41,6 +44,7 @@ from turns.prompt import system_prompt
 from turns.settings import Settings
 
 from .cases import SPLITS, Case, load_cases
+from .index_setup import set_up_index
 from .knowledge_data import knowledge_cases
 from .redo import plan
 from .score import score_case
@@ -134,6 +138,8 @@ async def play(
         refs = await set_up_notes(urls["checkout"], owner, case.notes)
     if case.wallet_kobo is not None and owner:
         await fund_wallet(urls["checkout"], owner, case.wallet_kobo)
+    if case.index is not None and owner:
+        await set_up_index(urls["checkout"], owner, case.index)
     if case.approved_kobo:
         await approve_spend(urls["checkout"], owner or owner_of(visitor), case.approved_kobo)
     events = await converse(visitor, case)
@@ -160,7 +166,7 @@ async def draw(
             if case.account or signed_in:
                 if accounts is None:
                     raise SetupFailed("a signed-in case needs the stack started with AUTH=1")
-                fresh = signed_in or case.wallet_kobo is not None
+                fresh = signed_in or case.wallet_kobo is not None or case.index is not None
                 async with accounts.fresh() if fresh else accounts.lease() as (visitor, owner):
                     events, refs, live = await play(case, urls, visitor, owner)
             else:
@@ -220,7 +226,7 @@ def pick(cases: list[Case], args: argparse.Namespace) -> list[Case]:
     chosen = [
         c
         for c in cases
-        if c.split == args.split or (args.split == "all" and not c.split.startswith(("knowledge", "wallet")))
+        if c.split == args.split or (args.split == "all" and not c.split.startswith(("knowledge", "wallet", "index")))
     ]
     if args.only:
         wanted = set(args.only.split(","))

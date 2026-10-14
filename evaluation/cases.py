@@ -20,6 +20,7 @@ SPLITS = (
     "wallet-dev-2",
     "dev-3",
     "commerce-dev",
+    "index-dev",
 )
 OUTCOME_KINDS = {
     "quote": {"tool", "args"},
@@ -54,6 +55,8 @@ OUTCOME_KINDS = {
     "basket": {"tool", "args", "lines", "fields"},
     "bill": {"tool", "args", "offer_id", "fields"},
     "over_limit": {"tool", "args", "limit"},
+    "connect_card": {"merchant"},
+    "account_refused": {"mention"},
 }
 NOTE_KEYS = {
     "recipient": {"ref", "kind", "title", "account_number", "bank"},
@@ -98,6 +101,10 @@ class Case:
     wallet_kobo: int | None = None
     """What the account's wallet holds before the first turn, added through the simulated Bachs top-up; the
     draw is made as an account of its own, so no other draw's money is in it."""
+    index: dict[str, bool] | None = None
+    """Paystack Index before the first turn: `{"connected": true}` has the account sign in at the simulated
+    Index, `"chowdeck": true` has it link Chowdeck too; `{"connected": false}` leaves it not connected. The
+    draw is made as an account of its own."""
 
 
 def _outcome(case_id: str, outcome: dict[str, Any]) -> dict[str, Any]:
@@ -135,6 +142,7 @@ def _case(raw: dict[str, Any]) -> Case:
     if notes and not account:
         raise CaseError(f"{case_id}: notes are the account's: the case needs account true")
     wallet_kobo = _wallet(case_id, raw.get("setup", {}).get("wallet_kobo"), account)
+    index = _index(case_id, raw.get("setup", {}).get("index"), account)
     return Case(
         case_id,
         raw["split"],
@@ -148,7 +156,19 @@ def _case(raw: dict[str, Any]) -> Case:
         account,
         notes,
         wallet_kobo,
+        index,
     )
+
+
+def _index(case_id: str, setup: Any, account: bool) -> dict[str, bool] | None:
+    """Nothing, or what Paystack Index is like for the account, and only for an account."""
+    if setup is None:
+        return None
+    if not account or set(setup) - {"connected", "chowdeck"} or not isinstance(setup.get("connected"), bool):
+        raise CaseError(f"{case_id}: setup.index is {{connected, chowdeck?}} booleans, for an account")
+    if setup.get("chowdeck") and not setup["connected"]:
+        raise CaseError(f"{case_id}: Chowdeck is linked through a connected Index account")
+    return {"connected": setup["connected"], "chowdeck": bool(setup.get("chowdeck"))}
 
 
 def _wallet(case_id: str, kobo: Any, account: bool) -> int | None:

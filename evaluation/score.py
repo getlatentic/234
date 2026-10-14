@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import commerce_score, knowledge_score, memory_score, wallet_score
+from . import commerce_score, index_score, knowledge_score, memory_score, wallet_score
 from .arg_match import arg_matches, arg_problems, arguments_of
 from .cases import Case, Turn
 
@@ -39,6 +39,7 @@ MODEL_TOOLS = {
     "check_account": "merchants",
     "track_order": "merchants",
     "create_quote": "merchants",
+    "connect_account": "merchants",
 }
 SEARCH_READS = frozenset({"web_search", "web_fetch", "search_knowledge", "open_source", "list_sources"})
 QUOTE_TOOLS = frozenset(
@@ -284,6 +285,7 @@ CHECKS = {
     "basket": check_basket,
     "bill": check_bill,
     "over_limit": check_over_limit,
+    **index_score.CHECKS,
 }
 
 
@@ -439,7 +441,7 @@ def score_turn(case: Case, index: int, turn: dict[str, Any]) -> TurnScore:
     if case.split.startswith("wallet"):
         invariants += wallet_score.invariant_problems(turn)
         findings += [Finding(*found) for found in wallet_score.finding_details(turn)]
-    if case.split.startswith("commerce"):
+    if case.split.startswith(("commerce", "index")):
         findings += commerce_findings(case, index, turn)
     matched = next((i for i, p in enumerate(problems) if not p), None)
     return TurnScore(
