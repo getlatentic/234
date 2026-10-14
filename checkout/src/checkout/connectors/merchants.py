@@ -24,6 +24,7 @@ from .kit import CardConnector, CardReader, IdempotencyKey, QuoteId, Strict, car
 NAME = "merchants"
 STATUS_TOOL = "track_order"
 MINUTE_MS = 60_000
+NOTHING_YET = "Nothing is ordered or paid until the person approves it on the card."
 
 Category = Literal[*CATEGORIES]
 MerchantId = Annotated[
@@ -152,7 +153,8 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
             check_id=args.check_id,
             idempotency_key=args.idempotency_key,
         )
-        return replace(issued, told=wallet_told(ctx, issued.quote, args.from_wallet))
+        told = f"{NOTHING_YET} {wallet_told(ctx, issued.quote, args.from_wallet)}"
+        return replace(issued, told=told)
 
     tools = (
         kit.plain_tool(

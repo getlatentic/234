@@ -203,6 +203,17 @@ class TestAMerchantsWordsAreData:
         assert await stack.count("quote_events") == 0
 
 
+class TestAMerchantIdTheModelGotWrong:
+    async def test_a_near_miss_is_named_so_the_model_can_correct_itself_and_never_quoted_for_it(self, stack):
+        text = await read(stack, "find_items", merchant_id="ikeka-fresh-grocer")
+        assert text.startswith("MERCHANT_NOT_FOUND") and "Did you mean ikeja-fresh-grocer?" in text
+        made = await stack.call("merchants", "create_quote", **meal(merchant_id="mama-put-yabaa"))
+        assert "Did you mean mama-put-yaba?" in text_of(made) and await stack.count("quotes") == 0
+
+    async def test_a_name_that_is_not_near_any_merchant_gets_no_suggestion(self, stack):
+        assert "Did you mean" not in await read(stack, "find_items", merchant_id="dstv")
+
+
 class TestAQuoteNeedsAMerchantOfTheDirectory:
     @pytest.mark.parametrize("merchant_id", ["dstv", "DSTV", "Mama Put", "mama-put", "", "x" * 41])
     async def test_a_merchant_that_is_not_listed_never_becomes_a_quote(self, stack, merchant_id):
@@ -211,6 +222,9 @@ class TestAQuoteNeedsAMerchantOfTheDirectory:
 
     async def test_a_listed_merchant_becomes_one_the_server_priced(self, stack):
         made = await quote(stack)
+        assert text_of(made).startswith(
+            "Nothing is ordered or paid until the person approves it on the card."
+        )
         view = quote_of(made)
         assert view["amount"]["kobo"] == MEAL_KOBO and view["details"]["kind"] == "basket"
         assert made["_meta"]["approvalToken"] not in json.dumps(made["content"])

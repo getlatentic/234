@@ -2,6 +2,8 @@
 """The providers 234 has, and how a merchant or a quote finds its own. A merchant id names one merchant in the
 whole directory: the first provider that lists an id owns it."""
 
+from difflib import get_close_matches
+
 from ..errors import DomainError
 from .model import Merchant
 from .provider import Provider
@@ -23,10 +25,13 @@ class Providers:
             found = await provider.merchant(merchant_id)
             if found is not None:
                 return found
+        close = get_close_matches(merchant_id, [m.id for m in await self.merchants()], n=1, cutoff=0.8)
+        did_you_mean = f" Did you mean {close[0]}?" if close else ""
         raise DomainError(
             "MERCHANT_NOT_FOUND",
-            f'There is no merchant "{merchant_id}" in the directory. A quote needs a merchant_id from '
-            "browse_merchants; if the business is not listed, tell the person 234 cannot pay it yet.",
+            f'There is no merchant "{merchant_id}" in the directory.{did_you_mean} A quote needs a '
+            "merchant_id from browse_merchants; if the business is not listed, tell the person 234 cannot "
+            "pay it yet.",
         )
 
     def of(self, merchant: Merchant) -> Provider:
