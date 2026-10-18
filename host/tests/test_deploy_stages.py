@@ -130,7 +130,7 @@ def test_the_search_key_is_put_on_the_connectors_from_stdin_without_quotes_or_a_
 
 def test_the_connectors_take_no_other_search_name_and_an_empty_value_sets_nothing(tmp_path):
     wrangler = keeping_wrangler(tmp_path)
-    for name in ("SEARCH_GATEWAY_URL", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "APPROVAL_SECRET"):
+    for name in ("SEARCH_KEY", "SEARCH_API_URL", "APPROVAL_SECRET"):
         done = run("secret", "connectors", name, stdin="x", WRANGLER=wrangler)
         assert done.returncode != 0 and "not a secret to set by hand" in done.stderr, name
     done = run("secret", "connectors", "SEARCH_API_KEY", stdin="\n", WRANGLER=wrangler)
