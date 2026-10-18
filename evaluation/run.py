@@ -227,7 +227,8 @@ def pick(cases: list[Case], args: argparse.Namespace) -> list[Case]:
     chosen = [
         c
         for c in cases
-        if c.split == args.split or (args.split == "all" and not c.split.startswith(("knowledge", "wallet", "index")))
+        if c.split == args.split
+        or (args.split == "all" and not c.split.startswith(("knowledge", "wallet", "index")))
     ]
     if args.only:
         wanted = set(args.only.split(","))

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The Paystack Index a draw's account starts with: signed in at the simulated Index the way a person does it
-(the link of the connect card, the Allow button, the redirect's code and state handed to the connector as the chat
-host hands them), and Chowdeck linked with a phone number and a code, through the connect card's own tools. No
-model is involved, and no test route writes the connection."""
+"""The Paystack Index a draw's account starts with: signed in at the simulated Index the way a person does
+it (the link of the connect card, the Allow button, the redirect's code and state handed to the connector as
+the chat host hands them), and Chowdeck linked with a phone number and a code, through the connect card's
+own tools. No model is involved, and no test route writes the connection."""
 
 from urllib.parse import parse_qsl, urlencode, urlsplit
 

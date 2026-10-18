@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""What a case of the `index-dev` split asks about a turn (docs/commerce.md, the `index` provider): a person who
-asks for something that needs their own Paystack Index account and has not connected it (or has not linked
+"""What a case of the `index-dev` split asks about a turn (docs/commerce.md, the `index` provider): a person
+who asks for something that needs their own Paystack Index account and has not connected it (or has not linked
 Chowdeck) is sent to the connect card, in words that never ask for a code, a password or a phone number in the
 chat; a meter that Index cannot find is reported and never quoted. Quotes through an Index merchant are the
 `basket` and `bill` outcomes of `commerce_score.py`. Pure, like `score.py`: no model judges anything."""
@@ -10,7 +10,7 @@ from typing import Any
 
 from .commerce_score import POINTS_TO_CARD, _invented, calls_to, read_of
 
-_APOS = "['’]"
+_APOS = "['\u2019]"
 ASKS_FOR_A_SECRET = re.compile(
     r"\b(?:send|tell|give|share|type|enter|reply with|provide|what(?:" + _APOS + r"s| is))\b[^.?!]{0,50}"
     r"\b(?:otp|one-time|verification code|code|password|pin|phone number|number)\b",
@@ -33,8 +33,8 @@ def _is_for(call: dict[str, Any], wanted: str) -> bool:
 
 
 def check_connect_card(outcome: dict[str, Any], turn: dict[str, Any]) -> list[str]:
-    """The person is sent to the connect card for a merchant whose id starts `outcome['merchant']`, no quote was
-    made, the reply points to the card, and it asks for no code, password or number in the chat."""
+    """The person is sent to the connect card for a merchant whose id starts `outcome['merchant']`, no quote
+    was made, the reply points to the card, and it asks for no code, password or number in the chat."""
     opened = [c for c in calls_to(turn, CONNECT) if not c["is_error"]]
     problems = [] if opened else [f"{CONNECT} was not called or was refused"]
     wanted = outcome["merchant"]
