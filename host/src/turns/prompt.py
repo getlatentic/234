@@ -105,8 +105,8 @@ def system_prompt(
 ) -> str:
     """`memory`: the person is signed in, so the prompt says how to use their notes. `memory_by_permission`:
     the memory tools are offered but the notes are not shown, because a personal agent has not been allowed
-    to read them (turns/permissions.py). `searches_web`: web_search is among the tools (offered only where a
-    search gateway is set up), so live and recent facts are searched, not declined. `has_wallet`: the wallet
+    to read them (turns/permissions.py). `searches_web`: web_search is among the tools (offered only where web
+    search is set up), so live and recent facts are searched, not declined. `has_wallet`: the wallet
     tool is offered (an account's turn, turns/wallet.py): the wallet card is among what 234 does, and the
     tool's description says the rest. Anyone else is told that a wallet needs signing in."""
     offered = [CAPABILITIES[name] for name in connectors if name in CAPABILITIES]

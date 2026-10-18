@@ -7,8 +7,8 @@
 #   tools/deploy.sh                       checks, then deploys the three Workers (the sandbox first) and smoke-tests them (curl only)
 #   tools/deploy.sh init                  creates the two D1 databases when they do not exist
 #   tools/deploy.sh secret host NAME      sets one of the owner's secrets from stdin (the value is never printed)
-#   tools/deploy.sh secret connectors NAME   the same for the connectors' web search (tools/aws-search.sh) and
-#                                         OPS_TOKEN, the operators' bearer for /ops/wallet/adjust (docs/wallet.md)
+#   tools/deploy.sh secret connectors NAME   the same for the connectors' web search key (SEARCH_API_KEY, DeepSeek's:
+#                                         docs/web.md) and OPS_TOKEN, the operators' bearer for /ops/wallet/adjust (docs/wallet.md)
 #   tools/deploy.sh rotate NAME           a new value for a secret made here: token (host to connectors, set on both),
 #                                         EVENTS_SECRET (the host's events key), PACT_SIGNING_KEY (the host's
 #                                         PACT Delegated key: tokens and receipts it signed stop verifying),
@@ -76,7 +76,7 @@ CONNECTORS_URL="https://$CONNECTORS_WORKER.$SUBDOMAIN.workers.dev"
 SANDBOX_URL="https://$SANDBOX_WORKER.$SUBDOMAIN.workers.dev"
 CUSTOM_URL=${CUSTOM_DOMAIN:+https://$CUSTOM_DOMAIN}
 OWNER_SECRETS="LLM_BASE_URL LLM_MODEL LLM_API_KEY"
-CONNECTOR_SECRETS="SEARCH_GATEWAY_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY OPS_TOKEN"
+CONNECTOR_SECRETS="SEARCH_API_KEY OPS_TOKEN"
 AUTH_FILE=${AUTH_FILE:-$root/.env.auth.local}
 AUTH_NAMES="FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN"
 AUTH_ENABLED=""

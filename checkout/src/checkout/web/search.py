@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Web search through Amazon Bedrock AgentCore's managed Web Search tool (docs/web.md): an AgentCore Gateway
-in the owner's AWS account, with the `web-search` connector as its target, speaks MCP over HTTPS and takes IAM
-(SigV4) credentials. 234 calls it from outside AWS with a key that may invoke that gateway and nothing else.
+"""Web search through DeepSeek's Search API (docs/web.md): one HTTPS POST with the owner's key as a bearer
+token. The request is `query`, `count` and nothing else, so what leaves 234 is the query text.
 
-The gateway's tool is `<target>___WebSearch`, taking `query` (200 characters at most) and `maxResults` (1 to
-25), and giving `results` of `text` (a snippet), `url`, `title` and `publishedDate`."""
+A result has `title`, `url`, `snippet` (the passage that matched), `summary` (longer, for a model), `date`
+(an ISO datetime, null, or the string "None") and scores that 234 does not use."""
 
 import json
 import re
@@ -13,18 +12,21 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from ..errors import DomainError
-from ..transport import Reply, Transport, TransportError
+from ..transport import Transport, TransportError
 from . import safe_url
-from .sigv4 import Credentials, signed_headers
 
-SERVICE = "bedrock-agentcore"
-PROTOCOL = "2025-03-26"
-QUERY_CHARS = 200
+ENDPOINT = "https://api.deepseek.com/v1/tools/search"
+HOST = "api.deepseek.com"
+USER_AGENT = "234bot/1.0 (+https://234.getlatentic.com)"
+"""Cloudflare in front of the API answers the default client of a Worker's Python with error 1010."""
+QUERY_CHARS = 128
+"""The longest query the API takes; a longer one is refused outright, so it is cut."""
 SNIPPET_CHARS = 500
+THIN_SNIPPET_CHARS = 40
 MAX_RESULTS = 10
 TIMEOUT_SECONDS = 15
 _ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
-UNAVAILABLE = "SEARCH_UNAVAILABLE: Web search did not answer. Say so, and do not answer from memory."
+UNAVAILABLE = "Web search did not answer. Say so, and do not answer from memory."
 
 
 @dataclass(frozen=True)
@@ -35,128 +37,74 @@ class Hit:
     published: str | None
 
 
-def gateway_problem(url: str, region: str) -> str | None:
-    """Why this is not an AgentCore Gateway's address in `region`, or None."""
+def endpoint_problem(url: str) -> str | None:
+    """Why this is not an https address on DeepSeek's API host, or None. The key goes to this address."""
     parts = urlsplit(url)
-    suffix = f".gateway.bedrock-agentcore.{region}.amazonaws.com"
-    if (
-        parts.scheme != "https"
-        or not (parts.hostname or "").endswith(suffix)
-        or parts.port not in (None, 443)
-    ):
-        return f"The search gateway is an https address ending {suffix}."
+    try:
+        port = parts.port
+    except ValueError:
+        port = -1
+    if parts.scheme != "https" or parts.hostname != HOST or port not in (None, 443) or parts.username:
+        return f"The search address is an https address on {HOST}."
     return None
 
 
-def _json_of(reply: Reply) -> dict[str, Any]:
-    """The JSON-RPC message in a reply, which Streamable HTTP sends as JSON or as one server-sent event."""
-    text = reply.body.strip()
-    if "event-stream" in (reply.content_type or ""):
-        datas = [line[5:].strip() for line in text.splitlines() if line.startswith("data:")]
-        text = next((d for d in reversed(datas) if d), "")
-    try:
-        message = json.loads(text)
-    except ValueError as error:
-        raise DomainError("SEARCH_UNAVAILABLE", UNAVAILABLE) from error
-    return message if isinstance(message, dict) else {}
+def _unavailable() -> DomainError:
+    return DomainError("SEARCH_UNAVAILABLE", UNAVAILABLE)
 
 
 def _day(value: object) -> str | None:
-    """The ISO day a result was published, when it says so in that form: the gateway also says "unknown" and
-    writes dates as "01:14PM, Friday, August 14 2026, PDT"."""
+    """The ISO day a result was published, when the date says so in that form: the API also says "None"."""
     found = _ISO_DAY.match(str(value or ""))
     return found.group() if found else None
 
 
-def hits_of(result: dict[str, Any]) -> list[Hit]:
-    """The results a WebSearch call gave: in `structuredContent`, or as JSON in the first content block."""
-    data = result.get("structuredContent")
-    if not isinstance(data, dict):
-        blocks = result.get("content") or [{}]
-        try:
-            data = json.loads(blocks[0].get("text", ""))
-        except ValueError, AttributeError:
-            data = {}
+def _snippet(item: dict[str, Any]) -> str:
+    """The matching passage, or the start of the summary when the passage is only a fragment."""
+    snippet = str(item.get("snippet") or "").strip()
+    if len(snippet) >= THIN_SNIPPET_CHARS:
+        return snippet[:SNIPPET_CHARS]
+    return (str(item.get("summary") or "").strip() or snippet)[:SNIPPET_CHARS]
+
+
+def hits_of(data: object, limit: int) -> list[Hit]:
+    """The results of a reply, without any whose address is not a public https one."""
+    items = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        raise _unavailable()
     found = []
-    for item in (data.get("results") if isinstance(data, dict) else None) or []:
-        url = str(item.get("url", ""))
+    for item in items:
+        url = str(item.get("url", "")) if isinstance(item, dict) else ""
         if safe_url.problem(url) is None:
-            published = _day(item.get("publishedDate"))
             found.append(
-                Hit(
-                    str(item.get("title") or url)[:200],
-                    url,
-                    str(item.get("text", ""))[:SNIPPET_CHARS],
-                    published,
-                )
+                Hit(str(item.get("title") or url)[:200], url, _snippet(item), _day(item.get("date")))
             )
-    return found[:MAX_RESULTS]
+    return found[:limit]
 
 
-class GatewaySearch:
-    def __init__(
-        self, transport: Transport, credentials: Credentials, url: str, target: str, region: str, clock
-    ) -> None:
-        self._transport, self._credentials, self._url = transport, credentials, url
-        self._target, self._region, self._clock = target, region, clock
-        self._ready = False
-        self._ids = 0
+class DeepSeekSearch:
+    def __init__(self, transport: Transport, api_key: str, url: str = ENDPOINT) -> None:
+        self._transport, self._api_key, self._url = transport, api_key, url
 
     async def search(self, query: str, limit: int) -> list[Hit]:
-        arguments = {"query": query[:QUERY_CHARS], "maxResults": max(1, min(limit, MAX_RESULTS))}
-        try:
-            if not self._ready:
-                await self._handshake()
-            message = await self._rpc(
-                "tools/call", {"name": f"{self._target}___WebSearch", "arguments": arguments}
-            )
-        except DomainError:
-            self._ready = False
-            raise
-        result = message.get("result")
-        if not isinstance(result, dict) or result.get("isError"):
-            raise DomainError("SEARCH_UNAVAILABLE", UNAVAILABLE)
-        return hits_of(result)
-
-    async def _handshake(self) -> None:
-        params = {
-            "protocolVersion": PROTOCOL,
-            "capabilities": {},
-            "clientInfo": {"name": "234", "version": "1"},
-        }
-        if "error" in await self._rpc("initialize", params):
-            raise DomainError("SEARCH_UNAVAILABLE", UNAVAILABLE)
-        await self._rpc("notifications/initialized", None, notification=True)
-        self._ready = True
-
-    async def _rpc(
-        self, method: str, params: dict[str, Any] | None, notification: bool = False
-    ) -> dict[str, Any]:
-        body: dict[str, Any] = {"jsonrpc": "2.0", "method": method}
-        if params is not None:
-            body["params"] = params
-        if not notification:
-            self._ids += 1
-            body["id"] = self._ids
-        raw = json.dumps(body).encode()
+        limit = max(1, min(limit, MAX_RESULTS))
+        body = json.dumps({"query": query[:QUERY_CHARS].rstrip(), "count": limit})
         headers = {
+            "authorization": f"Bearer {self._api_key}",
             "content-type": "application/json",
-            "accept": "application/json, text/event-stream",
-            "mcp-protocol-version": PROTOCOL,
+            "accept": "application/json",
+            "user-agent": USER_AGENT,
         }
-        signed = signed_headers(
-            self._credentials, "POST", self._url, raw, self._region, SERVICE, self._clock(), headers
-        )
         try:
             reply = await self._transport.send(
-                "POST",
-                self._url,
-                headers={k: v for k, v in signed.items() if k != "host"},
-                body=raw.decode(),
-                timeout_seconds=TIMEOUT_SECONDS,
+                "POST", self._url, headers=headers, body=body, timeout_seconds=TIMEOUT_SECONDS
             )
         except TransportError as error:
-            raise DomainError("SEARCH_UNAVAILABLE", UNAVAILABLE) from error
+            raise _unavailable() from error
         if not reply.ok:
-            raise DomainError("SEARCH_UNAVAILABLE", UNAVAILABLE)
-        return {} if notification else _json_of(reply)
+            raise _unavailable()
+        try:
+            data = json.loads(reply.body)
+        except ValueError as error:
+            raise _unavailable() from error
+        return hits_of(data, limit)

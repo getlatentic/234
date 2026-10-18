@@ -32,24 +32,35 @@ The page's lines are quoted behind `>` under a header of ours with its address a
 ## Searching the web
 
 `web_search(query, limit)` finds pages: titles, addresses, dates and snippets, quoted as data like a page. It is
-offered only where a search gateway is set up. The index is Amazon Bedrock AgentCore's managed **Web Search tool**
-($7 per 1,000 searches, no minimum), reached through an AgentCore Gateway in the owner's AWS account over MCP; 234
-runs outside AWS and calls the gateway with IAM (SigV4, `web/sigv4.py`, checked against AWS's published test
-vector). The Web Search tool is offered in **us-east-1** only.
+offered only where `SEARCH_API_KEY` is set. The index is **DeepSeek's Search API**
+(`POST https://api.deepseek.com/v1/tools/search`, the key as a bearer token; $0.75 per 1,000 searches that return
+results, 5 requests a second for the account, HTTP 429 above that, 402 when the balance is empty). 234 sends `query`
+and `count` and nothing else.
 
-- **Set up** (`tools/aws-search.sh`, `infra/aws/terraform`, Terraform with local state): `up` makes the gateway, its web-search target
-  and one IAM user that may invoke that gateway and nothing else; `key` makes that user's access key and keeps it in
-  `.env.search.local` (mode 600, git-ignored; nothing is printed); `secrets` puts `SEARCH_GATEWAY_URL`,
-  `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` into the connectors Worker's secrets; `plan` shows what `up` would do and changes nothing; `down` removes it all.
-  The principal that runs `up` needs IAM write (roles, users, policies), AgentCore Gateway and its own Terraform state;
-  234's own key (the caller) can do none of that.
-- **Off until set:** with any of the three missing or malformed the connector offers `web_fetch` alone, and the
-  Worker's log says why (`web.search.off`). Setting the secrets one at a time never stops the payment connectors.
+- **What leaves 234:** the text of the search query, sent to DeepSeek. No name, account, chat or note goes with it.
+  The model writes the query, so a person's words can be in it.
+- **Query:** at most 128 characters (the API refuses a longer one), so the client cuts it there, and the tool
+  asks the model for 128 at most. The API reads `site:`, `-site:`, `lang:`, `after:`, `before:` and quoted phrases.
+- **Set up:** put the key on the connectors Worker, piped in so it is never printed or kept in a shell history,
+  on staging first and then on production:
+  `jq -r .deepseek.apiKey ~/.viva/auth.json | STAGE=staging tools/deploy.sh secret connectors SEARCH_API_KEY`, then
+  the same without `STAGE=staging`. `SEARCH_URL` may name another path on `api.deepseek.com` (https only and no
+  other host, because the key goes there); `SEARCHES_PER_DAY` changes the daily count. Locally,
+  `SEARCH=1 SEARCH_API_KEY=... tools/up.sh` calls the real API.
+- **Off until set:** with no key, or a malformed `SEARCH_API_KEY`, `SEARCH_URL` or `SEARCHES_PER_DAY`, the
+  connector offers `web_fetch` alone, and the Worker's log says why (`web.search.off`). Setting the secret never
+  stops the payment connectors.
+- **When it fails:** a timeout, 402, 408, 429, a 5xx, or a reply that is not the expected JSON gives the model
+  `SEARCH_UNAVAILABLE` (it says search did not answer and does not answer from memory). The call is made once; the
+  person's search still counts.
 - **Cost control:** a person has `SEARCHES_PER_DAY` (30) searches, counted in one statement before the search is
   made (`web_search_use`); the same question within the hour is answered from the cache and costs none; a turn
-  makes three calls to sources at most (`SEARCHES_PER_TURN`), and a research run twelve. At $0.007 a search the
-  worst case for a person's day is about $0.21.
-- **What a result is:** a snippet and an address, never a page. An address that is not https or not public is
+  makes three calls to sources at most (`SEARCHES_PER_TURN`), and a research run twelve. At $0.00075 a search the
+  worst case for a person's day is about $0.02. A busy minute can pass 5 requests a second; the excess is
+  refused with `SEARCH_UNAVAILABLE`, not queued.
+- **What a result is:** a snippet (the start of the summary when the snippet is a fragment) and an address, never
+  a page. A result's date counts only as an ISO day (`2026-09-01`); the API's `None` is no date. Results keep the order
+  the API gives them: 234 does not filter or re-rank by the API's authority and relevance scores. An address that is not https or not public is
   dropped; the model reads a result with `web_fetch`, which obeys robots.txt. The host shows a result or a page as a
   source under an answer only when its text holds a figure of the answer (or, for an answer with none, when its
   words clearly carry it), as it does for the sources: [knowledge.md](knowledge.md#what-the-person-sees). A snippet

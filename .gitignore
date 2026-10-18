@@ -30,10 +30,3 @@ reference/ts-demo/
 
 # Internal material kept out of the public tree (see .internal/README.md)
 .internal/
-
-# The AWS key and gateway address of web search (docs/web.md); .env.* already covers it, this names it
-.env.search.local
-
-# Terraform's working files and state of web search (infra/aws/terraform); the lock file is kept
-infra/aws/terraform/.terraform/
-infra/aws/terraform/*.tfstate*

@@ -13,10 +13,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DEPLOY = ROOT / "tools" / "deploy.sh"
 
 
-def run(*args: str, **env: str) -> subprocess.CompletedProcess:
+def run(*args: str, stdin: str = "", **env: str) -> subprocess.CompletedProcess:
     isolated = {"PATH": os.environ["PATH"], "DEPLOY_ENV_FILE": "/dev/null", "SUBDOMAIN": "acct", **env}
     return subprocess.run(
-        ["bash", str(DEPLOY), *args], env=isolated, capture_output=True, text=True, cwd=ROOT
+        ["bash", str(DEPLOY), *args], env=isolated, capture_output=True, text=True, cwd=ROOT, input=stdin
     )
 
 
@@ -104,3 +104,35 @@ def test_secrets_that_cannot_be_read_are_not_read_as_none(tmp_path):
     down = "A request to the Cloudflare API failed: 504 Gateway Timeout"
     done = run("secrets", "host", WRANGLER=fake_wrangler(tmp_path, "", down, 1))
     assert done.returncode != 0 and "cannot read those secrets" in done.stderr
+
+
+def keeping_wrangler(tmp_path: Path) -> str:
+    """A wrangler that keeps its arguments and the secret it was given on stdin."""
+    script = tmp_path / "wrangler"
+    script.write_text(
+        f"#!/bin/bash\necho \"$@\" > '{tmp_path}/args'\ncat > '{tmp_path}/value'\necho Success\n"
+    )
+    script.chmod(0o755)
+    return str(script)
+
+
+def test_the_search_key_is_put_on_the_connectors_from_stdin_without_quotes_or_a_newline_and_never_printed(
+    tmp_path,
+):
+    done = run(
+        "secret", "connectors", "SEARCH_API_KEY", stdin="'sk-abc123'\r\n", WRANGLER=keeping_wrangler(tmp_path)
+    )
+    assert done.returncode == 0, done.stderr
+    assert (tmp_path / "value").read_text() == "sk-abc123"
+    assert (tmp_path / "args").read_text().split()[:4] == ["secret", "put", "SEARCH_API_KEY", "--name"]
+    assert "sk-abc123" not in done.stdout + done.stderr
+
+
+def test_the_connectors_take_no_other_search_name_and_an_empty_value_sets_nothing(tmp_path):
+    wrangler = keeping_wrangler(tmp_path)
+    for name in ("SEARCH_KEY", "SEARCH_API_URL", "APPROVAL_SECRET"):
+        done = run("secret", "connectors", name, stdin="x", WRANGLER=wrangler)
+        assert done.returncode != 0 and "not a secret to set by hand" in done.stderr, name
+    done = run("secret", "connectors", "SEARCH_API_KEY", stdin="\n", WRANGLER=wrangler)
+    assert done.returncode != 0 and "nothing came on stdin" in done.stderr
+    assert not (tmp_path / "args").exists()
