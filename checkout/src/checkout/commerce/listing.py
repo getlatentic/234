@@ -22,11 +22,7 @@ INDEX_RULE = (
     "the merchant you chose, and no others."
 )
 NONE_MATCH = "No offer matches {query!r}; everything it sells follows."
-FIND_NEXT = (
-    "To see what one sells, call find_items with its id. To buy, take every field named after Needs from "
-    "what the person already said (a prepaid or postpaid they said counts) and call check_account or "
-    "create_quote at once; ask only for a field they did not give."
-)
+FIND_NEXT = "To see what one sells and what it needs to buy, call find_items with its id."
 SHOWN_MERCHANTS = 30
 SHOWN_OFFERS = 15
 

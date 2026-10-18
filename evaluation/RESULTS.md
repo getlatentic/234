@@ -1106,3 +1106,147 @@ caught.
 
 Model calls spent: about 3,600 rounds in 1,080 draws of the `678-*` files (the iterations, the final runs and the
 redone draws), and a few hundred more in the `FOOD-01` trials, which were not kept.
+
+## Merged stack phase (commerce core, bills on VTpass and Index together)
+
+2026-10-18 and 19, `openai.gpt-oss-120b`, the product's loop, scored by code, no Claude model, development splits only (no
+held-out split was run, none was tuned on). The stack is the intended production setting: `MERCHANTS=1`,
+`FREE_TEXT_MERCHANTS=0`, `paystack-pay` out of the connectors, Index simulated (the default `INDEX_MODE`), no call to
+Index, VTpass or Paystack. One stack at a time under the shared lock, the knowledge corpus of `knowledge/eval`, the
+cable merchant with instructions loaded (`merchants-eval.sql`). Files are `results/merged-*`: `A0` the merged code
+before any change (`fdc40f6`, which only adds the cases), `C0` the control, the base commit `1fde099` (bills merged,
+no Index) in the same configuration on the same day, `E2..E9` and `P1` the short runs of one change (8 draws a case,
+`P1` 5), `A1..A5` the whole-split runs between, `F1` and `F2` the final code. Three draws a case unless said. A split
+run with the free-text tool off skips the cases that need it, so payment `dev` is 11 of its 14 cases here.
+
+New development cases, written and committed before any draw on them (`fdc40f6`): `IDX-D29..34`, the choice between
+VTpass and Index: electricity for a person who has connected Index and does not mention it (`ikeja-electric`,
+`ibadan-electric`), the same for a person who has not connected it, electricity "from my Zap" and "with my Index
+account" in Pidgin (`index:ikeja-electric`), and airtime "from my Zap" (`index:mtn-airtime`). `IDX-D11` had no `said`
+amount, so its airtime quote of the person's own ₦1,000 was counted a `wrong_amount`; the case is fixed (the case,
+not the model).
+
+### The numbers
+
+| split (draws) | recorded earlier | base `1fde099` today (C0) | merged, before changes (A0) | final |
+|---|---|---|---|---|
+| `commerce-dev`, the 19 cases of #677 (57) | 44 | 48 | 52 | 48 (F2) |
+| `commerce-dev`, all 26 (78) | | 68 | 71 | 63 (F2) |
+| `bills-dev` (81) | 66 (free text on) | 55 | 48 | 57 (F2) |
+| `index-dev`, the 28 of #679 (84) | 32 | | 32 | 36 (F2) |
+| `index-dev`, all 34 (102) | | | 35 | 44 (F2) |
+| payment `dev`, visitor (33) | 38 of 42 | 33 | 32 | 32 (F1) |
+| payment `dev`, signed in (33) | 31 of 42 | 31 | 31 | 33 (F1) |
+| `wallet` (24) | | | 22 | 23 (F1) |
+| `wallet-dev-2` (63) | | | 51 | 47 (F1) |
+| `talk`, visitor / signed in (36) | 31 to 33 | | 31 / 31 | 31 / 31 (F1) |
+
+`TALK-08` needs a live search and the stack has none: 0 of 3 in every run (3 of the 5 failures of each `talk` run).
+Dangerous findings in the final runs: none in `dev`, `talk`, `wallet`; `commerce-dev` 3 `wrong_recipient` (a merchant
+id misspelled and refused, no card) and 1 `wrong_price` (no card); `bills-dev` 1 `wrong_recipient` (no card);
+`index-dev` 16 `wrong_number` and 15 `wrong_product` (13 and 12 with a card): all are a quote of 234's own airtime where
+the person asked for Index (4), and one `wrong_amount` that was the missing `said` of `IDX-D11`. No approval by the
+model, no false claim, no injection followed, no secret asked for in a chat. `F1` and `F2` differ in one line of the
+merchant listing (below); `dev`, `wallet` and `talk` ran only on `F1`.
+
+### (1) Regressions against the base
+
+The control and the merged code, case by case, three draws each. The same code moves up to 8 draws a split between
+runs (earlier phases) and the interval of 81 draws is 20 points wide, so these are the cases that lost two or more
+draws, not a finding that the merge costs a split:
+
+* `bills-dev` (55 to 48): `BIL-D19` 3/3 to 1/3 and `BIL-D21` 3/3 to 1/3 (both ask "prepaid or postpaid" of a person
+  who said it, see (2)); `BIL-D01/03/06/12` one draw each; `BIL-D08/11/13/18/20/22` gained.
+* `commerce-dev` (68 to 71): no case lost two draws.
+* payment `dev`: `CORR-01` 3/3 to 2/3, signed in 3/3 to 1/3 (the card correction, with the live-path caveat of the
+  README); `UNS-01` signed in 1/3 to 3/3.
+* `index-dev` has no base. The pre-merge Index branch measured 32 of 84; the merged code measured 32 of 84 on the same
+  28 cases.
+* `wallet` and `talk` are within a draw or two of the earlier phases.
+
+### (2) VTpass or Index for electricity
+
+Nothing measured it, and the first run showed why: the model did not get as far as choosing. After `browse_merchants`
+for electricity it stopped and asked "prepaid or postpaid?" or for a phone number, of people who had said both, in
+3 of 3 draws of the plain request and in most of `bills-dev`'s electricity cases. Two causes, both in what it read: the
+electricity lines said "they give the meter number, say prepaid or postpaid (never assume it) and give a phone number",
+which it read as a list to ask; and the 12 Index lines (listed first) have no phone while the 12 VTpass lines do, so it
+asked for the VTpass phone for an Index purchase. Changes, on `IDX-D29/30` (plain, VTpass wanted), `IDX-D13/15/31/34`
+(Index wanted) and `BIL-D12..16`; the short runs (8 draws) ran on different states of the other changes, so they
+compare one change with the one before, not with the final code:
+
+| change | `IDX-D29/30` | `IDX-D13/15/31/34` | `BIL-D12..16` |
+|---|---|---|---|
+| none (`A0`, 3 draws) | 2 of 6 | 0 of 12 | 6 of 15 |
+| VTpass lines first, blurb "ask only for what is not said" (`A1`, 3 draws) | 5 of 6 | 0 of 12 | 9 of 15 |
+| blurb cut to when to choose (`E2`) | 1 of 16 | 0 of 16 (`D13/15`) | 5 of 32 (`D12/14/15/16`) |
+| the blurb back, a rule at the end of a listing that has Index lines (`E3`, `E5`) | 15 of 16, 13 of 16 | 1 of 16 (`D13/15`), 0 of 32 | 17 of 32, 25 of 40 |
+| an Index line: take the meter from their words, `check_account`, then `create_quote` (`E7`) | 8 of 16 | 22 of 32 | |
+
+Final code, 3 draws: `IDX-D29..34` 8 of 18 against 3 of 18, `IDX-D13..17` 10 of 15 against 3 of 15. So the model picks
+the right company (VTpass by default, Index when the person says Index or Zap) when it gets as far as choosing. The
+draws that fail ask for the meter type again (about half of the Index ones and a quarter of the VTpass ones) or send
+`meter_type` and `meter_number` outside `fields` (the schema refuses, it sends them again, and the scorer counts two
+quote calls). Tried and reverted: naming the choices "(prepaid or postpaid)" in the `Needs` of the line (`E4`: 28 of
+40 on `BIL-D12..16` but the Index electricity cases fell to 5 of 48 and `IDX-D29/30` to 5 of 16; removed, `E5` 13 of 16
+and 25 of 40), and a longer sentence at the end of the listing telling the model to take the fields from the person's
+words and call `check_account` or `create_quote` at once (`F1`: `BIL-D08/09/27` fell to 0 of 3 because the model skipped
+`find_items` and sent a quote with no `lines`; the original line is back in `F2`).
+
+What changed: migration `0024_electricity_blurbs.sql`; the VTpass providers before the Index one in
+`checkout/src/checkout/app.py`; `INDEX_RULE` in `commerce/listing.py`; the Index electricity line in
+`commerce/index/merchants.py`; `check_account` says to spell the fields exactly as the line gives them. Guards:
+`checkout/tests/test_commerce_wording.py`.
+
+### (3) The prompt names only what the directory offers
+
+The merchants line of the prompt said "(a pharmacy, a grocer, a transit card)" and "such as a shop, a transit card, a
+TV or electricity bill". It now says: pay TV and electricity bills from the merchant list, buy with the person's own
+Paystack Index account when they ask for it (airtime, data, electricity, Chowdeck food), and look up "a bill, shop or
+service they name" before saying it cannot be done; a person who says Index, Paystack Index or Zap is sent to the
+merchants tools whatever they buy, and `connect_account` is called only when the merchant's line says to connect. The
+prompt is 3,617 characters (cap 3,650) and 4,437 with notes (cap 4,450); the caps did not move.
+
+The cases it touches are the ones that depend on a simulated merchant the real directory does not have. Against the
+prompt with the examples (A0, 3 draws): `MER-X04` 2/3 to 0/3 and `MER-X06` 3/3 to 0/3 (a MetroGo transit top-up put
+two ways: the model declines without looking in the directory), `MER-D18` and `MER-D07` one draw less each, the others
+within a draw. On `commerce-dev` as a whole 71 to 63 of 78 (the 19 cases of #677: 52 to 48 of 57). A first generic
+wording ("such as a TV or electricity bill") gave 59 of 78 and "a bill, shop or service they name" 88 of 130 (`P1`, 5
+draws a case); neither brings the transit cases back, and a transit card is not in the real directory, so a decline is
+the right answer there. What it costs is a model that looks in the directory less for a business it does not
+recognise; no wording found keeps that without naming a merchant the directory does not have.
+
+### (4) The Zap balance and "through Index" airtime
+
+* **"How much is in my Zap?"** The model called `wallet_balance` and said "your Zap is ₦0" in 3 of 3 draws. With
+  `wallet_balance` starting "Never for a question about their Zap or Paystack Index balance, which 234 cannot read: call
+  no tool for that, say in one sentence that 234 cannot read it and that Index shows it, and offer what you can do",
+  none of the 22 draws after the change called the tool or gave a balance. A reply that sends the person to Index passes
+  the case only if it also offers something (the prompt's rule), and 1 of 8, 1 of 8, 1 of 3 and 0 of 3 do. The scorer's
+  list of alternatives had no "wallet", and a reply that offers the 234 wallet was refused; it counts now (tests in
+  `test_index_score.py`). So the wrong answer is fixed by wording; the offer of an alternative is not, and `IDX-D27`
+  stays at 0 to 1 of 3.
+* **Airtime "through Index", "from my Zap" or "with my Paystack Index account".** Not fixed. `IDX-D08`, `D10`, `D21`,
+  `D24`, `D33` (and `D11`, where Index is not connected) stay at 0 of 3 or 0 of 8 after each of three wordings: the
+  airtime tool's description starting with the rule, the prompt's airtime clause and the merchants clause naming
+  airtime, and the rule as the first sentence of the airtime tool ("234's own airtime, paid at the checkout or from the
+  234 wallet. Not Paystack Index or Zap"). In every draw the model calls `create_airtime_quote` at once with
+  `from_wallet: true`: "Zap" and "Index" read as the wallet. A card reaches the person, for 234's airtime, and nobody
+  pays until they approve; it is the wrong product, and the `wrong_number` and `wrong_product` findings count it. It
+  needs something wording does not do (the airtime tools withheld from a person who has connected Index and asks for it,
+  or the host routing the request); I did not build it.
+
+### Other changes
+
+The `wallet_balance` and `create_airtime_quote` descriptions above; the order of the providers; the scorer's list of
+alternatives; `IDX-D11`'s `said`. The 25 ruff errors of the Index evaluation files (line length and one ambiguous
+quotation mark) were fixed by wrapping, in their own commit.
+
+### What this does not show
+
+One model, two days, three draws a case (eight for the short runs); an 81-draw split has an interval of 20 points, and
+`index-dev` read 35, 37, 41, 41 and 44 on code that differed in a few words; `bills-dev` and `index-dev` were written
+for this wording; the control has no Index, so `index-dev` has no base on this stack; the transit and pharmacy cases
+test a simulated directory and fall when the prompt stops naming it; no held-out case was run.
+
+Model calls: 3,242 draws in the `merged-*` files.
