@@ -31,7 +31,7 @@ def food(**over):
 class TestTheSplit:
     def test_has_the_cases_that_were_written_before_any_run(self):
         index = [c for c in load_cases() if c.split == "index-dev"]
-        assert len(index) == 28
+        assert len(index) == 34
         kinds_asked = {o["kind"] for c in index for t in c.turns for o in t.expect}
         assert kinds_asked == {
             "basket", "bill", "items_listed", "merchants_listed", "connect_card", "index_account_refused", "quote",
