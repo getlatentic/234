@@ -107,10 +107,11 @@ def build_connector(ctx: Context, card_html: CardReader) -> Connector:
         kit.quote_tool(
             "create_airtime_quote",
             "Create airtime quote",
-            "Not for airtime they ask to pay through Paystack Index or Zap: that is create_quote. Creates a "
-            "server-side quote for airtime and shows the person a card with the network, the number and the "
-            "amount to read back and confirm. Nothing is bought until the person confirms, presses Approve "
-            "and pays on Paystack's checkout.",
+            "234's own airtime, paid at the checkout or from the 234 wallet. Not Paystack Index or Zap: if "
+            "their words include Index or Zap this is the wrong tool, so call browse_merchants and "
+            "create_quote. Creates a server-side quote for airtime and shows the person a card with the "
+            "network, the number and the amount to read back and confirm. Nothing is bought until the "
+            "person confirms, presses Approve and pays on Paystack's checkout.",
             CreateAirtimeQuote,
             create_airtime,
         ),

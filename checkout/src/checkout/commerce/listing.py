@@ -16,8 +16,17 @@ BUY_NEXT = (
     "If the person only asked what it sells or costs, answer that. If they want to buy, call create_quote "
     "now with the merchant_id, offer_ids, counts and those fields, and ask only for what is missing."
 )
+INDEX_RULE = (
+    "An id starting index: is paid from the person's own Paystack Index Zap, and is the one to use only when "
+    "they ask for Index or Zap; otherwise use a merchant without that prefix. Pass the fields on the line of "
+    "the merchant you chose, and no others."
+)
 NONE_MATCH = "No offer matches {query!r}; everything it sells follows."
-FIND_NEXT = "To see what one sells and what it needs to buy, call find_items with its id."
+FIND_NEXT = (
+    "To see what one sells, call find_items with its id. To buy, take every field named after Needs from "
+    "what the person already said (a prepaid or postpaid they said counts) and call check_account or "
+    "create_quote at once; ask only for a field they did not give."
+)
 SHOWN_MERCHANTS = 30
 SHOWN_OFFERS = 15
 
@@ -62,10 +71,11 @@ def merchant_listing(
     more = len(merchants) - len(shown)
     tail = [f"{more} more: narrow with a category."] if more > 0 else []
     others = [f"{m.id} | {m.name} | {m.category}" for m in elsewhere or []]
+    rule = [INDEX_RULE] if any(m.id.startswith("index:") for m in shown) else []
     other = [f"Also listed, in other categories: {'; '.join(others)}."] if others else []
     none = [f"No merchants are listed in {category}."] if category and not merchants else []
     table = ["id | name | category | status | when to choose it"] if merchants else []
-    return "\n".join([NOTICE, *none, *table, *map(merchant_line, shown), *tail, *other, FIND_NEXT])
+    return "\n".join([NOTICE, *none, *table, *map(merchant_line, shown), *tail, *rule, *other, FIND_NEXT])
 
 
 def _limits(merchant: Merchant) -> str:

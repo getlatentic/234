@@ -17,7 +17,7 @@ class Capability(NamedTuple):
 
 CAPABILITIES = {
     "airtime": Capability(
-        "buy airtime or data for a Nigerian mobile number",
+        "buy 234's own airtime or data for a Nigerian mobile number",
         "airtime or data needs the network, the amount and the phone number: "
         "if the phone number is not in their words, ask for it and call no airtime or data tool "
         "until you have it; for data, call list_data_plans and pick the plan that costs the amount, "
@@ -35,16 +35,16 @@ CAPABILITIES = {
         "restaurant (a merchant), never quote food yourself, the menu card takes the order",
     ),
     "merchants": Capability(
-        "buy from the shops and services in 234's merchant list (a pharmacy, a grocer, a transit card), "
-        "pay TV and electricity bills, and tell what they sell and cost, or buy with the person's own "
-        "Paystack Index account",
-        "anything else to buy or pay for, such as a shop, a transit card, a TV or electricity bill, is "
-        "looked up with the merchants tools before you say it cannot be done: a purchase starts with "
-        "browse_merchants and find_items, never create_payment_quote, and needs a merchant from that list, "
-        "never an invented one; follow what the tools say it needs; a TV renewal has no amount of yours; a "
-        "bill they do not list cannot be paid; what they ask to pay through Paystack Index (Zap, Chowdeck, "
-        "airtime and bills too) uses the merchants tools, not the airtime, food or pay ones, and call "
-        "connect_account in the same reply if they must connect",
+        "pay TV and electricity bills from 234's merchant list, buy with the person's own Paystack Index "
+        "account when they ask for it (airtime, data, electricity, Chowdeck food), and tell what they sell "
+        "and cost",
+        "anything else to buy or pay for (a bill, shop or service they name) is looked up with the "
+        "merchants tools before you say it cannot be done: a purchase starts with browse_merchants and "
+        "find_items, never create_payment_quote, and needs a merchant from that list, never an invented "
+        "one; follow what the tools say it needs; a TV renewal has no amount of yours; a bill they do not "
+        "list cannot be paid; if they say Index, Paystack Index or Zap, whatever they buy (airtime, data, "
+        "electricity, food) uses these tools and never the airtime, food or pay ones; call "
+        "connect_account in the same reply only when the merchant's line says they must connect",
     ),
     "brands": Capability(
         "talk to other companies' own assistants for the person, the ones list_brands names",

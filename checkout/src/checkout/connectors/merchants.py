@@ -223,7 +223,8 @@ def build_connector(ctx: Context, card_html: CardReader, connect_html: CardReade
             "Check account",
             "Looks up the account the person typed at a merchant that checks accounts (a card number): "
             "the holder's name, what is due, and the check_id its quote must carry. Call it as soon as you "
-            "have the number, with the fields the merchant's line says it needs; the card shows the holder "
+            'have the number, with the fields named after "Needs" in the merchant\'s line, spelled exactly '
+            "so; the card shows the holder "
             "to the person, so do not ask them to confirm the number first.",
             CheckAccount,
             check,

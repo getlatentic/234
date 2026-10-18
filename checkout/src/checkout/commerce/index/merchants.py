@@ -47,8 +47,9 @@ def blurb_of(entry: Entry, settings: IndexSettings) -> str:
         case _:
             return (
                 f"Electricity for {entry.name} through the person's own Paystack Index account, paid from "
-                f"their "
-                f"Zap, {bounds}; the meter is checked first. {USE_INDEX}."
+                f"their Zap, {bounds}. {USE_INDEX}. Take the meter type and number from their words, call "
+                "check_account with them, then create_quote with the same fields and the check_id; no phone "
+                "number."
             )
 
 

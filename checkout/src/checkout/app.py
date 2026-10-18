@@ -167,8 +167,8 @@ def build_contexts(
     bills_api, bills_mode = _vtpass_for(settings, db, clock, audit, transport)
     providers = Providers(
         DirectoryProvider(db, clock),
-        index.provider,
         *bill_providers(db, bills_api, bills_mode, settings.bills_service_fee_kobo),
+        index.provider,
     )
     checks = AccountChecks(db, clock, ledger.owner)
     contexts: dict[str, Context] = {}

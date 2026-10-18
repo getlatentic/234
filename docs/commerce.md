@@ -435,6 +435,14 @@ split (evaluation/RESULTS.md, "Bills phase").
   or its area, and not to assume prepaid or postpaid; `create_payment_quote` no longer says electricity and TV are not
   merchants; a refused id with a near match says to call again with it; the per-payment refusal says not to suggest
   splitting the payment.
+* **Wording after the merge of bills and Index** (evaluation/RESULTS.md, "Merged stack phase"): the electricity lines
+  (migration 0024) say to choose the company when the person names it or its area and to ask only for what is not said,
+  since the model asked for a meter type in the message; the VTpass merchants are listed before the Index ones, and a
+  listing that shows an Index merchant ends with when to use one (only when the person asks for Index or Zap) and to pass
+  the fields of the merchant it chose; an Index electricity line says to take the meter from the person's words, call
+  `check_account`, then `create_quote` with the same fields; the prompt names what the directory really offers (bills,
+  Index airtime, data, electricity and Chowdeck) and gives no example that is not in it, so a transit card or a pharmacy
+  is no longer promised; `wallet_balance` says a Zap question is not for it.
 
 **Decisions.**
 

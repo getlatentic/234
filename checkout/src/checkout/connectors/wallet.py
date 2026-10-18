@@ -152,10 +152,12 @@ def _tools(tools: WalletTools) -> tuple[Tool, ...]:
         Tool(
             "wallet_balance",
             "Wallet balance",
-            "Shows the person's 234 wallet card (not their Paystack Index Zap, which 234 cannot read): the "
-            "balance, the latest entries, an Add money button, and a Withdraw button that sends wallet "
-            "money to their own bank account. Call it in this reply when they ask about their wallet or its "
-            "balance, or want to add money, withdraw, cash out or send wallet money to their own bank; then "
+            "Shows the person's 234 wallet card. Never for a question about their Zap or Paystack Index "
+            "balance, which 234 cannot read: call no tool for that, say in one sentence that 234 cannot read "
+            "it and that Index shows it, and offer what you can do. The card holds the balance, the latest "
+            "entries, an Add money button, and a Withdraw button that sends wallet money to their own bank "
+            "account. Call it in this reply when they ask about their wallet or its balance, or want to add "
+            "money, withdraw, cash out or send wallet money to their own bank; then "
             "tell them to press Add money or Withdraw on the card, which does it, not a transfer quote. A "
             "purchase paid from the wallet is quoted as usual, and its approval card offers Pay from wallet "
             "when the wallet covers it.",
