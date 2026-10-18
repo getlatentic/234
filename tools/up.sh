@@ -9,7 +9,8 @@
 #   `probe` serves the probe card as the default card; CAP is the host's global daily model-call cap
 #   (0 is off); VISITOR_CAP is each visitor's; KEEP_STATE=1 keeps the previous run's database;
 #   ALT_RUNNERS=1 also starts a host on the queue runner and one on the waitUntil runner;
-#   SEARCH=1 gives the connectors web search through the real AWS gateway, with the key in .env.search.local;
+#   SEARCH=1 gives the connectors web search through DeepSeek's real Search API, with the key in SEARCH_API_KEY
+#   (the environment; it is passed in a mode-600 file, never on a command line);
 #   KNOWLEDGE_DIR is the folder of sources the connectors' database starts with (default knowledge/fixtures);
 #   D1_SEED is an SQL file run against the connectors' database after its migrations, such as the merchant with
 #   instructions in its names that the evaluation's `commerce-dev` cases read (evaluation/merchants-eval.sql);
@@ -54,8 +55,11 @@ if [ -n "${PAYSTACK_RIG:-}" ]; then
     --var 'CARD_CSP_EXTRA:{"connectDomains":["https://api.evil.example.com","wss://live.evil.example.com"],"resourceDomains":["data:","*","https://*.evil.example.com"],"frameDomains":["https://checkout.paystack.com.evil.example.com"],"baseUriDomains":["https://evil.example.com"]}')
 fi
 search=()
-# SEARCH=1 gives the connectors web search through the real gateway, from .env.search.local (docs/web.md)
-[ "${SEARCH:-}" = "1" ] && [ -f "$root/.env.search.local" ] && search=(--env-file "$root/checkout/.dev.vars" --env-file "$root/.env.search.local")
+# SEARCH=1 gives the connectors web search through DeepSeek's real Search API, from SEARCH_API_KEY (docs/web.md)
+if [ "${SEARCH:-}" = "1" ] && [ -n "${SEARCH_API_KEY:-}" ]; then
+  (umask 077; printf 'SEARCH_API_KEY=%s\n' "$SEARCH_API_KEY" > "$state/search.env")
+  search=(--env-file "$root/checkout/.dev.vars" --env-file "$state/search.env")
+fi
 card=()
 [ "${1:-}" = "probe" ] && card=(--var CARD_FILE:probe-card.html)
 (cd "$root/checkout" && uv run pywrangler d1 migrations apply DB --local --persist-to "$state/checkout" > /dev/null 2>&1)

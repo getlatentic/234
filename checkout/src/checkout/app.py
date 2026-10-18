@@ -8,7 +8,6 @@ network in test/sandbox mode and over a simulator otherwise.
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -62,7 +61,7 @@ from .wallet.withdrawals import Withdrawals
 from .web.cache import WebCache
 from .web.fetcher import Fetcher, WorkerPageFetch
 from .web.reader import Policy, WebReader
-from .web.search import GatewaySearch
+from .web.search import DeepSeekSearch
 from .web.search_budget import SearchBudget
 
 CARD_DIR = Path(__file__).parent / "card"
@@ -262,15 +261,12 @@ def build_connectors(
 
 
 def web_search_for(settings: Settings, db: Db, clock: Clock, transport: Transport) -> WebSearch | None:
-    """Web search, when a gateway and its key are set (web/settings.py)."""
+    """Web search, when its key is set (web/settings.py)."""
     found = settings.web_search
     if found is None:
         return None
-    moment = lambda: datetime.fromtimestamp(clock.now() / 1000, UTC)  # noqa: E731
-    gateway = GatewaySearch(
-        transport, found.credentials, found.gateway_url, found.target, found.region, moment
-    )
-    return WebSearch(gateway, SearchBudget(db, clock, found.per_day), WebCache(db, clock), clock)
+    engine = DeepSeekSearch(transport, found.api_key, found.url)
+    return WebSearch(engine, SearchBudget(db, clock, found.per_day), WebCache(db, clock), clock)
 
 
 def build_app(

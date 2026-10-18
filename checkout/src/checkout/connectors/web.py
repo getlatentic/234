@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The `web` connector: `web_fetch`, which reads a page the person or a source names, and, where a search
-gateway is set up, `web_search`, which finds pages.
+key is set, `web_search`, which finds pages.
 
 What they return is quoted data with the page's address and the day it was read; the model is told it is
 untrusted, and the host refuses any change after it (docs/web.md)."""
@@ -20,7 +20,7 @@ from ..mcp.registry import MODEL_ONLY, Connector, Tool, ToolResult
 from ..owner import current_owner
 from ..web.cache import Entry, WebCache
 from ..web.reader import Page, WebReader
-from ..web.search import GatewaySearch, Hit
+from ..web.search import QUERY_CHARS, DeepSeekSearch, Hit
 from ..web.search_budget import SearchBudget
 from .kit import Strict, plain_result
 
@@ -56,7 +56,7 @@ def page_view(page: Page) -> dict[str, object]:
 
 
 class Search(Strict):
-    query: Annotated[str, Field(min_length=2, max_length=200, description="What to find.")]
+    query: Annotated[str, Field(min_length=2, max_length=QUERY_CHARS, description="What to find.")]
     limit: Annotated[int, Field(ge=1, le=10, description="At most this many results.")] = 5
 
 
@@ -67,10 +67,10 @@ SEARCH_LIMIT = (
 
 
 class WebSearch:
-    """`web_search`: the gateway, a person's daily count, and an hour's cache of the same question."""
+    """`web_search`: the search engine, a person's daily count, and an hour's cache of the same question."""
 
-    def __init__(self, gateway: GatewaySearch, budget: SearchBudget, cache: WebCache, clock: Clock) -> None:
-        self._gateway, self._budget, self._cache, self._clock = gateway, budget, cache, clock
+    def __init__(self, engine: DeepSeekSearch, budget: SearchBudget, cache: WebCache, clock: Clock) -> None:
+        self._engine, self._budget, self._cache, self._clock = engine, budget, cache, clock
 
     async def hits(self, query: str, limit: int) -> tuple[list[Hit], bool]:
         key = f"search:{limit}:{' '.join(query.casefold().split())}"
@@ -79,7 +79,7 @@ class WebSearch:
             return [Hit(**h) for h in json.loads(cached.text)], True
         if not await self._budget.take(current_owner() or ""):
             raise DomainError("SEARCH_LIMIT", SEARCH_LIMIT.split(": ", 1)[1])
-        found = await self._gateway.search(query, limit)
+        found = await self._engine.search(query, limit)
         entry = Entry(200, key, "", json.dumps([asdict(h) for h in found]), False, self._clock.now())
         await self._cache.put(key, "page", entry)
         return found, False

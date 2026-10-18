@@ -1,71 +1,79 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""What keeps web search safe and cheap (checkout web/search.py, search_budget.py, sigv4.py, settings.py):
-the request is signed over its body, only a gateway in the region is called, an unsafe address in a result is
-dropped, a person's day is capped in one statement, and the same question is asked once an hour."""
+"""What keeps web search safe and cheap (checkout web/search.py, search_budget.py, settings.py): the key goes
+as a bearer and only to DeepSeek's host over https, the query is cut to what the API takes, an unsafe address
+in a result is dropped, a date that is not an ISO day is not a publication day, a failed call is a refusal,
+a person's day is capped in one statement, and the same question is asked once an hour."""
 
 from tools.mutations.model import Mutation
 
-SEARCH = ["tests/test_web_search.py", "tests/test_sigv4.py"]
+SEARCH = ["tests/test_web_search.py"]
 
 
 def checkout(name: str, path: str, old: str, new: str) -> Mutation:
     return Mutation(name, path, old, new, SEARCH)
 
 
+S = "src/checkout/web/search.py"
+
 MUTATIONS: list[Mutation] = [
     checkout(
-        "search: the request is signed over its body",
-        "src/checkout/web/sigv4.py",
-        '[method, parts.path or "/", parts.query, canonical_headers, listed, _sha256(body)]',
-        '[method, parts.path or "/", parts.query, canonical_headers, listed, _sha256(b"")]',
+        "search: the key is sent as a bearer",
+        S,
+        '"authorization": f"Bearer {self._api_key}",',
+        '"authorization": self._api_key,',
     ),
+    checkout("search: the query is cut to what the API takes", S, "query[:QUERY_CHARS].rstrip()", "query"),
     checkout(
-        "search: the secret signs and is not sent",
-        "src/checkout/web/sigv4.py",
-        "_signing_key(credentials.secret_access_key, day, region, service)",
-        "_signing_key(credentials.access_key_id, day, region, service)",
+        "search: the count is between one and ten", S, "limit = max(1, min(limit, MAX_RESULTS))", "pass"
     ),
+    checkout("search: the client names itself", S, '"user-agent": USER_AGENT,\n', ""),
     checkout(
-        "search: only a gateway in the region is called",
-        "src/checkout/web/search.py",
-        '        or not (parts.hostname or "").endswith(suffix)\n',
+        "search: the key goes only to DeepSeek's host",
+        S,
+        "parts.hostname != HOST or ",
         "",
     ),
+    checkout("search: only https", S, 'parts.scheme != "https" or ', ""),
+    checkout("search: no credentials in the address", S, " or parts.username", ""),
     checkout(
-        "search: only https",
-        "src/checkout/web/search.py",
-        '        parts.scheme != "https"\n        or not',
-        "        not",
+        "search: an unsafe address in a result is dropped", S, "if safe_url.problem(url) is None:", "if True:"
     ),
     checkout(
-        "search: an unsafe address in a result is dropped",
-        "src/checkout/web/search.py",
-        "if safe_url.problem(url) is None:",
+        "search: a date that is not an ISO day is not a publication day",
+        S,
+        "return found.group() if found else None",
+        'return found.group() if found else str(value or "") or None',
+    ),
+    checkout("search: a snippet is cut", S, "return snippet[:SNIPPET_CHARS]", "return snippet"),
+    checkout(
+        "search: a thin snippet gives way to the summary",
+        S,
+        "if len(snippet) >= THIN_SNIPPET_CHARS:",
         "if True:",
     ),
     checkout(
-        "search: a snippet is cut",
-        "src/checkout/web/search.py",
-        'str(item.get("text", ""))[:SNIPPET_CHARS],',
-        'str(item.get("text", "")),',
+        "search: a refused or throttled call (402, 429, 5xx) is not an answer",
+        S,
+        "if not reply.ok:",
+        "if reply.status >= 500:",
     ),
     checkout(
-        "search: the host header is not sent",
-        "src/checkout/web/search.py",
-        'headers={k: v for k, v in signed.items() if k != "host"},',
-        "headers=signed,",
+        "search: a reply without a list of results is not an answer",
+        S,
+        "if not isinstance(items, list):",
+        "if items is None:",
     ),
     checkout(
-        "search: a failed gateway call is not an answer",
-        "src/checkout/web/search.py",
-        'if not isinstance(result, dict) or result.get("isError"):',
-        "if not isinstance(result, dict):",
+        "search: a query is held to what the API takes before it is counted",
+        "src/checkout/connectors/web.py",
+        "max_length=QUERY_CHARS",
+        "max_length=100_000",
     ),
     checkout(
-        "search: after a failure the next search shakes hands again",
-        "src/checkout/web/search.py",
-        "        except DomainError:\n            self._ready = False\n            raise",
-        "        except DomainError:\n            raise",
+        "search: a key with a space is not used",
+        "src/checkout/web/settings.py",
+        "if not _KEY_SHAPE.fullmatch(key):",
+        "if False:",
     ),
     checkout(
         "search: a person's day is capped in one statement",
@@ -86,9 +94,9 @@ MUTATIONS: list[Mutation] = [
         "        if False:\n",
     ),
     checkout(
-        "search: part of the settings is not enough",
+        "search: without the key search is off",
         "src/checkout/web/settings.py",
-        "if trouble(read) or not all(_text(read, name) for name in NAMES):",
+        "if trouble(read) or not _text(read, KEY):",
         "if trouble(read):",
     ),
     checkout(

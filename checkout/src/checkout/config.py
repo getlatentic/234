@@ -113,7 +113,7 @@ class Settings:
     web_enabled: bool = True
     """The web tool reads pages (`WEB_ENABLED=0` is the kill switch)."""
     web_search: SearchSettings | None = None
-    """Web search through an AgentCore Gateway (web/settings.py); none, and the web connector only fetches."""
+    """Web search through DeepSeek's Search API (web/settings.py); none: the connector only fetches."""
     web_deny: tuple[str, ...] = DEFAULT_DENY
     """Sites the web tool refuses, with subdomains (`WEB_DENY`, comma-separated, added to the default)."""
     free_text_merchants: bool = True
