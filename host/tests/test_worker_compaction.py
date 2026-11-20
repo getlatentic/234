@@ -5,8 +5,8 @@ quote still waiting for the person actionable, answers a question about its past
 leaves the log whole.
 
 Needs the stack up with a small context window:
-  CONTEXT_WINDOW_TOKENS=9000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500 tools/up.sh
-(the tool definitions and the system prompt alone are about 5,600 tokens, so a window this small compacts a
+  CONTEXT_WINDOW_TOKENS=13000 COMPACT_AT=0.75 KEEP_RECENT_TOKENS=500 tools/up.sh
+(the tool definitions and the system prompt alone are about 8,000 tokens, so a window this small compacts a
 chat of a few dozen messages several times; the test reads the same two variables the stack was started with,
 and the window must stay a little above that fixed part as the tools grow).
 The host lets a visitor send twelve messages a minute, which is what makes the run
@@ -27,7 +27,7 @@ from .worker_client import FAKE_MODEL, HOST, Visitor, reset_budget
 
 pytestmark = pytest.mark.worker
 CHECKOUT = os.environ.get("CHECKOUT_URL", "http://localhost:8900")
-WINDOW = float(os.environ.get("CONTEXT_WINDOW_TOKENS", "9000"))
+WINDOW = float(os.environ.get("CONTEXT_WINDOW_TOKENS", "13000"))
 THRESHOLD = int(WINDOW * float(os.environ.get("COMPACT_AT", "0.75")))
 TURNS, EVERY = 36, 6
 
